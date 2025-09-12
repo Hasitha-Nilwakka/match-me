@@ -128,7 +128,7 @@ npm run dev                         # Start development server
 - We could make everything work with one command using a script, but for now, we keep them separate.
 - You must first generate the database and run migrations/seed before starting developing the backend or frontend.
 - Everytime we need to change the Prisma schema, we must run `npx prisma migrate dev` and `npx prisma generate` again.
-- Now the app works so that frontend (Prisma) only modifies and initializes the schema and the backend (GORM) uses CRUD operations to modify or read the actual PostreSQL database.
+- Now the app works so that frontend (Prisma) only modifies and initializes the schema and the backend (GORM) uses CRUD operations to modify or read the actual PostreSQL database.  
 
 ### Database Management
 
