@@ -1,0 +1,363 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+//This is the initial schema for the MatchMe application.
+//You must first set up the PostgreSQL database and configure the DATABASE_URL environment variable.
+//Run `npx prisma migrate dev --name init` to create the database schema.
+//See the README.md for more details.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id           Int       @id @default(autoincrement())
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  lastLogin    DateTime? @map("last_login")
+  isActive     Boolean   @default(true) @map("is_active")
+
+  // Relations
+  profile                   Profile?
+  location                  Location?
+  seekingPreference         SeekingPreference?
+  connectionsFrom           Connection[]            @relation("ConnectionRequester")
+  connectionsTo             Connection[]            @relation("ConnectionReceiver")
+  messages                  Message[]
+  dismissedFrom             DismissedRecommendation[] @relation("DismissedByUser")
+  dismissedTo               DismissedRecommendation[] @relation("DismissedUser")
+  onlineStatus              OnlineStatus?
+  userHobbies               UserHobby[]
+  userInterests             UserInterest[]
+  userMusic                 UserMusic[]
+  userMovies                UserMovie[]
+  userFood                  UserFood[]
+  userTravel                UserTravel[]
+  userLanguages             UserLanguage[]
+
+  @@map("users")
+}
+
+
+
+// Profile model for user information
+model Profile {
+  id                 Int     @id @default(autoincrement())
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+  userId             Int     @unique @map("user_id")
+  profilePictureUrl  String  @default("👤") @map("profile_picture_url")
+  firstName          String? @map("first_name")
+  lastName           String? @map("last_name")
+  gender             String?
+  status             String?
+  relationshipStatus String? @map("relationship_status")
+  aboutMe            String? @map("about_me")
+  ethnicity          String?
+  religion           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+// Location model for user location data
+model Location {
+  id                 Int     @id @default(autoincrement())
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+  userId             Int     @unique @map("user_id")
+  city               String?
+  country            String?
+  latitude           Float?
+  longitude          Float?
+  locationPreference String  @default("within_city") @map("location_preference")
+  radiusKm           Int     @default(50) @map("radius_km")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("locations")
+}
+
+// Reference tables with predefined options
+model Hobby {
+  id       Int     @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  name     String  @unique
+  category String?
+
+  userHobbies UserHobby[]
+
+  @@map("hobbies")
+}
+
+model Interest {
+  id   Int     @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  name String  @unique
+
+  userInterests UserInterest[]
+
+  @@map("interests")
+}
+
+model MusicGenre {
+  id   Int     @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  name String  @unique
+
+  userMusic UserMusic[]
+
+  @@map("music_genres")
+}
+
+model MovieGenre {
+  id   Int     @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  name String  @unique
+
+  userMovies UserMovie[]
+
+  @@map("movie_genres")
+}
+
+model FoodPreference {
+  id   Int     @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  name String  @unique
+
+  userFood UserFood[]
+
+  @@map("food_preferences")
+}
+
+model TravelType {
+  id   Int     @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  name String  @unique
+
+  userTravel UserTravel[]
+
+  @@map("travel_types")
+}
+
+model Language {
+  id   Int     @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  name String  @unique
+  code String  @unique
+
+  userLanguages UserLanguage[]
+
+  @@map("languages")
+}
+
+// Junction tables for many-to-many relationships
+model UserHobby {
+  userId  Int @map("user_id")
+  hobbyId Int @map("hobby_id")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hobby Hobby @relation(fields: [hobbyId], references: [id], onDelete: Cascade)
+
+  @@id([userId, hobbyId])
+  @@map("user_hobbies")
+}
+
+model UserInterest {
+  userId     Int @map("user_id")
+  interestId Int @map("interest_id")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interest Interest @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@id([userId, interestId])
+  @@map("user_interests")
+}
+
+model UserMusic {
+  userId       Int @map("user_id")
+  musicGenreId Int @map("music_genre_id")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  musicGenre MusicGenre @relation(fields: [musicGenreId], references: [id], onDelete: Cascade)
+
+  @@id([userId, musicGenreId])
+  @@map("user_music")
+}
+
+model UserMovie {
+  userId       Int @map("user_id")
+  movieGenreId Int @map("movie_genre_id")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movieGenre MovieGenre @relation(fields: [movieGenreId], references: [id], onDelete: Cascade)
+
+  @@id([userId, movieGenreId])
+  @@map("user_movies")
+}
+
+model UserFood {
+  userId           Int @map("user_id")
+  foodPreferenceId Int @map("food_preference_id")
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodPreference FoodPreference @relation(fields: [foodPreferenceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, foodPreferenceId])
+  @@map("user_food")
+}
+
+model UserTravel {
+  userId       Int @map("user_id")
+  travelTypeId Int @map("travel_type_id")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  travelType TravelType @relation(fields: [travelTypeId], references: [id], onDelete: Cascade)
+
+  @@id([userId, travelTypeId])
+  @@map("user_travel")
+}
+
+model UserLanguage {
+  userId     Int @map("user_id")
+  languageId Int @map("language_id")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  language Language @relation(fields: [languageId], references: [id], onDelete: Cascade)
+
+  @@id([userId, languageId])
+  @@map("user_languages")
+}
+
+// SeekingPreference model for user matching preferences
+model SeekingPreference {
+  id                     Int     @id @default(autoincrement())
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+  deletedAt              DateTime? @map("deleted_at")
+  userId                 Int     @unique @map("user_id")
+  minAge                 Int     @default(18) @map("min_age")
+  maxAge                 Int     @default(99) @map("max_age")
+  genderPreference       String? @map("gender_preference")
+  statusPreference       String? @map("status_preference")
+  relationshipPreference String? @map("relationship_preference")
+  locationPreference     String  @default("within_city") @map("location_preference")
+  maxDistanceKm          Int     @default(50) @map("max_distance_km")
+  hobbiesWeight          Int     @default(5) @map("hobbies_weight")
+  interestsWeight        Int     @default(5) @map("interests_weight")
+  musicWeight            Int     @default(3) @map("music_weight")
+  moviesWeight           Int     @default(3) @map("movies_weight")
+  foodWeight             Int     @default(2) @map("food_weight")
+  travelWeight           Int     @default(4) @map("travel_weight")
+  languagesWeight        Int     @default(7) @map("languages_weight")
+  ethnicityWeight        Int     @default(6) @map("ethnicity_weight")
+  religionWeight         Int     @default(6) @map("religion_weight")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("seeking_preferences")
+}
+
+// Connection model for user connections
+model Connection {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  requesterId Int      @map("requester_id")
+  receiverId  Int      @map("receiver_id")
+  status      String   @default("pending")
+
+  requester User  @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiver  User  @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  chat      Chat?
+
+  @@map("connections")
+}
+
+// Chat model for messaging
+model Chat {
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+  connectionId Int      @unique @map("connection_id")
+
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  messages   Message[]
+
+  @@map("chats")
+}
+
+// Message model for chat messages
+model Message {
+  id       Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  chatId   Int      @map("chat_id")
+  senderId Int      @map("sender_id")
+  content  String
+  isRead   Boolean  @default(false) @map("is_read")
+
+  chat   Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+// DismissedRecommendation model for tracking dismissed profiles
+model DismissedRecommendation {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  userId          Int      @map("user_id")
+  dismissedUserId Int      @map("dismissed_user_id")
+
+  user          User @relation("DismissedByUser", fields: [userId], references: [id], onDelete: Cascade)
+  dismissedUser User @relation("DismissedUser", fields: [dismissedUserId], references: [id], onDelete: Cascade)
+
+  @@map("dismissed_recommendations")
+}
+
+// OnlineStatus model for user online presence
+model OnlineStatus {
+  id       Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  userId   Int      @unique @map("user_id")
+  isOnline Boolean  @default(false) @map("is_online")
+  lastSeen DateTime @map("last_seen")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("online_statuses")
+}
