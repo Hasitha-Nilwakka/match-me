@@ -7,7 +7,7 @@ A modern dating application built with Go backend and Next.js frontend.
 ```
 match-me/
 ├── backend/           # Go backend with GORM
-│   ├── cmd/           # Main application
+│   ├── main.go        # Main application
 │   ├── db/            # Database configuration
 │   ├── models/        # GORM models
 │   ├── .env           # Backend environment variables
@@ -111,7 +111,7 @@ NEXTAUTH_URL="http://localhost:3000"
 ```bash
 cd backend
 go mod tidy
-go run cmd/main.go
+go run .
 ```
 
 ### Frontend Setup (Next.js + Prisma)
@@ -126,6 +126,9 @@ npm run dev                         # Start development server
 ```
 
 (We could make everything work with one command using a script, but for now, we keep them separate.)
+(You must first generate the database and run migrations/seed before starting developing the backend or frontend.)
+(Everytime we need to change the Prisma schema, we must run `npx prisma migrate dev` and `npx prisma generate` again.)
+(Now the app works so that frontend (Prisma) only modifies and initializes the schema and the backend (GORM) uses CRUD operations to modify or read the actual PostreSQL database.)
 
 ### Database Management
 
@@ -195,18 +198,3 @@ The Prisma schema mirrors GORM models and includes:
 - `npm run db:studio` - Open Prisma Studio (visual database browser)
 - `npm run db:seed` - Seed database with initial data
 
-## Environment Variables
-
-### Backend (.env)
-
-```
-DATABASE_URL="postgresql://username:password@localhost:5432/match_me_db?sslmode=disable"
-```
-
-### Frontend (.env)
-
-```
-DATABASE_URL="postgresql://username:password@localhost:5432/match_me_db?schema=public"
-NEXTAUTH_SECRET="your-nextauth-secret-here"
-NEXTAUTH_URL="http://localhost:3000"
-```
