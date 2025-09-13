@@ -31,6 +31,28 @@ type ConnectionsResponse struct {
 	Total       int                  `json:"total"`
 }
 
+// toConnectionResponse converts a models.Connection to a ConnectionResponse
+func toConnectionResponse(conn models.Connection) ConnectionResponse {
+	response := ConnectionResponse{
+		ID:          conn.ID,
+		RequesterID: conn.RequesterID,
+		ReceiverID:  conn.ReceiverID,
+		Status:      conn.Status,
+		CreatedAt:   conn.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:   conn.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+	}
+
+	if conn.Requester.Profile != nil {
+		response.RequesterName = conn.Requester.Profile.FirstName + " " + conn.Requester.Profile.LastName
+		response.RequesterProfilePicture = conn.Requester.Profile.ProfilePictureURL
+	}
+	if conn.Receiver.Profile != nil {
+		response.ReceiverName = conn.Receiver.Profile.FirstName + " " + conn.Receiver.Profile.LastName
+		response.ReceiverProfilePicture = conn.Receiver.Profile.ProfilePictureURL
+	}
+	return response
+}
+
 // GetConnectionsHandler returns all connections for the current user
 func GetConnectionsHandler(c *gin.Context) {
 	userID, exists := middleware.GetUserIDFromContext(c)
@@ -51,26 +73,7 @@ func GetConnectionsHandler(c *gin.Context) {
 	// Build response with user details
 	var connectionResponses []ConnectionResponse
 	for _, conn := range connections {
-		response := ConnectionResponse{
-			ID:          conn.ID,
-			RequesterID: conn.RequesterID,
-			ReceiverID:  conn.ReceiverID,
-			Status:      conn.Status,
-			CreatedAt:   conn.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:   conn.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-		}
-
-		// Add user names and profile pictures
-		if conn.Requester.Profile != nil {
-			response.RequesterName = conn.Requester.Profile.FirstName + " " + conn.Requester.Profile.LastName
-			response.RequesterProfilePicture = conn.Requester.Profile.ProfilePictureURL
-		}
-		if conn.Receiver.Profile != nil {
-			response.ReceiverName = conn.Receiver.Profile.FirstName + " " + conn.Receiver.Profile.LastName
-			response.ReceiverProfilePicture = conn.Receiver.Profile.ProfilePictureURL
-		}
-
-		connectionResponses = append(connectionResponses, response)
+		connectionResponses = append(connectionResponses, toConnectionResponse(conn))
 	}
 
 	c.JSON(200, ConnectionsResponse{
@@ -99,22 +102,7 @@ func GetConnectionRequestsHandler(c *gin.Context) {
 	// Build response with requester details
 	var connectionResponses []ConnectionResponse
 	for _, conn := range connections {
-		response := ConnectionResponse{
-			ID:          conn.ID,
-			RequesterID: conn.RequesterID,
-			ReceiverID:  conn.ReceiverID,
-			Status:      conn.Status,
-			CreatedAt:   conn.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:   conn.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-		}
-
-		// Add requester details
-		if conn.Requester.Profile != nil {
-			response.RequesterName = conn.Requester.Profile.FirstName + " " + conn.Requester.Profile.LastName
-			response.RequesterProfilePicture = conn.Requester.Profile.ProfilePictureURL
-		}
-
-		connectionResponses = append(connectionResponses, response)
+		connectionResponses = append(connectionResponses, toConnectionResponse(conn))
 	}
 
 	c.JSON(200, ConnectionsResponse{
@@ -194,14 +182,7 @@ func UpdateConnectionHandler(c *gin.Context) {
 
 	c.JSON(200, gin.H{
 		"message": "Connection updated successfully",
-		"connection": ConnectionResponse{
-			ID:          connection.ID,
-			RequesterID: connection.RequesterID,
-			ReceiverID:  connection.ReceiverID,
-			Status:      connection.Status,
-			CreatedAt:   connection.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:   connection.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-		},
+		"connection": toConnectionResponse(connection),
 	})
 }
 
@@ -225,26 +206,7 @@ func GetMatchesHandler(c *gin.Context) {
 	// Build response with user details
 	var connectionResponses []ConnectionResponse
 	for _, conn := range connections {
-		response := ConnectionResponse{
-			ID:          conn.ID,
-			RequesterID: conn.RequesterID,
-			ReceiverID:  conn.ReceiverID,
-			Status:      conn.Status,
-			CreatedAt:   conn.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:   conn.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-		}
-
-		// Add user names and profile pictures
-		if conn.Requester.Profile != nil {
-			response.RequesterName = conn.Requester.Profile.FirstName + " " + conn.Requester.Profile.LastName
-			response.RequesterProfilePicture = conn.Requester.Profile.ProfilePictureURL
-		}
-		if conn.Receiver.Profile != nil {
-			response.ReceiverName = conn.Receiver.Profile.FirstName + " " + conn.Receiver.Profile.LastName
-			response.ReceiverProfilePicture = conn.Receiver.Profile.ProfilePictureURL
-		}
-
-		connectionResponses = append(connectionResponses, response)
+		connectionResponses = append(connectionResponses, toConnectionResponse(conn))
 	}
 
 	c.JSON(200, ConnectionsResponse{
