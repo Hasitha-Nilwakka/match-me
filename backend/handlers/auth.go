@@ -1,3 +1,6 @@
+// Package handlers contains HTTP request handlers for the Match-Me dating application.
+// It provides handlers for user authentication, profile management, recommendations,
+// connections, and real-time chat functionality.
 package handlers
 
 import (

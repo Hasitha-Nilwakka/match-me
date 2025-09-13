@@ -1,3 +1,6 @@
+// Package models defines the database models and data structures for the Match-Me dating application.
+// It uses GORM for object-relational mapping and includes models for users, profiles,
+// connections, chats, messages, and recommendation data.
 package models
 
 import (
