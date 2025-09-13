@@ -14,6 +14,10 @@ func main() {
 	// Initialize database
 	db.InitDB()
 
+	// Create WebSocket hub
+	hub := handlers.NewHub()
+	go hub.Run()
+
 	// Set Gin mode to release to reduce warnings
 	gin.SetMode(gin.ReleaseMode)
 
@@ -72,6 +76,13 @@ func main() {
 		protected.GET("/matches", handlers.GetMatchesHandler)
 		protected.PUT("/connections/:id", handlers.UpdateConnectionHandler)
 		protected.DELETE("/connections/:id", handlers.DeleteConnectionHandler)
+		
+		// Chat
+		protected.GET("/chats", handlers.GetChatsHandler)
+		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)
+		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler(hub))
+		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler)
+		protected.GET("/chats/:chatId/ws", handlers.WebSocketHandler(hub))
 	}
 
 	log.Println("Starting server on http://localhost:8080")
