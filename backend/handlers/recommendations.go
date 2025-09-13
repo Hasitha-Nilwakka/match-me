@@ -218,7 +218,7 @@ func calculateMatchScore(userA, userB models.User) float64 {
 
 	// Apply location penalty if users are too far apart
 	if userA.Location != nil && userB.Location != nil &&
-		userA.Location.Latitude != nil && userB.Location.Longitude != nil &&
+		userA.Location.Latitude != nil && userA.Location.Longitude != nil &&
 		userB.Location.Latitude != nil && userB.Location.Longitude != nil {
 		
 		distance := calculateDistance(
