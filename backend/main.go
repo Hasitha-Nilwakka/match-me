@@ -60,6 +60,11 @@ func main() {
 		protected.GET("/users/:id", handlers.GetUserHandler)
 		protected.GET("/users/:id/profile", handlers.GetUserProfileHandler)
 		protected.GET("/users/:id/bio", handlers.GetUserBioHandler)
+		
+		// Recommendations
+		protected.GET("/recommendations", handlers.GetRecommendationsHandler)
+		protected.POST("/recommendations/:id/like", handlers.LikeRecommendationHandler)
+		protected.POST("/recommendations/:id/dismiss", handlers.DismissRecommendationHandler)
 	}
 
 	log.Println("Starting server on http://localhost:8080")
