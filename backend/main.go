@@ -3,6 +3,7 @@ package main
 import (
 	"backend/db"
 	"backend/handlers"
+	"backend/middleware"
 	"fmt"
 	"log"
 
@@ -39,10 +40,27 @@ func main() {
 		fmt.Fprint(c.Writer, "Welcome to the Match Me API!")
 	})
 
-	// API routes
+	// Public routes
 	r.GET("/users", handlers.GetUsersHandler)
-	
-	r.POST("/users", handlers.RegisterHandler)
+
+	// Auth routes
+	r.POST("/auth/register", handlers.RegisterHandler)
+	r.POST("/auth/login", handlers.LoginHandler)
+
+	// Protected routes (require authentication)
+	protected := r.Group("/")
+	protected.Use(middleware.AuthMiddleware())
+	{
+		// User profile routes
+		protected.GET("/me", handlers.GetMeHandler)
+		protected.GET("/me/profile", handlers.GetMeProfileHandler)
+		protected.GET("/me/bio", handlers.GetMeBioHandler)
+
+		// Other user routes
+		protected.GET("/users/:id", handlers.GetUserHandler)
+		protected.GET("/users/:id/profile", handlers.GetUserProfileHandler)
+		protected.GET("/users/:id/bio", handlers.GetUserBioHandler)
+	}
 
 	log.Println("Starting server on http://localhost:8080")
 	if err := r.Run(":8080"); err != nil {

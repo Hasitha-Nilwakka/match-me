@@ -3,7 +3,9 @@ package handlers
 import (
 	"backend/db"
 	"backend/models"
+	"backend/utils"
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -64,5 +66,51 @@ func RegisterHandler(c *gin.Context) {
 
 // LoginHandler handles user login
 func LoginHandler(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required"`
+	}
 
+	// Bind and validate JSON request
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Find user by email
+	var user models.User
+	if err := db.DB.Where("email = ? AND is_active = ?", req.Email, true).First(&user).Error; err != nil {
+		c.JSON(401, gin.H{"error": "Invalid email or password"})
+		return
+	}
+
+	// Check password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		c.JSON(401, gin.H{"error": "Invalid email or password"})
+		return
+	}
+
+	// Generate JWT token
+	token, err := utils.GenerateJWT(user.ID)
+	if err != nil {
+		log.Printf("Error generating JWT: %v", err)
+		c.JSON(500, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// Update last login
+	now := time.Now()
+	user.LastLogin = &now
+	db.DB.Save(&user)
+
+	// Return success with token
+	c.JSON(200, gin.H{
+		"message": "Login successful",
+		"token":   token,
+		"user": gin.H{
+			"id":       user.ID,
+			"email":    user.Email,
+			"isActive": user.IsActive,
+		},
+	})
 }
