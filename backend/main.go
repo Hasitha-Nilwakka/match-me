@@ -61,7 +61,7 @@ func main() {
 	// =============================================================================
 	
 	// User listing endpoint (for development/testing)
-	r.GET("/users", handlers.GetUsersHandler)
+	r.GET("/users", handlers.GetAllUsersHandler)
 	
 	// Authentication endpoints
 	r.POST("/auth/register", handlers.RegisterHandler) // User registration
@@ -104,6 +104,9 @@ func main() {
 		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler)   // Mark messages as read
 		protected.GET("/chats/:chatId/ws", handlers.WebSocketHandler(hub))         // WebSocket connection
 	}
+
+	// Server test.html file
+	r.StaticFile("/test", "./test.html")
 
 	// Start the HTTP server on port 8080
 	log.Println("Starting Match-Me server on http://localhost:8080")
