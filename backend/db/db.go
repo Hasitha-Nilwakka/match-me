@@ -1,3 +1,6 @@
+// Package db provides database connection and initialization for the Match-Me application.
+// It handles PostgreSQL connection setup using GORM with proper connection pooling
+// and environment variable configuration.
 package db
 
 import (
