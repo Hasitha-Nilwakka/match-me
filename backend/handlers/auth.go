@@ -7,6 +7,7 @@ import (
 	"backend/db"
 	"backend/models"
 	"backend/utils"
+	"fmt"
 	"log"
 	"time"
 
@@ -20,6 +21,9 @@ func RegisterHandler(c *gin.Context) {
 		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required,min=6"`
 	}
+
+	fmt.Println("RegisterHandler called")
+	fmt.Println("Request Body:", c.Request.Body)
 
 	// Bind and validate JSON request
 	if err := c.ShouldBindJSON(&req); err != nil {

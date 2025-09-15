@@ -118,7 +118,7 @@
                 return;
             }
 
-            const response = await makeRequest('/users', 'POST', { email, password });
+            const response = await makeRequest('/auth/register', 'POST', { email, password });
             displayResponse('regResponse', response);
         }
 
