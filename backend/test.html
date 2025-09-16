@@ -57,6 +57,38 @@
         <div id="usersResponse" class="response"></div>
     </div>
 
+    <!-- Recommendations Section -->
+    <div class="section">
+        <h2>Get Recommendations</h2>
+        <p><strong>Note:</strong> You must be logged in to test recommendations. The API will return potential matches for the logged-in user.</p>
+        <button onclick="getRecommendations()">Get My Recommendations</button>
+        <div id="recommendationsResponse" class="response"></div>
+    </div>
+
+    <!-- Like/Dismiss Recommendations -->
+    <div class="section">
+        <h2>Like/Dismiss Recommendations</h2>
+        <div class="form-group">
+            <label>User ID to Like:</label>
+            <input type="number" id="likeUserId" placeholder="Enter user ID (e.g., 2)">
+            <button onclick="likeRecommendation()">Like User</button>
+        </div>
+        <div class="form-group">
+            <label>User ID to Dismiss:</label>
+            <input type="number" id="dismissUserId" placeholder="Enter user ID (e.g., 3)">
+            <button onclick="dismissRecommendation()">Dismiss User</button>
+        </div>
+        <div id="likeResponse" class="response"></div>
+        <div id="dismissResponse" class="response"></div>
+    </div>
+
+    <!-- Get My Profile Section -->
+    <div class="section">
+        <h2>Get My Profile</h2>
+        <button onclick="getMyProfile()">Get My Profile</button>
+        <div id="myProfileResponse" class="response"></div>
+    </div>
+
     <!-- Token Display -->
     <div class="section">
         <h2>Current Token</h2>
@@ -144,6 +176,60 @@
         async function getUsers() {
             const response = await makeRequest('/users', 'GET', null, true);
             displayResponse('usersResponse', response);
+        }
+
+        async function getRecommendations() {
+            if (!authToken) {
+                alert('Please login first to get recommendations');
+                return;
+            }
+            
+            const response = await makeRequest('/recommendations', 'GET', null, true);
+            displayResponse('recommendationsResponse', response);
+        }
+
+        async function likeRecommendation() {
+            const userId = document.getElementById('likeUserId').value;
+            
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            if (!userId) {
+                alert('Please enter a user ID to like');
+                return;
+            }
+            
+            const response = await makeRequest(`/recommendations/${userId}/like`, 'POST', null, true);
+            displayResponse('likeResponse', response);
+        }
+
+        async function dismissRecommendation() {
+            const userId = document.getElementById('dismissUserId').value;
+            
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            if (!userId) {
+                alert('Please enter a user ID to dismiss');
+                return;
+            }
+            
+            const response = await makeRequest(`/recommendations/${userId}/dismiss`, 'POST', null, true);
+            displayResponse('dismissResponse', response);
+        }
+
+        async function getMyProfile() {
+            if (!authToken) {
+                alert('Please login first');
+                return;
+            }
+            
+            const response = await makeRequest('/me/profile', 'GET', null, true);
+            displayResponse('myProfileResponse', response);
         }
 
         // Auto-fill for testing

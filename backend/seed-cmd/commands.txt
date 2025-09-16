@@ -1,0 +1,9 @@
+Seed with sample users:
+
+go run seed-cmd/seed-users/main.go -count=20 #modify count
+
+Clear db:
+
+go run seed-cmd/clear-db/main.go
+
+
