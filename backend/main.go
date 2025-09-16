@@ -51,18 +51,23 @@ func main() {
 		c.Next()
 	})
 
-	// Health check endpoint
+	// API endpoint
 	r.GET("/", func(c *gin.Context) {
 		fmt.Fprint(c.Writer, "Welcome to the Match Me API!")
+	})
+
+	// Health check endpoint
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
 	})
 
 	// =============================================================================
 	// PUBLIC ROUTES (No authentication required)
 	// =============================================================================
-	
+
 	// User listing endpoint (for development/testing)
-	r.GET("/users", handlers.GetUsersHandler)
-	
+	r.GET("/users", handlers.GetAllUsersHandler)
+
 	// Authentication endpoints
 	r.POST("/auth/register", handlers.RegisterHandler) // User registration
 	r.POST("/auth/login", handlers.LoginHandler)       // User login
@@ -70,40 +75,43 @@ func main() {
 	// =============================================================================
 	// PROTECTED ROUTES (JWT authentication required)
 	// =============================================================================
-	
+
 	// Create protected route group with JWT authentication middleware
 	protected := r.Group("/")
 	protected.Use(middleware.AuthMiddleware())
 	{
 		// User profile management endpoints
-		protected.GET("/me", handlers.GetMeHandler)                    // Get current user info
-		protected.GET("/me/profile", handlers.GetMeProfileHandler)     // Get current user profile
-		protected.GET("/me/bio", handlers.GetMeBioHandler)             // Get current user bio data
-		
+		protected.GET("/me", handlers.GetMeHandler)                // Get current user info
+		protected.GET("/me/profile", handlers.GetMeProfileHandler) // Get current user profile
+		protected.GET("/me/bio", handlers.GetMeBioHandler)         // Get current user bio data
+
 		// Other user information endpoints
-		protected.GET("/users/:id", handlers.GetUserHandler)           // Get other user basic info
+		protected.GET("/users/:id", handlers.GetUserHandler)                // Get other user basic info
 		protected.GET("/users/:id/profile", handlers.GetUserProfileHandler) // Get other user profile
-		protected.GET("/users/:id/bio", handlers.GetUserBioHandler)    // Get other user bio data
-		
+		protected.GET("/users/:id/bio", handlers.GetUserBioHandler)         // Get other user bio data
+
 		// Recommendation system endpoints
-		protected.GET("/recommendations", handlers.GetRecommendationsHandler)           // Get match recommendations
-		protected.POST("/recommendations/:id/like", handlers.LikeRecommendationHandler) // Like a recommendation
+		protected.GET("/recommendations", handlers.GetRecommendationsHandler)                 // Get match recommendations
+		protected.POST("/recommendations/:id/like", handlers.LikeRecommendationHandler)       // Like a recommendation
 		protected.POST("/recommendations/:id/dismiss", handlers.DismissRecommendationHandler) // Dismiss a recommendation
-		
+
 		// Connection management endpoints
-		protected.GET("/connections", handlers.GetConnectionsHandler)              // Get all user connections
+		protected.GET("/connections", handlers.GetConnectionsHandler)                 // Get all user connections
 		protected.GET("/connections/requests", handlers.GetConnectionRequestsHandler) // Get pending connection requests
-		protected.GET("/matches", handlers.GetMatchesHandler)                      // Get accepted connections (matches)
-		protected.PUT("/connections/:id", handlers.UpdateConnectionHandler)        // Accept/reject/disconnect
-		protected.DELETE("/connections/:id", handlers.DeleteConnectionHandler)     // Delete connection
-		
+		protected.GET("/matches", handlers.GetMatchesHandler)                         // Get accepted connections (matches)
+		protected.PUT("/connections/:id", handlers.UpdateConnectionHandler)           // Accept/reject/disconnect
+		protected.DELETE("/connections/:id", handlers.DeleteConnectionHandler)        // Delete connection
+
 		// Real-time chat system endpoints
-		protected.GET("/chats", handlers.GetChatsHandler)                          // Get user's chats
-		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)  // Get chat messages
+		protected.GET("/chats", handlers.GetChatsHandler)                           // Get user's chats
+		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)   // Get chat messages
 		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler(hub)) // Send new message
-		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler)   // Mark messages as read
-		protected.GET("/chats/:chatId/ws", handlers.WebSocketHandler(hub))         // WebSocket connection
+		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler)    // Mark messages as read
+		protected.GET("/chats/:chatId/ws", handlers.WebSocketHandler(hub))          // WebSocket connection
 	}
+
+	// Server test.html file
+	r.StaticFile("/test", "./test.html")
 
 	// Start the HTTP server on port 8080
 	log.Println("Starting Match-Me server on http://localhost:8080")
