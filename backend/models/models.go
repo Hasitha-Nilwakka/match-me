@@ -117,6 +117,10 @@ type UserMusic struct {
 	MusicGenreID uint `gorm:"primaryKey"`
 }
 
+func (UserMusic) TableName() string {
+	return "user_music"
+}
+
 type UserMovie struct {
 	UserID       uint `gorm:"primaryKey"`
 	MovieGenreID uint `gorm:"primaryKey"`
@@ -127,9 +131,17 @@ type UserFood struct {
 	FoodPreferenceID uint `gorm:"primaryKey"`
 }
 
+func (UserFood) TableName() string {
+	return "user_food"
+}
+
 type UserTravel struct {
 	UserID       uint `gorm:"primaryKey"`
 	TravelTypeID uint `gorm:"primaryKey"`
+}
+
+func (UserTravel) TableName() string {
+	return "user_travel"
 }
 
 type UserLanguage struct {
