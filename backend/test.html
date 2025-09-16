@@ -10,9 +10,12 @@
         .form-group { margin: 10px 0; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
         input, textarea { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 3px; }
-        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 3px; cursor: pointer; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 3px; cursor: pointer; margin-right: 10px; }
         button:hover { background: #0056b3; }
+        .close-btn { background: #6c757d; }
+        .close-btn:hover { background: #545b62; }
         .response { background: #f8f9fa; padding: 10px; border-radius: 3px; margin-top: 10px; white-space: pre-wrap; }
+        .response.hidden { display: none; }
         .error { background: #f8d7da; color: #721c24; }
         .success { background: #d4edda; color: #155724; }
     </style>
@@ -32,7 +35,9 @@
             <input type="password" id="regPassword" placeholder="password123">
         </div>
         <button onclick="registerUser()">Register</button>
+        <button class="close-btn" onclick="closeResponse('regResponse')">Don't show</button>
         <div id="regResponse" class="response"></div>
+
     </div>
 
     <!-- Login Section -->
@@ -47,6 +52,7 @@
             <input type="password" id="loginPassword" placeholder="password123">
         </div>
         <button onclick="loginUser()">Login</button>
+        <button class="close-btn" onclick="closeResponse('loginResponse')">Don't show</button>
         <div id="loginResponse" class="response"></div>
     </div>
 
@@ -54,6 +60,7 @@
     <div class="section">
         <h2>Get All Users</h2>
         <button onclick="getUsers()">Get Users</button>
+        <button class="close-btn" onclick="closeResponse('usersResponse')">Don't show</button>
         <div id="usersResponse" class="response"></div>
     </div>
 
@@ -62,6 +69,7 @@
         <h2>Get Recommendations</h2>
         <p><strong>Note:</strong> You must be logged in to test recommendations. The API will return potential matches for the logged-in user.</p>
         <button onclick="getRecommendations()">Get My Recommendations</button>
+        <button class="close-btn" onclick="closeResponse('recommendationsResponse')">Don't show</button>
         <div id="recommendationsResponse" class="response"></div>
     </div>
 
@@ -78,6 +86,8 @@
             <input type="number" id="dismissUserId" placeholder="Enter user ID (e.g., 3)">
             <button onclick="dismissRecommendation()">Dismiss User</button>
         </div>
+        <button class="close-btn" onclick="closeResponse('likeResponse')">Close Like Response</button>
+        <button class="close-btn" onclick="closeResponse('dismissResponse')">Close Dismiss Response</button>
         <div id="likeResponse" class="response"></div>
         <div id="dismissResponse" class="response"></div>
     </div>
@@ -86,6 +96,7 @@
     <div class="section">
         <h2>Get My Profile</h2>
         <button onclick="getMyProfile()">Get My Profile</button>
+        <button class="close-btn" onclick="closeResponse('myProfileResponse')">Don't show</button>
         <div id="myProfileResponse" class="response"></div>
     </div>
 
@@ -139,6 +150,12 @@
             const element = document.getElementById(elementId);
             element.className = 'response ' + (response.success ? 'success' : 'error');
             element.textContent = JSON.stringify(response, null, 2);
+        }
+
+        function closeResponse(elementId) {
+            const element = document.getElementById(elementId);
+            element.className = 'response hidden';
+            element.textContent = '';
         }
 
         async function registerUser() {
