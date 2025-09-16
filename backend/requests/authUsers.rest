@@ -1,0 +1,16 @@
+POST http://localhost:8080/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@email.com",
+  "password": "password123"
+}
+
+###
+POST http://localhost:8080/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@email.com",
+  "password": "password123"
+}
