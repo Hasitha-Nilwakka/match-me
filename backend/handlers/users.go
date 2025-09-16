@@ -9,7 +9,7 @@ import (
 )
 
 // GetUsersHandler returns all users
-func GetUsersHandler(c *gin.Context) {
+func GetAllUsersHandler(c *gin.Context) {
 	// Fetch all users from database
 	var users []models.User
 
