@@ -110,8 +110,8 @@ func main() {
 		protected.GET("/chats/:chatId/ws", handlers.WebSocketHandler(hub))          // WebSocket connection
 	}
 
-	// Server test.html file
-	r.StaticFile("/test", "./test.html")
+	// Server test.html file with absolute path
+	r.StaticFile("/test", "/home/jmak/match-me/backend/test.html")
 
 	// Start the HTTP server on port 8080
 	log.Println("Starting Match-Me server on http://localhost:8080")

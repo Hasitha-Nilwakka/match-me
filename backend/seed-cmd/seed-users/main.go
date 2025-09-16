@@ -14,6 +14,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// Command line flag for number of users
+	// Modify the default value as needed for example 'go run . -count=50'
 	userCount := flag.Int("count", 10, "Number of users to seed")
 	flag.Parse()
 
