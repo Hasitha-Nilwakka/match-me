@@ -1,5 +1,5 @@
 ### Register User
-POST http://localhost:8080/users
+POST http://localhost:8080/auth/register
 Content-Type: application/json
 
 {
@@ -17,7 +17,7 @@ Content-Type: application/json
 }
 
 ### Get Users (replace TOKEN with actual token)
-GET http://localhost:8080/users
+GET http://localhost:8080/me
 Authorization: Bearer YOUR_TOKEN_HERE
 
 ### Health Check
