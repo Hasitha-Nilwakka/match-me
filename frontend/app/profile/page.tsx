@@ -87,8 +87,8 @@ export default function ProfilePage() {
                 >
                   Connection List
                 </Link>
-                <button
-                  onClick={() => handleNavigation("requests")}
+                <Link
+                  href="/connectionrequests"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition ${
                     activeTab === "requests"
                       ? "bg-blue-100 text-blue-700"
@@ -96,7 +96,7 @@ export default function ProfilePage() {
                   }`}
                 >
                   Connection Requests
-                </button>
+                </Link>
                 <button
                   onClick={() => handleNavigation("chat")}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition ${
@@ -172,8 +172,8 @@ export default function ProfilePage() {
             >
               Connection List
             </Link>
-            <button
-              onClick={() => handleNavigation("requests")}
+            <Link
+              href="/connectionrequests"
               className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
                 activeTab === "requests"
                   ? "bg-blue-100 text-blue-700"
@@ -181,7 +181,7 @@ export default function ProfilePage() {
               }`}
             >
               Connection Requests
-            </button>
+            </Link>
             <button
               onClick={() => handleNavigation("chat")}
               className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
