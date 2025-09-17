@@ -2,9 +2,132 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { authApi } from "../lib/api";
+
+interface FormData {
+  email: string;
+  password: string;
+}
+
+interface FormErrors {
+  email?: string;
+  password?: string;
+  general?: string;
+}
 
 export default function Home() {
   const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState<FormData>({
+    email: "",
+    password: "",
+  });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Form validation
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    if (!formData.email) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+    
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters long";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [id.replace('signup-', '').replace('login-', '')]: value
+    }));
+    
+    // Clear error when user starts typing
+    if (errors[id.replace('signup-', '').replace('login-', '') as keyof FormErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [id.replace('signup-', '').replace('login-', '') as keyof FormErrors]: undefined
+      }));
+    }
+  };
+
+  // Handle login
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    setErrors({});
+    
+    try {
+      const response = await authApi.login(formData.email, formData.password);
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Store token and redirect
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setSuccessMessage('Login successful! Redirecting...');
+        // You can add redirect logic here
+        console.log('Login successful:', data);
+      } else {
+        setErrors({ general: data.error || 'Login failed' });
+      }
+    } catch (error) {
+      setErrors({ general: 'Network error. Please try again.' });
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle registration
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    
+    setIsLoading(true);
+    setErrors({});
+    
+    try {
+      const response = await authApi.register(formData.email, formData.password);
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSuccessMessage('Account created successfully! You can now login.');
+        setIsLogin(true);
+        setFormData({ email: "", password: "" });
+      } else {
+        setErrors({ general: data.error || 'Registration failed' });
+      }
+    } catch (error) {
+      setErrors({ general: 'Network error. Please try again.' });
+      console.error('Registration error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Reset form when switching between login/register
+  const toggleForm = () => {
+    setIsLogin(!isLogin);
+    setFormData({ email: "", password: "" });
+    setErrors({});
+    setSuccessMessage("");
+  };
 
   return (
     <div className="min-h-screen relative">
@@ -27,41 +150,70 @@ export default function Home() {
 
           {/* Form Container */}
           <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-2xl p-8 border border-white/20">
+            {/* Success Message */}
+            {successMessage && (
+              <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-md">
+                {successMessage}
+              </div>
+            )}
+
+            {/* General Error Message */}
+            {errors.general && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
+                {errors.general}
+              </div>
+            )}
+
             {isLogin ? (
               /* Login Form */
               <div>
                 <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Login</h2>
                 
-                <form className="space-y-4">
+                <form onSubmit={handleLogin} className="space-y-4">
                   <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1">
                       Email
                     </label>
                     <input
                       type="email"
-                      id="email"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      id="login-email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.email ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       placeholder="Enter your email"
                     />
+                    {errors.email && (
+                      <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                    )}
                   </div>
 
                   <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">
                       Password
                     </label>
                     <input
                       type="password"
-                      id="password"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      id="login-password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.password ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       placeholder="Enter your password"
                     />
+                    {errors.password && (
+                      <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+                    )}
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
+                    disabled={isLoading}
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Login
+                    {isLoading ? 'Logging in...' : 'Login'}
                   </button>
                 </form>
 
@@ -76,7 +228,7 @@ export default function Home() {
               <div>
                 <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Create Account</h2>
                 
-                <form className="space-y-4">
+                <form onSubmit={handleRegister} className="space-y-4">
                   <div>
                     <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 mb-1">
                       Email
@@ -84,9 +236,16 @@ export default function Home() {
                     <input
                       type="email"
                       id="signup-email"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                        errors.email ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       placeholder="Enter your email"
                     />
+                    {errors.email && (
+                      <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                    )}
                   </div>
 
                   <div>
@@ -96,16 +255,24 @@ export default function Home() {
                     <input
                       type="password"
                       id="signup-password"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Create a password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                        errors.password ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Create a password (min 6 characters)"
                     />
+                    {errors.password && (
+                      <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+                    )}
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200"
+                    disabled={isLoading}
+                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Create Account
+                    {isLoading ? 'Creating Account...' : 'Create Account'}
                   </button>
                 </form>
               </div>
@@ -116,7 +283,7 @@ export default function Home() {
               <p className="text-sm text-gray-600">
                 {isLogin ? "Don't have an account? " : "Already have an account? "}
                 <button
-                  onClick={() => setIsLogin(!isLogin)}
+                  onClick={toggleForm}
                   className="text-blue-600 hover:text-blue-500 font-medium"
                 >
                   {isLogin ? "Create a new account" : "Login"}
