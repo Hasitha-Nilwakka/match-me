@@ -52,4 +52,27 @@ export const authApi = {
       body: JSON.stringify({ email, password }),
     });
   },
+
+  // Client-side logout (clears localStorage)
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  },
+
+  // Check if user is authenticated
+  isAuthenticated: (): boolean => {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    return !!(token && user);
+  },
+
+  // Get current user data
+  getCurrentUser: (): {id: number; email: string; isActive: boolean} | null => {
+    try {
+      const userData = localStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
+    } catch {
+      return null;
+    }
+  },
 };

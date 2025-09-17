@@ -1,18 +1,51 @@
 "use client";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { authApi } from "../../lib/api";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("profile");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check authentication on page load
+  useEffect(() => {
+    if (!authApi.isAuthenticated()) {
+      router.push('/');
+    } else {
+      setIsAuthenticated(true);
+      setIsLoading(false);
+    }
+  }, [router]);
 
   const handleLogout = () => {
-    // Add logout functionality here
-    console.log("Logout clicked");
+    authApi.logout();
+    router.push('/');
   };
 
   const handleNavigation = (tab: string) => {
     setActiveTab(tab);
   };
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -34,8 +67,8 @@ export default function ProfilePage() {
             {/* Navigation Items */}
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
-                <button
-                  onClick={() => handleNavigation("frontpage")}
+                <Link
+                  href="/frontpage"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition ${
                     activeTab === "frontpage"
                       ? "bg-blue-100 text-blue-700"
@@ -43,9 +76,9 @@ export default function ProfilePage() {
                   }`}
                 >
                   Front Page
-                </button>
-                <button
-                  onClick={() => handleNavigation("connections")}
+                </Link>
+                <Link
+                  href="/connectionlist"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition ${
                     activeTab === "connections"
                       ? "bg-blue-100 text-blue-700"
@@ -53,7 +86,7 @@ export default function ProfilePage() {
                   }`}
                 >
                   Connection List
-                </button>
+                </Link>
                 <button
                   onClick={() => handleNavigation("requests")}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition ${
@@ -119,8 +152,8 @@ export default function ProfilePage() {
         {/* Mobile menu */}
         <div className="md:hidden" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
-            <button
-              onClick={() => handleNavigation("frontpage")}
+            <Link
+              href="/frontpage"
               className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
                 activeTab === "frontpage"
                   ? "bg-blue-100 text-blue-700"
@@ -128,9 +161,9 @@ export default function ProfilePage() {
               }`}
             >
               Front Page
-            </button>
-            <button
-              onClick={() => handleNavigation("connections")}
+            </Link>
+            <Link
+              href="/connectionlist"
               className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
                 activeTab === "connections"
                   ? "bg-blue-100 text-blue-700"
@@ -138,7 +171,7 @@ export default function ProfilePage() {
               }`}
             >
               Connection List
-            </button>
+            </Link>
             <button
               onClick={() => handleNavigation("requests")}
               className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${

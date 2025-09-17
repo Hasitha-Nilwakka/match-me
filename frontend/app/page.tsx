@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { authApi } from "../lib/api";
 
 interface FormData {
@@ -16,6 +17,7 @@ interface FormErrors {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState<FormData>({
     email: "",
@@ -24,6 +26,41 @@ export default function Home() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<{id: number; email: string; isActive: boolean} | null>(null);
+
+  // Check for existing authentication on page load
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+      } catch {
+        // Invalid user data, clear it
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+  }, []);
+
+  // Logout function
+  const handleLogout = () => {
+    // Clear localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Reset state
+    setIsAuthenticated(false);
+    setUser(null);
+    setFormData({ email: "", password: "" });
+    setErrors({});
+    setSuccessMessage("");
+    setIsLogin(true);
+  };
 
   // Form validation
   const validateForm = (): boolean => {
@@ -76,11 +113,13 @@ export default function Home() {
       const data = await response.json();
       
       if (response.ok) {
-        // Store token and redirect
+        // Store token and user data
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        setSuccessMessage('Login successful! Redirecting...');
-        // You can add redirect logic here
+        
+        // Redirect to frontpage immediately (no state updates to avoid flash)
+        router.push('/frontpage');
+        
         console.log('Login successful:', data);
       } else {
         setErrors({ general: data.error || 'Login failed' });
@@ -150,21 +189,57 @@ export default function Home() {
 
           {/* Form Container */}
           <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-2xl p-8 border border-white/20">
-            {/* Success Message */}
-            {successMessage && (
-              <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-md">
-                {successMessage}
-              </div>
-            )}
+            {isAuthenticated ? (
+              /* Authenticated User Dashboard */
+              <div>
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">Welcome back!</h2>
+                  <p className="text-gray-600">You&apos;re successfully logged in</p>
+                </div>
+                
+                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                  <h3 className="font-medium text-gray-900 mb-2">User Information</h3>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <p><span className="font-medium">Email:</span> {user?.email}</p>
+                    <p><span className="font-medium">User ID:</span> {user?.id}</p>
+                    <p><span className="font-medium">Status:</span> {user?.isActive ? 'Active' : 'Inactive'}</p>
+                  </div>
+                </div>
 
-            {/* General Error Message */}
-            {errors.general && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
-                {errors.general}
+                <div className="space-y-3">
+                  <button
+                    onClick={() => {/* Add navigation to profile page */}}
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
+                  >
+                    Go to Profile
+                  </button>
+                  
+                  <button
+                    onClick={handleLogout}
+                    className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-200"
+                  >
+                    Logout
+                  </button>
+                </div>
               </div>
-            )}
+            ) : (
+              /* Login/Register Forms */
+              <div>
+                {/* Success Message */}
+                {successMessage && (
+                  <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-md">
+                    {successMessage}
+                  </div>
+                )}
 
-            {isLogin ? (
+                {/* General Error Message */}
+                {errors.general && (
+                  <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
+                    {errors.general}
+                  </div>
+                )}
+
+                {isLogin ? (
               /* Login Form */
               <div>
                 <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Login</h2>
@@ -278,18 +353,20 @@ export default function Home() {
               </div>
             )}
 
-            {/* Toggle between Login and Create Account */}
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600">
-                {isLogin ? "Don't have an account? " : "Already have an account? "}
-                <button
-                  onClick={toggleForm}
-                  className="text-blue-600 hover:text-blue-500 font-medium"
-                >
-                  {isLogin ? "Create a new account" : "Login"}
-                </button>
-              </p>
-            </div>
+                {/* Toggle between Login and Create Account */}
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-gray-600">
+                    {isLogin ? "Don't have an account? " : "Already have an account? "}
+                    <button
+                      onClick={toggleForm}
+                      className="text-blue-600 hover:text-blue-500 font-medium"
+                    >
+                      {isLogin ? "Create a new account" : "Login"}
+                    </button>
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
