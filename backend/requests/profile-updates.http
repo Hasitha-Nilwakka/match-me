@@ -1,0 +1,62 @@
+# Profile Update API Tests
+# Make sure to register/login first to get a JWT token
+
+### Update Profile
+PUT http://localhost:8080/me/profile
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "aboutMe": "I'm a software developer who loves hiking and photography.",
+  "gender": "male",
+  "status": "active",
+  "relationshipStatus": "single",
+  "ethnicity": "caucasian",
+  "religion": "none"
+}
+
+### Update Bio Data
+PUT http://localhost:8080/me/bio
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "hobbyIds": [1, 2, 3],
+  "interestIds": [1, 4, 7],
+  "musicGenreIds": [2, 5],
+  "movieGenreIds": [1, 3, 6],
+  "foodPreferenceIds": [2, 4],
+  "travelTypeIds": [1, 3],
+  "languageIds": [1, 2]
+}
+
+### Update Preferences
+PUT http://localhost:8080/me/preferences
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "minAge": 25,
+  "maxAge": 35,
+  "genderPreference": "female",
+  "maxDistanceKm": 50,
+  "hobbiesWeight": 8,
+  "interestsWeight": 9,
+  "musicWeight": 6,
+  "moviesWeight": 5,
+  "foodWeight": 4,
+  "travelWeight": 7,
+  "languagesWeight": 8,
+  "ethnicityWeight": 3,
+  "religionWeight": 2
+}
+
+### Get Profile (to verify updates)
+GET http://localhost:8080/me/profile
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### Get Bio (to verify updates)
+GET http://localhost:8080/me/bio
+Authorization: Bearer YOUR_JWT_TOKEN_HERE

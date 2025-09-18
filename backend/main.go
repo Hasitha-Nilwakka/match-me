@@ -81,9 +81,12 @@ func main() {
 	protected.Use(middleware.AuthMiddleware())
 	{
 		// User profile management endpoints
-		protected.GET("/me", handlers.GetMeHandler)                // Get current user info
-		protected.GET("/me/profile", handlers.GetMeProfileHandler) // Get current user profile
-		protected.GET("/me/bio", handlers.GetMeBioHandler)         // Get current user bio data
+		protected.GET("/me", handlers.GetMeHandler)                           // Get current user info
+		protected.GET("/me/profile", handlers.GetMeProfileHandler)            // Get current user profile
+		protected.PUT("/me/profile", handlers.UpdateMeProfileHandler)         // Update current user profile
+		protected.GET("/me/bio", handlers.GetMeBioHandler)                    // Get current user bio data
+		protected.PUT("/me/bio", handlers.UpdateMeBioHandler)                 // Update current user bio data
+		protected.PUT("/me/preferences", handlers.UpdateMePreferencesHandler) // Update seeking preferences
 
 		// Other user information endpoints
 		protected.GET("/users/:id", handlers.GetUserHandler)                // Get other user basic info
