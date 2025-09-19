@@ -68,6 +68,10 @@ func main() {
 	// User listing endpoint (for development/testing)
 	r.GET("/users", handlers.GetAllUsersHandler)
 
+	// Reference data endpoints (public)
+	r.GET("/languages", handlers.GetAllLanguagesHandler) // Get all available languages
+	r.GET("/hobbies", handlers.GetAllHobbiesHandler)     // Get all available hobbies
+
 	// Authentication endpoints
 	r.POST("/auth/register", handlers.RegisterHandler) // User registration
 	r.POST("/auth/login", handlers.LoginHandler)       // User login
@@ -87,6 +91,8 @@ func main() {
 		protected.GET("/me/bio", handlers.GetMeBioHandler)                    // Get current user bio data
 		protected.PUT("/me/bio", handlers.UpdateMeBioHandler)                 // Update current user bio data
 		protected.PUT("/me/preferences", handlers.UpdateMePreferencesHandler) // Update seeking preferences
+		protected.GET("/me/location", handlers.GetMeLocationHandler)          // Get current user location
+		protected.PUT("/me/location", handlers.UpdateMeLocationHandler)       // Update current user location
 
 		// Other user information endpoints
 		protected.GET("/users/:id", handlers.GetUserHandler)                // Get other user basic info

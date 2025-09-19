@@ -4,6 +4,7 @@ import (
 	"backend/db"
 	"backend/middleware"
 	"backend/models"
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -224,6 +225,18 @@ func GetMeProfileHandler(c *gin.Context) {
 		return
 	}
 
+	// Get user's languages
+	var userLanguages []models.UserLanguage
+	db.DB.Where("user_id = ?", userID).Find(&userLanguages)
+
+	var languages []string
+	for _, ul := range userLanguages {
+		var language models.Language
+		if err := db.DB.First(&language, ul.LanguageID).Error; err == nil {
+			languages = append(languages, language.Name)
+		}
+	}
+
 	// Return full profile data for own profile
 	c.JSON(200, gin.H{
 		"id":                 userID,
@@ -236,6 +249,7 @@ func GetMeProfileHandler(c *gin.Context) {
 		"aboutMe":            profile.AboutMe,
 		"ethnicity":          profile.Ethnicity,
 		"religion":           profile.Religion,
+		"languages":          languages,
 		"createdAt":          profile.CreatedAt,
 		"updatedAt":          profile.UpdatedAt,
 	})
@@ -349,15 +363,16 @@ func UpdateMeProfileHandler(c *gin.Context) {
 
 	// Parse request body
 	var updateData struct {
-		ProfilePictureURL  *string `json:"profilePictureURL"`
-		FirstName          *string `json:"firstName"`
-		LastName           *string `json:"lastName"`
-		Gender             *string `json:"gender"`
-		Status             *string `json:"status"`
-		RelationshipStatus *string `json:"relationshipStatus"`
-		AboutMe            *string `json:"aboutMe"`
-		Ethnicity          *string `json:"ethnicity"`
-		Religion           *string `json:"religion"`
+		ProfilePictureURL  *string   `json:"profilePictureURL"`
+		FirstName          *string   `json:"firstName"`
+		LastName           *string   `json:"lastName"`
+		Gender             *string   `json:"gender"`
+		Status             *string   `json:"status"`
+		RelationshipStatus *string   `json:"relationshipStatus"`
+		AboutMe            *string   `json:"aboutMe"`
+		Ethnicity          *string   `json:"ethnicity"`
+		Religion           *string   `json:"religion"`
+		Languages          *[]string `json:"languages"`
 	}
 
 	if err := c.ShouldBindJSON(&updateData); err != nil {
@@ -404,10 +419,75 @@ func UpdateMeProfileHandler(c *gin.Context) {
 		profile.Religion = updateData.Religion
 	}
 
+	// Handle language updates
+	if updateData.Languages != nil {
+		// Start a transaction for language updates
+		tx := db.DB.Begin()
+		defer func() {
+			if r := recover(); r != nil {
+				tx.Rollback()
+			}
+		}()
+
+		// Delete existing user language relationships
+		if err := tx.Where("user_id = ?", userID).Delete(&models.UserLanguage{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(500, gin.H{"error": "Failed to update languages", "details": err.Error()})
+			return
+		}
+
+		// Add new language relationships
+		for _, languageName := range *updateData.Languages {
+			// Find language by name
+			var language models.Language
+			if err := tx.Where("name = ?", languageName).First(&language).Error; err != nil {
+				// If language doesn't exist, create it
+				language = models.Language{
+					Name: languageName,
+					Code: languageName[:2], // Simple code generation
+				}
+				if err := tx.Create(&language).Error; err != nil {
+					tx.Rollback()
+					c.JSON(500, gin.H{"error": "Failed to create language", "details": err.Error()})
+					return
+				}
+			}
+
+			// Create user language relationship
+			userLanguage := models.UserLanguage{
+				UserID:     userID,
+				LanguageID: language.ID,
+			}
+			if err := tx.Create(&userLanguage).Error; err != nil {
+				tx.Rollback()
+				c.JSON(500, gin.H{"error": "Failed to add language", "details": err.Error()})
+				return
+			}
+		}
+
+		// Commit transaction
+		if err := tx.Commit().Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update languages", "details": err.Error()})
+			return
+		}
+	}
+
 	// Save profile
 	if err := db.DB.Save(&profile).Error; err != nil {
 		c.JSON(500, gin.H{"error": "Failed to update profile", "details": err.Error()})
 		return
+	}
+
+	// Get updated languages for response
+	var userLanguages []models.UserLanguage
+	db.DB.Where("user_id = ?", userID).Find(&userLanguages)
+
+	var languages []string
+	for _, ul := range userLanguages {
+		var language models.Language
+		if err := db.DB.First(&language, ul.LanguageID).Error; err == nil {
+			languages = append(languages, language.Name)
+		}
 	}
 
 	c.JSON(200, gin.H{
@@ -423,6 +503,7 @@ func UpdateMeProfileHandler(c *gin.Context) {
 			"aboutMe":            profile.AboutMe,
 			"ethnicity":          profile.Ethnicity,
 			"religion":           profile.Religion,
+			"languages":          languages,
 			"updatedAt":          profile.UpdatedAt,
 		},
 	})
@@ -722,5 +803,137 @@ func UpdateMePreferencesHandler(c *gin.Context) {
 			"religionWeight":         preferences.ReligionWeight,
 			"updatedAt":              preferences.UpdatedAt,
 		},
+	})
+}
+
+// GetAllLanguagesHandler returns all available languages from the database
+func GetAllLanguagesHandler(c *gin.Context) {
+	var languages []models.Language
+	if err := db.DB.Find(&languages).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch languages", "details": err.Error()})
+		return
+	}
+
+	// Convert to simple name array for frontend
+	var languageNames []string
+	for _, lang := range languages {
+		languageNames = append(languageNames, lang.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"languages": languageNames,
+	})
+}
+
+// GetAllHobbiesHandler returns all available hobbies from the database
+func GetAllHobbiesHandler(c *gin.Context) {
+	var hobbies []models.Hobby
+	if err := db.DB.Find(&hobbies).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch hobbies", "details": err.Error()})
+		return
+	}
+
+	// Convert to simple name array for frontend
+	var hobbyNames []string
+	for _, hobby := range hobbies {
+		hobbyNames = append(hobbyNames, hobby.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"hobbies": hobbyNames,
+	})
+}
+
+// UpdateMeLocationHandler updates current user's location information
+func UpdateMeLocationHandler(c *gin.Context) {
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Parse request body
+	var updateData struct {
+		City      *string  `json:"city"`
+		Country   *string  `json:"country"`
+		Latitude  *float64 `json:"latitude"`
+		Longitude *float64 `json:"longitude"`
+	}
+
+	if err := c.ShouldBindJSON(&updateData); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body", "details": err.Error()})
+		return
+	}
+
+	// Debug logging
+	fmt.Printf("Received location update data: %+v\n", updateData)
+
+	// Find or create location
+	var location models.Location
+	result := db.DB.Where("user_id = ?", userID).First(&location)
+	if result.Error != nil {
+		// Create new location if not exists
+		location = models.Location{
+			UserID: userID,
+		}
+	}
+
+	// Update only provided fields
+	if updateData.City != nil {
+		location.City = updateData.City
+	}
+	if updateData.Country != nil {
+		location.Country = updateData.Country
+	}
+	if updateData.Latitude != nil {
+		location.Latitude = updateData.Latitude
+	}
+	if updateData.Longitude != nil {
+		location.Longitude = updateData.Longitude
+	}
+
+	// Save location
+	if err := db.DB.Save(&location).Error; err != nil {
+		fmt.Printf("Database error saving location: %v\n", err)
+		c.JSON(500, gin.H{"error": "Failed to update location", "details": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"message": "Location updated successfully",
+		"location": gin.H{
+			"id":        location.ID,
+			"city":      location.City,
+			"country":   location.Country,
+			"latitude":  location.Latitude,
+			"longitude": location.Longitude,
+			"updatedAt": location.UpdatedAt,
+		},
+	})
+}
+
+// GetMeLocationHandler returns current user's location information
+func GetMeLocationHandler(c *gin.Context) {
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Get user's location
+	var location models.Location
+	if err := db.DB.Where("user_id = ?", userID).First(&location).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Location not found"})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"id":        location.ID,
+		"city":      location.City,
+		"country":   location.Country,
+		"latitude":  location.Latitude,
+		"longitude": location.Longitude,
+		"createdAt": location.CreatedAt,
+		"updatedAt": location.UpdatedAt,
 	})
 }

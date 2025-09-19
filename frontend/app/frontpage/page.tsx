@@ -3,13 +3,18 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi } from "../../lib/api";
+import { authApi, profileApi } from "../../lib/api";
 
 export default function FrontPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("frontpage");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+  });
 
   // Check authentication on page load
   useEffect(() => {
@@ -17,9 +22,38 @@ export default function FrontPage() {
       router.push('/');
     } else {
       setIsAuthenticated(true);
-      setIsLoading(false);
+      loadUserProfile();
     }
   }, [router]);
+
+  // Load user profile data
+  const loadUserProfile = async () => {
+    try {
+      const currentUser = authApi.getCurrentUser();
+      if (currentUser) {
+        setUserProfile(prev => ({
+          ...prev,
+          email: currentUser.email
+        }));
+      }
+      
+      // Try to load profile data
+      try {
+        const profile = await profileApi.getMyProfile();
+        setUserProfile(prev => ({
+          ...prev,
+          firstName: profile.firstName || '',
+          lastName: profile.lastName || '',
+        }));
+      } catch {
+        console.log('No profile data found yet');
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     authApi.logout();
@@ -257,9 +291,19 @@ export default function FrontPage() {
             {/* Profile Info */}
             <div className="p-8">
               <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">Sarah Johnson</h2>
-                <p className="text-gray-600 mb-1">25 years old • Software Engineer</p>
-                <p className="text-gray-500 text-sm">San Francisco, CA</p>
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                  {userProfile.firstName && userProfile.lastName 
+                    ? `${userProfile.firstName} ${userProfile.lastName}` 
+                    : 'Welcome to Match-Me!'
+                  }
+                </h2>
+                <p className="text-gray-600 mb-1">
+                  {userProfile.firstName && userProfile.lastName 
+                    ? 'Complete your profile to see recommendations' 
+                    : 'Complete your profile to get started'
+                  }
+                </p>
+                <p className="text-gray-500 text-sm">{userProfile.email}</p>
               </div>
 
               {/* Top 5 Match Criteria */}
@@ -345,9 +389,12 @@ export default function FrontPage() {
               </div>
 
               {/* View Full Profile Button */}
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition mb-6">
-                View Full Profile
-              </button>
+              <Link 
+                href="/profile"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition mb-6 inline-block text-center"
+              >
+                {userProfile.firstName && userProfile.lastName ? 'Edit Profile' : 'Complete Profile'}
+              </Link>
 
               {/* Navigation Controls */}
               <div className="flex justify-between items-center">

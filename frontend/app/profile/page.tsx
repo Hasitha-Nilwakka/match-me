@@ -3,13 +3,36 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi } from "../../lib/api";
+import { authApi, profileApi, referenceApi, externalApi } from "../../lib/api";
 
 export default function ProfilePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("profile");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [profileData, setProfileData] = useState({
+    firstName: '',
+    lastName: '',
+    gender: '',
+    status: '',
+    relationshipStatus: '',
+    aboutMe: '',
+    ethnicity: '',
+    religion: '',
+    profilePictureURL: '',
+    languages: [] as string[],
+  });
+  const [userEmail, setUserEmail] = useState('');
+  const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+  const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
+  const [availableHobbies, setAvailableHobbies] = useState<string[]>([]);
+  const [countries, setCountries] = useState<{ name: string; code: string }[]>([]);
+  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [locationData, setLocationData] = useState({
+    city: '',
+    country: '',
+  });
 
   // Check authentication on page load
   useEffect(() => {
@@ -17,9 +40,102 @@ export default function ProfilePage() {
       router.push('/');
     } else {
       setIsAuthenticated(true);
-      setIsLoading(false);
+      loadProfileData();
+      loadAvailableLanguages();
+      loadAvailableHobbies();
+      loadCountries();
     }
   }, [router]);
+
+  // Load available languages from backend
+  const loadAvailableLanguages = async () => {
+    try {
+      const languages = await referenceApi.getLanguages();
+      setAvailableLanguages(languages);
+    } catch (error) {
+      console.error('Error loading available languages:', error);
+      // Fallback to hardcoded languages if API fails
+      setAvailableLanguages([
+        'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
+        'Russian', 'Chinese', 'Japanese', 'Korean', 'Arabic', 'Hindi'
+      ]);
+    }
+  };
+
+  // Load available hobbies from backend
+  const loadAvailableHobbies = async () => {
+    try {
+      const hobbies = await referenceApi.getHobbies();
+      setAvailableHobbies(hobbies);
+    } catch (error) {
+      console.error('Error loading available hobbies:', error);
+      // Fallback to hardcoded hobbies if API fails
+      setAvailableHobbies([
+        'Photography', 'Cooking', 'Gaming', 'Gardening', 'Painting', 'Writing',
+        'Reading', 'Sports', 'Music', 'Travel', 'Art', 'Technology'
+      ]);
+    }
+  };
+
+  // Load countries from external API
+  const loadCountries = async () => {
+    try {
+      const countriesData = await externalApi.getCountries();
+      setCountries(countriesData);
+    } catch (error) {
+      console.error('Error loading countries:', error);
+    }
+  };
+
+
+  // Load profile data
+  const loadProfileData = async () => {
+    try {
+      setIsLoading(true);
+      const currentUser = authApi.getCurrentUser();
+      if (currentUser) {
+        setUserEmail(currentUser.email);
+      }
+      
+      // Try to load existing profile data
+      try {
+        const profile = await profileApi.getMyProfile();
+        setProfileData({
+          firstName: profile.firstName || '',
+          lastName: profile.lastName || '',
+          gender: profile.gender || '',
+          status: profile.status || '',
+          relationshipStatus: profile.relationshipStatus || '',
+          aboutMe: profile.aboutMe || '',
+          ethnicity: profile.ethnicity || '',
+          religion: profile.religion || '',
+          profilePictureURL: profile.profilePictureURL || '',
+          languages: profile.languages || [],
+        });
+        setSelectedLanguages(profile.languages || []);
+      } catch (error) {
+        console.log('No existing profile found, starting fresh');
+        // Profile doesn't exist yet, that's okay
+      }
+
+      // Try to load existing location data
+      try {
+        const location = await profileApi.getMyLocation();
+        setLocationData({
+          city: location.city || '',
+          country: location.country || '',
+        });
+        setSelectedCountry(location.country || '');
+      } catch (error) {
+        console.log('No existing location found, starting fresh');
+        // Location doesn't exist yet, that's okay
+      }
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     authApi.logout();
@@ -28,6 +144,88 @@ export default function ProfilePage() {
 
   const handleNavigation = (tab: string) => {
     setActiveTab(tab);
+  };
+
+  // Handle input changes
+  const handleInputChange = (field: string, value: string) => {
+    setProfileData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle language selection
+  const handleLanguageToggle = (language: string) => {
+    setSelectedLanguages(prev => {
+      const newLanguages = prev.includes(language) 
+        ? prev.filter(lang => lang !== language)
+        : [...prev, language];
+      
+      setProfileData(prevProfile => ({
+        ...prevProfile,
+        languages: newLanguages
+      }));
+      
+      return newLanguages;
+    });
+  };
+
+  // Handle country selection
+  const handleCountryChange = (countryName: string) => {
+    setSelectedCountry(countryName);
+    setLocationData(prev => ({
+      ...prev,
+      country: countryName
+    }));
+  };
+
+  // Handle city input change
+  const handleCityChange = (cityName: string) => {
+    setLocationData(prev => ({
+      ...prev,
+      city: cityName
+    }));
+  };
+
+  // Save profile data
+  const handleSaveProfile = async () => {
+    try {
+      setIsSaving(true);
+      
+      // Save profile data
+      await profileApi.updateMyProfile(profileData);
+      
+      // Save location data if provided
+      if (locationData.city || locationData.country) {
+        try {
+          // Only send non-empty values
+          const locationToSave: { city?: string; country?: string } = {};
+          if (locationData.city && locationData.city.trim()) {
+            locationToSave.city = locationData.city.trim();
+          }
+          if (locationData.country && locationData.country.trim()) {
+            locationToSave.country = locationData.country.trim();
+          }
+          
+          console.log('Saving location data:', locationToSave);
+          await profileApi.updateMyLocation(locationToSave);
+          console.log('Location saved successfully');
+        } catch (locationError) {
+          console.error('Error saving location:', locationError);
+          // Don't fail the entire save if location fails
+          alert('Profile saved, but there was an issue saving location data.');
+        }
+      } else {
+        console.log('No location data to save');
+      }
+      
+      alert('Profile saved successfully!');
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Failed to save profile. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Show loading screen while checking authentication
@@ -231,9 +429,11 @@ export default function ProfilePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                 <input
                   type="email"
-                  value="user@example.com"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={userEmail}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
                 />
+                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
               </div>
 
               {/* Password */}
@@ -269,59 +469,131 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
                   <input
                     type="text"
+                    value={profileData.firstName}
+                    onChange={(e) => handleInputChange('firstName', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter your first name"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
                   <input
                     type="text"
+                    value={profileData.lastName}
+                    onChange={(e) => handleInputChange('lastName', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter your last name"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Male</option>
-                    <option>Female</option>
-                    <option>Other</option>
+                  <select 
+                    value={profileData.gender}
+                    onChange={(e) => handleInputChange('gender', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Student</option>
-                    <option>Employed</option>
-                    <option>Entrepreneur</option>
+                  <select 
+                    value={profileData.status}
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Status</option>
+                    <option value="Student">Student</option>
+                    <option value="Employed">Employed</option>
+                    <option value="Entrepreneur">Entrepreneur</option>
+                    <option value="Unemployed">Unemployed</option>
+                    <option value="Retired">Retired</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Relationship Status</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Single</option>
-                    <option>Married</option>
-                    <option>Divorced</option>
+                  <select 
+                    value={profileData.relationshipStatus}
+                    onChange={(e) => handleInputChange('relationshipStatus', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Relationship Status</option>
+                    <option value="Single">Single</option>
+                    <option value="In a relationship">In a relationship</option>
+                    <option value="Married">Married</option>
+                    <option value="Divorced">Divorced</option>
+                    <option value="Widowed">Widowed</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Languages</label>
-                  <input
-                    type="text"
-                    placeholder="English, Spanish, French..."
+                  <div className="space-y-2">
+                    {/* Selected Languages Display */}
+                    {selectedLanguages.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedLanguages.map((language) => (
+                          <span
+                            key={language}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                          >
+                            {language}
+                            <button
+                              type="button"
+                              onClick={() => handleLanguageToggle(language)}
+                              className="ml-2 text-blue-600 hover:text-blue-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Language Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !selectedLanguages.includes(e.target.value)) {
+                          handleLanguageToggle(e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a language to add</option>
+                      {availableLanguages.map((language) => (
+                        <option key={language} value={language}>
+                          {language}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select languages from the dropdown to add them to your profile</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                  <select
+                    value={selectedCountry}
+                    onChange={(e) => handleCountryChange(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Select a country</option>
+                    {countries.map((country) => (
+                      <option key={country.code} value={country.name}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-                  <input
-                    type="text"
+                    value={locationData.city}
+                    onChange={(e) => handleCityChange(e.target.value)}
+                    placeholder="Enter your city"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -329,16 +601,34 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Ethnicity</label>
                   <input
                     type="text"
+                    value={profileData.ethnicity}
+                    onChange={(e) => handleInputChange('ethnicity', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter your ethnicity"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Religion</label>
                   <input
                     type="text"
+                    value={profileData.religion}
+                    onChange={(e) => handleInputChange('religion', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter your religion"
                   />
                 </div>
+              </div>
+              
+              {/* About Me */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">About Me</label>
+                <textarea
+                  value={profileData.aboutMe}
+                  onChange={(e) => handleInputChange('aboutMe', e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Tell us about yourself..."
+                />
               </div>
             </div>
 
@@ -368,12 +658,11 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hobbies</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Hobby</option>
-                    <option>Photography</option>
-                    <option>Cooking</option>
-                    <option>Gaming</option>
-                    <option>Gardening</option>
-                    <option>Painting</option>
-                    <option>Writing</option>
+                    {availableHobbies.map((hobby) => (
+                      <option key={hobby} value={hobby}>
+                        {hobby}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -598,12 +887,11 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hobbies</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Hobby</option>
-                    <option>Photography</option>
-                    <option>Cooking</option>
-                    <option>Gaming</option>
-                    <option>Gardening</option>
-                    <option>Painting</option>
-                    <option>Writing</option>
+                    {availableHobbies.map((hobby) => (
+                      <option key={hobby} value={hobby}>
+                        {hobby}
+                      </option>
+                    ))}
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -802,8 +1090,16 @@ export default function ProfilePage() {
 
           {/* Save Button */}
           <div className="mt-8 flex justify-center">
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md text-lg font-medium">
-              Save Profile
+            <button 
+              onClick={handleSaveProfile}
+              disabled={isSaving}
+              className={`px-8 py-3 rounded-md text-lg font-medium transition ${
+                isSaving 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700'
+              } text-white`}
+            >
+              {isSaving ? 'Saving...' : 'Save Profile'}
             </button>
           </div>
         </div>
