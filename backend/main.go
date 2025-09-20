@@ -116,6 +116,7 @@ func main() {
 		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)   // Get chat messages
 		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler(hub)) // Send new message
 		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler)    // Mark messages as read
+		protected.DELETE("/chats/:chatId", handlers.DeleteChatHandler)              // Delete chat and messages
 		protected.GET("/chats/:chatId/ws", handlers.WebSocketHandler(hub))          // WebSocket connection
 	}
 

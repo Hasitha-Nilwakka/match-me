@@ -26,6 +26,19 @@ export const API_ENDPOINTS = {
     LANGUAGES: '/languages',
     HOBBIES: '/hobbies',
   },
+  CHATS: {
+    GET_ALL: '/chats',
+    GET_MESSAGES: (chatId: string) => `/chats/${chatId}/messages`,
+    SEND_MESSAGE: (chatId: string) => `/chats/${chatId}/messages`,
+    MARK_READ: (chatId: string) => `/chats/${chatId}/read`,
+    DELETE: (chatId: string) => `/chats/${chatId}`,
+    WEBSOCKET: (chatId: string) => `/chats/${chatId}/ws`,
+  },
+  RECOMMENDATIONS: {
+    GET_ALL: '/recommendations',
+    LIKE: (id: string) => `/recommendations/${id}/like`,
+    DISMISS: (id: string) => `/recommendations/${id}/dismiss`,
+  },
   // Add more endpoints as needed
 } as const;
 
@@ -85,6 +98,131 @@ export const referenceApi = {
     }
     const data = await response.json();
     return data.hobbies;
+  },
+};
+
+// Chat API functions
+export const chatApi = {
+  // Get all user's chats
+  getAllChats: async () => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CHATS.GET_ALL);
+    if (!response.ok) {
+      throw new Error('Failed to fetch chats');
+    }
+    return response.json();
+  },
+
+  // Get messages for a specific chat
+  getChatMessages: async (chatId: string, page = 1, limit = 50) => {
+    const response = await authenticatedApiRequest(
+      `${API_ENDPOINTS.CHATS.GET_MESSAGES(chatId)}?page=${page}&limit=${limit}`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fetch chat messages');
+    }
+    return response.json();
+  },
+
+  // Send a message
+  sendMessage: async (chatId: string, content: string) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CHATS.SEND_MESSAGE(chatId), {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to send message');
+    }
+    return response.json();
+  },
+
+  // Mark messages as read
+  markAsRead: async (chatId: string) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CHATS.MARK_READ(chatId), {
+      method: 'PUT',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to mark messages as read');
+    }
+    return response.json();
+  },
+
+  // Delete a chat and all its messages
+  deleteChat: async (chatId: string) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CHATS.DELETE(chatId), {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete chat');
+    }
+    return response.json();
+  },
+
+  // Create WebSocket connection
+  createWebSocketConnection: (chatId: string, onMessage: (message: unknown) => void) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const wsUrl = `ws://localhost:8080/chats/${chatId}/ws`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('WebSocket connected to chat', chatId);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        onMessage(message);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected from chat', chatId);
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
+    return ws;
+  },
+};
+
+// Recommendations API functions
+export const recommendationsApi = {
+  // Get recommendations for the current user
+  getRecommendations: async () => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.RECOMMENDATIONS.GET_ALL);
+    if (!response.ok) {
+      throw new Error('Failed to fetch recommendations');
+    }
+    return response.json();
+  },
+
+  // Like a recommendation (send connection request)
+  likeRecommendation: async (userId: string) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.RECOMMENDATIONS.LIKE(userId), {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to like recommendation');
+    }
+    return response.json();
+  },
+
+  // Dismiss a recommendation
+  dismissRecommendation: async (userId: string) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.RECOMMENDATIONS.DISMISS(userId), {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to dismiss recommendation');
+    }
+    return response.json();
   },
 };
 

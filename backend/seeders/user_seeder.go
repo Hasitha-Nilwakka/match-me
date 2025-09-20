@@ -14,17 +14,24 @@ import (
 // SampleData contains arrays of sample data for generating users
 var (
 	firstNames = []string{
-		"Alex", "Jordan", "Taylor", "Casey", "Morgan", "Riley", "Avery", "Quinn",
-		"Blake", "Cameron", "Drew", "Jamie", "Kendall", "Logan", "Parker", "Reese",
-		"Sage", "Skyler", "Rowan", "Emery", "Finley", "Hayden", "Peyton", "River",
-		"Dakota", "Phoenix", "Justice", "Marlowe", "Remy", "Charlie", "Frankie", "Jules",
+		// Traditional Finnish names
+		"Aino", "Eero", "Elina", "Jari", "Kaisa", "Mikael", "Noora", "Oskari",
+		"Sanna", "Tuomas", "Veera", "Ville", "Aada", "Aleksi", "Emilia", "Henri",
+		"Iida", "Joona", "Liisa", "Matias", "Nea", "Otto", "Pinja", "Roni",
+		"Saga", "Timo", "Venla", "Väinö", "Aura", "Eemil", "Helmi", "Ilmari",
+		"Kerttu", "Leevi", "Mira", "Niilo", "Oona", "Paavo", "Ronja", "Sampo",
+		"Taika", "Urho", "Vilja", "Yrjö", "Aarne", "Elsa", "Hannu", "Iiris",
+		"Jenna", "Kalle", "Laura", "Matti", "Nina", "Onni", "Petra", "Raimo",
 	}
 
 	lastNames = []string{
-		"Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-		"Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas",
-		"Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
-		"Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young",
+		// Common Finnish surnames
+		"Virtanen", "Korhonen", "Mäkinen", "Nieminen", "Mäkelä", "Hämäläinen", "Laine", "Heikkinen",
+		"Koskinen", "Järvinen", "Lehtonen", "Lehtinen", "Saarinen", "Salminen", "Heinonen", "Niemi",
+		"Heikkilä", "Kinnunen", "Salonen", "Turunen", "Salo", "Laitinen", "Tuominen", "Lehto",
+		"Rantanen", "Takala", "Virolainen", "Mattila", "Nurminen", "Kallio", "Pitkänen", "Hakkarainen",
+		"Laaksonen", "Ahonen", "Aho", "Hiltunen", "Rautiainen", "Miettinen", "Kärkkäinen", "Jokinen",
+		"Väisänen", "Toivonen", "Halonen", "Karjalainen", "Manninen", "Lindström", "Savolainen", "Rajala",
 	}
 
 	genders = []string{"male", "female", "non-binary", "other"}
@@ -33,30 +40,95 @@ var (
 
 	relationshipStatuses = []string{"looking for relationship", "looking for friends", "casual dating", "serious relationship"}
 
-	cities = []string{
-		"New York", "Los Angeles", "Chicago", "Houston", "Phoenix", "Philadelphia",
-		"San Antonio", "San Diego", "Dallas", "San Jose", "Austin", "Jacksonville",
-		"Fort Worth", "Columbus", "Charlotte", "San Francisco", "Indianapolis", "Seattle",
-		"Denver", "Washington", "Boston", "Nashville", "Baltimore", "Oklahoma City",
+	// Finnish municipalities with coordinates for distance testing
+	finnishCities = []struct {
+		Name      string
+		Latitude  float64
+		Longitude float64
+	}{
+		// Major cities
+		{"Helsinki", 60.1699, 24.9384},
+		{"Espoo", 60.2055, 24.6559},
+		{"Tampere", 61.4991, 23.7871},
+		{"Vantaa", 60.2946, 25.0407},
+		{"Oulu", 65.0121, 25.4651},
+		{"Turku", 60.4518, 22.2666},
+		{"Jyväskylä", 62.2426, 25.7473},
+		{"Lahti", 60.9827, 25.6612},
+		{"Kuopio", 62.8924, 27.6783},
+		{"Pori", 61.4851, 21.7974},
+
+		// Medium cities
+		{"Kouvola", 60.8681, 26.7042},
+		{"Joensuu", 62.6010, 29.7636},
+		{"Lappeenranta", 61.0587, 28.1887},
+		{"Hämeenlinna", 60.9963, 24.4641},
+		{"Vaasa", 63.0951, 21.6165},
+		{"Seinäjoki", 62.7903, 22.8404},
+		{"Rovaniemi", 66.5039, 25.7294},
+		{"Mikkeli", 61.6884, 27.2722},
+		{"Kotka", 60.4664, 26.9458},
+		{"Salo", 60.3836, 23.1303},
+
+		// Smaller municipalities
+		{"Porvoo", 60.3963, 25.6652},
+		{"Lohja", 60.2487, 24.0662},
+		{"Hyvinkää", 60.6299, 24.8615},
+		{"Nurmijärvi", 60.4638, 24.8067},
+		{"Järvenpää", 60.4739, 25.0897},
+		{"Kirkkonummi", 60.1225, 24.4358},
+		{"Kerava", 60.4044, 25.1050},
+		{"Tuusula", 60.4033, 25.0265},
+		{"Sipoo", 60.3738, 25.2697},
+		{"Vihti", 60.4178, 24.3199},
+
+		// Northern municipalities
+		{"Tornio", 65.8481, 24.1462},
+		{"Kemi", 65.7362, 24.5662},
+		{"Kajaani", 64.2278, 27.7285},
+		{"Ylivieska", 64.0736, 24.5410},
+		{"Raahe", 64.6831, 24.4776},
+		{"Iisalmi", 63.5589, 27.1907},
+		{"Savonlinna", 61.8671, 28.8814},
+		{"Varkaus", 62.3147, 27.8739},
+		{"Pieksämäki", 62.3056, 27.1614},
+		{"Heinola", 61.2058, 26.0378},
+
+		// Western municipalities
+		{"Rauma", 61.1274, 21.5103},
+		{"Kankaanpää", 61.8014, 22.3938},
+		{"Parkano", 62.0093, 23.0276},
+		{"Ähtäri", 62.5503, 24.0603},
+		{"Alajärvi", 63.0003, 23.8167},
+		{"Lapua", 62.9694, 23.0064},
+		{"Kurikka", 62.6167, 22.4167},
+		{"Ilmajoki", 62.7333, 22.5833},
+		{"Kauhava", 63.1000, 23.0500},
+		{"Alavus", 62.5833, 23.6167},
 	}
 
-	countries = []string{"United States", "Canada", "United Kingdom", "Australia", "Germany", "France"}
+	countries = []string{"Finland"}
 
 	ethnicities = []string{"Caucasian", "Hispanic", "African American", "Asian", "Native American", "Mixed", "Other", "Prefer not to say"}
 
 	religions = []string{"Christian", "Muslim", "Jewish", "Hindu", "Buddhist", "Atheist", "Agnostic", "Other", "Prefer not to say"}
 
 	bioTemplates = []string{
-		"Love to travel and explore new places. Always up for an adventure!",
-		"Passionate about fitness and healthy living. Looking for someone who shares similar values.",
-		"Book lover and coffee enthusiast. Let's discuss our favorite novels over a latte.",
-		"Outdoor enthusiast who enjoys hiking, camping, and nature photography.",
-		"Foodie who loves trying new restaurants and cooking at home.",
-		"Music lover with a passion for live concerts and discovering new artists.",
-		"Tech professional who enjoys solving problems and building cool things.",
-		"Artist at heart with a love for creativity and self-expression.",
-		"Sports fan who never misses a game. Looking for a teammate in life.",
-		"Dog lover seeking someone who appreciates furry companions.",
+		"Rakastan matkustamista ja uusien paikkojen tutkimista. Aina valmis seikkailuun!",
+		"Kahvi-intoilija ja kirjojen ystävä. Etsin merkityksellisiä yhteyksiä.",
+		"Liikunta-aktiivinen, joka nauttii vaelluksesta ja ulkoilusta.",
+		"Luova sielu, jolla on intohimo taiteeseen ja musiikkiin.",
+		"Ruokakulttuurin ystävä, joka rakastaa uusien ravintoloiden kokeilua.",
+		"Tekniikan ammattilainen, joka nauttii pelaamisesta ja sci-fi elokuvista.",
+		"Luonnon ystävä, joka viettää viikonloput retkeillen ja kalastellen.",
+		"Musiikin ystävä, joka soittaa kitaraa ja nauttii live-konserteista.",
+		"Koiran ystävä ja vapaaehtoinen paikallisessa eläinsuojassa.",
+		"Valokuvaaja, joka ikuistaa elämän kauniita hetkiä.",
+		"Sauna-entusiasti ja mökkeilijä, joka arvostaa suomalaisia perinteitä.",
+		"Hiihtäjä ja luistelija, joka odottaa talvea innolla.",
+		"Marjastaija ja sienestäjä, joka viihtyy metsässä.",
+		"Järven rannalla asuva, joka rakastaa uimista ja soutelua.",
+		"Festivaalien kävijä, joka nauttii musiikista ja kulttuurista.",
 	}
 )
 
@@ -103,17 +175,21 @@ func GenerateRandomUser(index int) (*models.User, *models.Profile, *models.Locat
 		Religion:           &religion,
 	}
 
-	// Create location
-	city := cities[rand.Intn(len(cities))]
-	country := countries[rand.Intn(len(countries))]
+	// Create location with Finnish municipality
+	cityData := finnishCities[rand.Intn(len(finnishCities))]
+	country := countries[0] // Always Finland
 
-	// Generate random coordinates (rough US bounds)
-	latitude := 25.0 + rand.Float64()*(49.0-25.0) // Between 25-49 latitude
-	longitude := -125.0 + rand.Float64()*(66.0)   // Between -125 to -66 longitude
-	radiusKm := 25 + rand.Intn(75)                // Between 25-100 km
+	// Use actual Finnish coordinates with some random variation
+	baseLatitude := cityData.Latitude
+	baseLongitude := cityData.Longitude
+
+	// Add small random variation (±0.1 degrees ≈ ±11km) to simulate neighborhoods
+	latitude := baseLatitude + (rand.Float64()-0.5)*0.2
+	longitude := baseLongitude + (rand.Float64()-0.5)*0.2
+	radiusKm := 25 + rand.Intn(75) // Between 25-100 km search radius
 
 	location := &models.Location{
-		City:               &city,
+		City:               &cityData.Name,
 		Country:            &country,
 		Latitude:           &latitude,
 		Longitude:          &longitude,

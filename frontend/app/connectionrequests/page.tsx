@@ -192,16 +192,6 @@ export default function ConnectionRequestsPage() {
                 >
                   Connection Requests
                 </button>
-                <button
-                  onClick={() => handleNavigation("chat")}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "chat"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Chat
-                </button>
               </div>
             </div>
 
@@ -286,16 +276,6 @@ export default function ConnectionRequestsPage() {
               }`}
             >
               Connection Requests
-            </button>
-            <button
-              onClick={() => handleNavigation("chat")}
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "chat"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              Chat
             </button>
           </div>
         </div>

@@ -281,16 +281,6 @@ export default function ConnectionListPage() {
             >
               Connection Requests
             </Link>
-            <button
-              onClick={() => handleNavigation("chat")}
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "chat"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              Chat
-            </button>
           </div>
         </div>
       </nav>

@@ -3,7 +3,34 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, profileApi } from "../../lib/api";
+import { authApi, profileApi, recommendationsApi } from "../../lib/api";
+
+interface Recommendation {
+  id: number;
+  score: number;
+  userInfo?: {
+    id: number;
+    createdAt: string;
+    updatedAt: string;
+    isActive: boolean;
+  };
+  profile?: {
+    firstName: string;
+    lastName: string;
+    aboutMe?: string;
+    gender?: string;
+    status?: string;
+  };
+  bio?: {
+    interests: string[];
+    hobbies: string[];
+    musicGenres: string[];
+    movieGenres: string[];
+    foodPreferences: string[];
+    travelTypes: string[];
+    languages: string[];
+  };
+}
 
 export default function FrontPage() {
   const router = useRouter();
@@ -15,6 +42,9 @@ export default function FrontPage() {
     lastName: '',
     email: '',
   });
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [currentRecommendationIndex, setCurrentRecommendationIndex] = useState(0);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
 
   // Check authentication on page load
   useEffect(() => {
@@ -23,6 +53,7 @@ export default function FrontPage() {
     } else {
       setIsAuthenticated(true);
       loadUserProfile();
+      loadRecommendations();
     }
   }, [router]);
 
@@ -52,6 +83,103 @@ export default function FrontPage() {
       console.error('Error loading user profile:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+
+  // Load recommendations
+  const loadRecommendations = async () => {
+    try {
+      setIsLoadingRecommendations(true);
+      const recData = await recommendationsApi.getRecommendations();
+      
+      // Get detailed user info for each recommendation
+      const detailedRecs = await Promise.all(
+        recData.recommendations.map(async (rec: {id: number; score: number}) => {
+          try {
+            const [userInfo, userProfile, userBio] = await Promise.all([
+              fetch(`http://localhost:8080/users/${rec.id}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+              }).then(r => r.json()),
+              fetch(`http://localhost:8080/users/${rec.id}/profile`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+              }).then(r => r.json()),
+              fetch(`http://localhost:8080/users/${rec.id}/bio`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+              }).then(r => r.json())
+            ]);
+            
+            return {
+              ...rec,
+              userInfo,
+              profile: userProfile,
+              bio: userBio
+            };
+          } catch (error) {
+            console.error(`Error loading details for user ${rec.id}:`, error);
+            return rec;
+          }
+        })
+      );
+      
+      setRecommendations(detailedRecs);
+      setCurrentRecommendationIndex(0);
+    } catch (error) {
+      console.error('Error loading recommendations:', error);
+      // Keep empty array if loading fails
+    } finally {
+      setIsLoadingRecommendations(false);
+    }
+  };
+
+  // Handle like/connect button
+  const handleLike = async () => {
+    const currentRec = recommendations[currentRecommendationIndex];
+    if (!currentRec) return;
+
+    try {
+      await recommendationsApi.likeRecommendation(currentRec.id.toString());
+      console.log('Liked user:', currentRec.id);
+      
+      // Move to next recommendation
+      handleNext();
+    } catch (error) {
+      console.error('Error liking recommendation:', error);
+      alert('Failed to send connection request. Please try again.');
+    }
+  };
+
+  // Handle dismiss button
+  const handleDismiss = async () => {
+    const currentRec = recommendations[currentRecommendationIndex];
+    if (!currentRec) return;
+
+    try {
+      await recommendationsApi.dismissRecommendation(currentRec.id.toString());
+      console.log('Dismissed user:', currentRec.id);
+      
+      // Move to next recommendation
+      handleNext();
+    } catch (error) {
+      console.error('Error dismissing recommendation:', error);
+      alert('Failed to dismiss recommendation. Please try again.');
+    }
+  };
+
+  // Navigate to next recommendation
+  const handleNext = () => {
+    if (currentRecommendationIndex < recommendations.length - 1) {
+      setCurrentRecommendationIndex(prev => prev + 1);
+    } else {
+      // Load more recommendations or show end message
+      loadRecommendations();
+    }
+  };
+
+  // Navigate to previous recommendation
+  const handlePrevious = () => {
+    if (currentRecommendationIndex > 0) {
+      setCurrentRecommendationIndex(prev => prev - 1);
     }
   };
 
@@ -141,16 +269,6 @@ export default function FrontPage() {
                 >
                   Connection Requests
                 </Link>
-                <button
-                  onClick={() => handleNavigation("chat")}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "chat"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Chat
-                </button>
               </div>
             </div>
 
@@ -262,6 +380,12 @@ export default function FrontPage() {
             <p className="text-lg text-gray-600">
               Discover potential matches based on your preferences
             </p>
+            {isLoadingRecommendations && (
+              <div className="flex items-center justify-center mt-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
+                <span className="text-gray-600">Loading recommendations...</span>
+              </div>
+            )}
           </div>
 
           {/* Recommendation Card */}
@@ -291,96 +415,151 @@ export default function FrontPage() {
             {/* Profile Info */}
             <div className="p-8">
               <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                  {userProfile.firstName && userProfile.lastName 
-                    ? `${userProfile.firstName} ${userProfile.lastName}` 
-                    : 'Welcome to Match-Me!'
-                  }
-                </h2>
-                <p className="text-gray-600 mb-1">
-                  {userProfile.firstName && userProfile.lastName 
-                    ? 'Complete your profile to see recommendations' 
-                    : 'Complete your profile to get started'
-                  }
-                </p>
-                <p className="text-gray-500 text-sm">{userProfile.email}</p>
+                {recommendations.length > 0 && recommendations[currentRecommendationIndex] ? (
+                  <>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                      {recommendations[currentRecommendationIndex].profile?.firstName} {recommendations[currentRecommendationIndex].profile?.lastName}
+                    </h2>
+                    <p className="text-gray-600 mb-1">
+                      {recommendations[currentRecommendationIndex].profile?.aboutMe || 'No bio available'}
+                    </p>
+                    <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">
+                      {recommendations[currentRecommendationIndex].profile?.gender && (
+                        <span>{recommendations[currentRecommendationIndex].profile.gender}</span>
+                      )}
+                      {recommendations[currentRecommendationIndex].profile?.status && (
+                        <span>• {recommendations[currentRecommendationIndex].profile.status}</span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                      {userProfile.firstName && userProfile.lastName 
+                        ? `Welcome ${userProfile.firstName}!` 
+                        : 'Welcome to Match-Me!'
+                      }
+                    </h2>
+                    <p className="text-gray-600 mb-1">
+                      {recommendations.length === 0 && !isLoadingRecommendations
+                        ? 'No recommendations available. Complete your profile to get matches!'
+                        : 'Complete your profile to see recommendations'
+                      }
+                    </p>
+                    <p className="text-gray-500 text-sm">{userProfile.email}</p>
+                  </>
+                )}
               </div>
 
               {/* Top 5 Match Criteria */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Why you might match:</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between bg-green-50 rounded-lg p-3">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                        </svg>
+              {(() => {
+                const currentRec = recommendations[currentRecommendationIndex];
+                if (!currentRec || currentRecommendationIndex >= recommendations.length) return null;
+                
+                return (
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Why you might match:</h3>
+                    <div className="space-y-3">
+                    {/* Overall Match Score */}
+                    <div className="flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-3 border-2 border-green-200">
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center mr-3">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <span className="text-gray-800 font-medium">Overall Match Score</span>
                       </div>
-                      <span className="text-gray-800 font-medium">Shared Interest: Technology</span>
+                      <span className="text-green-600 font-bold text-lg">
+                        {Math.round(currentRec.score || 85)}%
+                      </span>
                     </div>
-                    <span className="text-green-600 font-semibold">95%</span>
-                  </div>
 
-                  <div className="flex items-center justify-between bg-blue-50 rounded-lg p-3">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                        </svg>
+                    {/* Shared Interests */}
+                    {currentRec.bio?.interests && currentRec.bio.interests.length > 0 && (
+                      <div className="flex items-center justify-between bg-blue-50 rounded-lg p-3">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <span className="text-gray-800 font-medium">
+                            Shared Interest: {currentRec.bio?.interests?.[0]}
+                          </span>
+                        </div>
+                        <span className="text-blue-600 font-semibold">95%</span>
                       </div>
-                      <span className="text-gray-800 font-medium">Music Preference: Rock</span>
-                    </div>
-                    <span className="text-blue-600 font-semibold">88%</span>
-                  </div>
+                    )}
 
-                  <div className="flex items-center justify-between bg-purple-50 rounded-lg p-3">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                        </svg>
+                    {/* Shared Hobbies */}
+                    {currentRec.bio?.hobbies && currentRec.bio.hobbies.length > 0 && (
+                      <div className="flex items-center justify-between bg-purple-50 rounded-lg p-3">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <span className="text-gray-800 font-medium">
+                            Shared Hobby: {currentRec.bio?.hobbies?.[0]}
+                          </span>
+                        </div>
+                        <span className="text-purple-600 font-semibold">88%</span>
                       </div>
-                      <span className="text-gray-800 font-medium">Travel: Adventure</span>
-                    </div>
-                    <span className="text-purple-600 font-semibold">82%</span>
-                  </div>
+                    )}
 
-                  <div className="flex items-center justify-between bg-orange-50 rounded-lg p-3">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                        </svg>
+                    {/* Music Compatibility */}
+                    {currentRec.bio?.musicGenres && currentRec.bio.musicGenres.length > 0 && (
+                      <div className="flex items-center justify-between bg-orange-50 rounded-lg p-3">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <span className="text-gray-800 font-medium">
+                            Music: {currentRec.bio?.musicGenres?.[0]}
+                          </span>
+                        </div>
+                        <span className="text-orange-600 font-semibold">82%</span>
                       </div>
-                      <span className="text-gray-800 font-medium">Hobby: Photography</span>
-                    </div>
-                    <span className="text-orange-600 font-semibold">76%</span>
-                  </div>
+                    )}
 
-                  <div className="flex items-center justify-between bg-pink-50 rounded-lg p-3">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center mr-3">
-                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                        </svg>
+                    {/* Location Compatibility */}
+                    <div className="flex items-center justify-between bg-pink-50 rounded-lg p-3">
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center mr-3">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <span className="text-gray-800 font-medium">Location Compatibility</span>
                       </div>
-                      <span className="text-gray-800 font-medium">Food: Italian</span>
+                      <span className="text-pink-600 font-semibold">90%</span>
                     </div>
-                    <span className="text-pink-600 font-semibold">71%</span>
                   </div>
-                </div>
-              </div>
+                  </div>
+                );
+              })()}
 
               {/* Action Buttons */}
               <div className="flex space-x-4 mb-6">
-                <button className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center">
+                <button 
+                  onClick={handleLike}
+                  disabled={recommendations.length === 0}
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
+                >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                   Connect
                 </button>
-                <button className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center">
+                <button 
+                  onClick={handleDismiss}
+                  disabled={recommendations.length === 0}
+                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
+                >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -388,17 +567,29 @@ export default function FrontPage() {
                 </button>
               </div>
 
-              {/* View Full Profile Button */}
-              <Link 
-                href="/profile"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition mb-6 inline-block text-center"
+              {/* View Profile Button */}
+              <button
+                onClick={() => {
+                  const currentRec = recommendations[currentRecommendationIndex];
+                  if (currentRec) {
+                    // TODO: Navigate to user profile page when implemented
+                    // router.push(`/users/${currentRec.id}`);
+                    console.log(`Would view profile for user ${currentRec.id}`);
+                    alert(`Profile viewing for user ${currentRec.id} will be implemented soon!`);
+                  }
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition mb-6"
               >
-                {userProfile.firstName && userProfile.lastName ? 'Edit Profile' : 'Complete Profile'}
-              </Link>
+                View Full Profile
+              </button>
 
               {/* Navigation Controls */}
               <div className="flex justify-between items-center">
-                <button className="flex items-center text-gray-600 hover:text-gray-800 transition">
+                <button 
+                  onClick={handlePrevious}
+                  disabled={currentRecommendationIndex === 0}
+                  className="flex items-center text-gray-600 hover:text-gray-800 disabled:text-gray-400 transition"
+                >
                   <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                   </svg>
@@ -407,10 +598,16 @@ export default function FrontPage() {
                 
                 <div className="text-center">
                   <div className="text-sm text-gray-500">Recommendation</div>
-                  <div className="font-semibold text-gray-800">1 of 12</div>
+                  <div className="font-semibold text-gray-800">
+                    {recommendations.length > 0 ? `${currentRecommendationIndex + 1} of ${recommendations.length}` : '0 of 0'}
+                  </div>
                 </div>
                 
-                <button className="flex items-center text-gray-600 hover:text-gray-800 transition">
+                <button 
+                  onClick={handleNext}
+                  disabled={currentRecommendationIndex >= recommendations.length - 1}
+                  className="flex items-center text-gray-600 hover:text-gray-800 disabled:text-gray-400 transition"
+                >
                   Next
                   <svg className="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
@@ -421,6 +618,7 @@ export default function FrontPage() {
           </div>
         </div>
       </main>
+
     </div>
   );
 }

@@ -24,11 +24,11 @@ var upgrader = websocket.Upgrader{
 
 // Client represents a WebSocket client
 type Client struct {
-	Hub      *Hub
-	Conn     *websocket.Conn
-	Send     chan []byte
-	UserID   uint
-	ChatID   uint
+	Hub    *Hub
+	Conn   *websocket.Conn
+	Send   chan []byte
+	UserID uint
+	ChatID uint
 }
 
 // Hub maintains the set of active clients and broadcasts messages
@@ -41,45 +41,45 @@ type Hub struct {
 
 // Message represents a chat message
 type Message struct {
-	ID        uint      `json:"id"`
-	ChatID    uint      `json:"chatId"`
-	SenderID  uint      `json:"senderId"`
-	Content   string    `json:"content"`
-	IsRead    bool      `json:"isRead"`
-	CreatedAt time.Time `json:"createdAt"`
-	SenderName string   `json:"senderName,omitempty"`
+	ID         uint      `json:"id"`
+	ChatID     uint      `json:"chatId"`
+	SenderID   uint      `json:"senderId"`
+	Content    string    `json:"content"`
+	IsRead     bool      `json:"isRead"`
+	CreatedAt  time.Time `json:"createdAt"`
+	SenderName string    `json:"senderName,omitempty"`
 }
 
 // ChatMessage represents a message in the API response
 type ChatMessage struct {
-	ID        uint      `json:"id"`
-	ChatID    uint      `json:"chatId"`
-	SenderID  uint      `json:"senderId"`
-	Content   string    `json:"content"`
-	IsRead    bool      `json:"isRead"`
-	CreatedAt time.Time `json:"createdAt"`
-	SenderName string   `json:"senderName,omitempty"`
+	ID         uint      `json:"id"`
+	ChatID     uint      `json:"chatId"`
+	SenderID   uint      `json:"senderId"`
+	Content    string    `json:"content"`
+	IsRead     bool      `json:"isRead"`
+	CreatedAt  time.Time `json:"createdAt"`
+	SenderName string    `json:"senderName,omitempty"`
 }
 
 // ChatResponse represents a chat in the API response
 type ChatResponse struct {
-	ID           uint        `json:"id"`
-	ConnectionID uint        `json:"connectionId"`
-	CreatedAt    time.Time   `json:"createdAt"`
-	UpdatedAt    time.Time   `json:"updatedAt"`
+	ID           uint          `json:"id"`
+	ConnectionID uint          `json:"connectionId"`
+	CreatedAt    time.Time     `json:"createdAt"`
+	UpdatedAt    time.Time     `json:"updatedAt"`
 	Messages     []ChatMessage `json:"messages,omitempty"`
-	UnreadCount  int         `json:"unreadCount"`
-	LastMessage  *ChatMessage `json:"lastMessage,omitempty"`
-	OtherUser    *UserInfo   `json:"otherUser,omitempty"`
+	UnreadCount  int           `json:"unreadCount"`
+	LastMessage  *ChatMessage  `json:"lastMessage,omitempty"`
+	OtherUser    *UserInfo     `json:"otherUser,omitempty"`
 }
 
 // UserInfo represents basic user information in chat context
 type UserInfo struct {
-	ID               uint   `json:"id"`
-	Name             string `json:"name"`
-	ProfilePicture   string `json:"profilePicture"`
-	IsOnline         bool   `json:"isOnline"`
-	LastSeen         *time.Time `json:"lastSeen,omitempty"`
+	ID             uint       `json:"id"`
+	Name           string     `json:"name"`
+	ProfilePicture string     `json:"profilePicture"`
+	IsOnline       bool       `json:"isOnline"`
+	LastSeen       *time.Time `json:"lastSeen,omitempty"`
 }
 
 // NewHub creates a new WebSocket hub
@@ -126,14 +126,14 @@ func (c *Client) readPump() {
 		c.Hub.unregister <- c
 		c.Conn.Close()
 	}()
-	
+
 	c.Conn.SetReadLimit(512)
 	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	c.Conn.SetPongHandler(func(string) error {
 		c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
-	
+
 	for {
 		_, _, err := c.Conn.ReadMessage()
 		if err != nil {
@@ -152,7 +152,7 @@ func (c *Client) writePump() {
 		ticker.Stop()
 		c.Conn.Close()
 	}()
-	
+
 	for {
 		select {
 		case message, ok := <-c.Send:
@@ -161,24 +161,24 @@ func (c *Client) writePump() {
 				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			
+
 			w, err := c.Conn.NextWriter(websocket.TextMessage)
 			if err != nil {
 				return
 			}
 			w.Write(message)
-			
+
 			// Add queued chat messages to the current websocket message
 			n := len(c.Send)
 			for i := 0; i < n; i++ {
 				w.Write([]byte{'\n'})
 				w.Write(<-c.Send)
 			}
-			
+
 			if err := w.Close(); err != nil {
 				return
 			}
-			
+
 		case <-ticker.C:
 			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -195,7 +195,7 @@ func serveWS(hub *Hub, w http.ResponseWriter, r *http.Request, userID uint, chat
 		log.Printf("WebSocket upgrade error: %v", err)
 		return
 	}
-	
+
 	client := &Client{
 		Hub:    hub,
 		Conn:   conn,
@@ -203,9 +203,9 @@ func serveWS(hub *Hub, w http.ResponseWriter, r *http.Request, userID uint, chat
 		UserID: userID,
 		ChatID: chatID,
 	}
-	
+
 	client.Hub.register <- client
-	
+
 	go client.writePump()
 	go client.readPump()
 }
@@ -218,33 +218,33 @@ func WebSocketHandler(hub *Hub) gin.HandlerFunc {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
 			return
 		}
-		
+
 		chatIDStr := c.Param("chatId")
 		chatID, err := strconv.ParseUint(chatIDStr, 10, 32)
 		if err != nil {
 			c.JSON(400, gin.H{"error": "Invalid chat ID"})
 			return
 		}
-		
+
 		// Verify user has access to this chat
 		var chat models.Chat
 		if err := db.DB.Preload("Connection").Where("id = ?", uint(chatID)).First(&chat).Error; err != nil {
 			c.JSON(404, gin.H{"error": "Chat not found"})
 			return
 		}
-		
+
 		// Check if user is part of this connection
 		if chat.Connection.RequesterID != userID && chat.Connection.ReceiverID != userID {
 			c.JSON(403, gin.H{"error": "Access denied to this chat"})
 			return
 		}
-		
+
 		// Check if connection is accepted
 		if chat.Connection.Status != "accepted" {
 			c.JSON(403, gin.H{"error": "Chat is not available"})
 			return
 		}
-		
+
 		serveWS(hub, c.Writer, c.Request, userID, uint(chatID))
 	}
 }
@@ -256,7 +256,7 @@ func GetChatsHandler(c *gin.Context) {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
-	
+
 	// Get all chats where user is part of the connection
 	var chats []models.Chat
 	if err := db.DB.Preload("Connection.Requester.Profile").
@@ -272,7 +272,7 @@ func GetChatsHandler(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Failed to fetch chats"})
 		return
 	}
-	
+
 	// Build response
 	var chatResponses []ChatResponse
 	for _, chat := range chats {
@@ -282,7 +282,7 @@ func GetChatsHandler(c *gin.Context) {
 			CreatedAt:    chat.CreatedAt,
 			UpdatedAt:    chat.UpdatedAt,
 		}
-		
+
 		// Determine the other user
 		var otherUser *models.User
 		if chat.Connection.RequesterID == userID {
@@ -290,7 +290,7 @@ func GetChatsHandler(c *gin.Context) {
 		} else {
 			otherUser = &chat.Connection.Requester
 		}
-		
+
 		// Add other user info
 		if otherUser.Profile != nil {
 			response.OtherUser = &UserInfo{
@@ -299,7 +299,7 @@ func GetChatsHandler(c *gin.Context) {
 				ProfilePicture: otherUser.Profile.ProfilePictureURL,
 			}
 		}
-		
+
 		// Add last message if exists
 		if len(chat.Messages) > 0 {
 			lastMsg := chat.Messages[0]
@@ -312,17 +312,17 @@ func GetChatsHandler(c *gin.Context) {
 				CreatedAt: lastMsg.CreatedAt,
 			}
 		}
-		
+
 		// Calculate unread count
 		var unreadCount int64
 		db.DB.Model(&models.Message{}).
 			Where("chat_id = ? AND sender_id != ? AND is_read = ?", chat.ID, userID, false).
 			Count(&unreadCount)
 		response.UnreadCount = int(unreadCount)
-		
+
 		chatResponses = append(chatResponses, response)
 	}
-	
+
 	c.JSON(200, gin.H{
 		"chats": chatResponses,
 		"total": len(chatResponses),
@@ -336,27 +336,27 @@ func GetChatMessagesHandler(c *gin.Context) {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
-	
+
 	chatIDStr := c.Param("chatId")
 	chatID, err := strconv.ParseUint(chatIDStr, 10, 32)
 	if err != nil {
 		c.JSON(400, gin.H{"error": "Invalid chat ID"})
 		return
 	}
-	
+
 	// Verify user has access to this chat
 	var chat models.Chat
 	if err := db.DB.Preload("Connection").Where("id = ?", uint(chatID)).First(&chat).Error; err != nil {
 		c.JSON(404, gin.H{"error": "Chat not found"})
 		return
 	}
-	
+
 	// Check if user is part of this connection
 	if chat.Connection.RequesterID != userID && chat.Connection.ReceiverID != userID {
 		c.JSON(403, gin.H{"error": "Access denied to this chat"})
 		return
 	}
-	
+
 	// Get pagination parameters
 	limit := 20
 	if limitStr := c.Query("limit"); limitStr != "" {
@@ -364,14 +364,14 @@ func GetChatMessagesHandler(c *gin.Context) {
 			limit = l
 		}
 	}
-	
+
 	offset := 0
 	if offsetStr := c.Query("offset"); offsetStr != "" {
 		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
 			offset = o
 		}
 	}
-	
+
 	// Get messages
 	var messages []models.Message
 	if err := db.DB.Preload("Sender.Profile").
@@ -383,7 +383,7 @@ func GetChatMessagesHandler(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Failed to fetch messages"})
 		return
 	}
-	
+
 	// Build response
 	var messageResponses []ChatMessage
 	for _, msg := range messages {
@@ -395,15 +395,15 @@ func GetChatMessagesHandler(c *gin.Context) {
 			IsRead:    msg.IsRead,
 			CreatedAt: msg.CreatedAt,
 		}
-		
+
 		// Add sender name
 		if msg.Sender.Profile != nil {
 			response.SenderName = msg.Sender.Profile.FirstName + " " + msg.Sender.Profile.LastName
 		}
-		
+
 		messageResponses = append(messageResponses, response)
 	}
-	
+
 	c.JSON(200, gin.H{
 		"messages": messageResponses,
 		"total":    len(messageResponses),
@@ -420,14 +420,14 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
 			return
 		}
-		
+
 		chatIDStr := c.Param("chatId")
 		chatID, err := strconv.ParseUint(chatIDStr, 10, 32)
 		if err != nil {
 			c.JSON(400, gin.H{"error": "Invalid chat ID"})
 			return
 		}
-		
+
 		// Parse request body
 		var req struct {
 			Content string `json:"content" binding:"required"`
@@ -436,32 +436,32 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 			c.JSON(400, gin.H{"error": "Invalid request body"})
 			return
 		}
-		
+
 		// Validate message content
 		if len(req.Content) == 0 || len(req.Content) > 1000 {
 			c.JSON(400, gin.H{"error": "Message content must be between 1 and 1000 characters"})
 			return
 		}
-		
+
 		// Verify user has access to this chat
 		var chat models.Chat
 		if err := db.DB.Preload("Connection").Where("id = ?", uint(chatID)).First(&chat).Error; err != nil {
 			c.JSON(404, gin.H{"error": "Chat not found"})
 			return
 		}
-		
+
 		// Check if user is part of this connection
 		if chat.Connection.RequesterID != userID && chat.Connection.ReceiverID != userID {
 			c.JSON(403, gin.H{"error": "Access denied to this chat"})
 			return
 		}
-		
+
 		// Check if connection is accepted
 		if chat.Connection.Status != "accepted" {
 			c.JSON(403, gin.H{"error": "Chat is not available"})
 			return
 		}
-		
+
 		// Create message
 		message := models.Message{
 			ChatID:   uint(chatID),
@@ -469,19 +469,19 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 			Content:  req.Content,
 			IsRead:   false,
 		}
-		
+
 		if err := db.DB.Create(&message).Error; err != nil {
 			c.JSON(500, gin.H{"error": "Failed to send message"})
 			return
 		}
-		
+
 		// Update chat's updated_at timestamp
 		db.DB.Model(&chat).Update("updated_at", time.Now())
-		
+
 		// Get sender info for WebSocket broadcast
 		var sender models.User
 		db.DB.Preload("Profile").First(&sender, userID)
-		
+
 		// Prepare message for WebSocket broadcast
 		messageResponse := ChatMessage{
 			ID:        message.ID,
@@ -491,15 +491,15 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 			IsRead:    message.IsRead,
 			CreatedAt: message.CreatedAt,
 		}
-		
+
 		if sender.Profile != nil {
 			messageResponse.SenderName = sender.Profile.FirstName + " " + sender.Profile.LastName
 		}
-		
+
 		// Broadcast message to WebSocket clients in this chat
 		messageBytes, _ := json.Marshal(messageResponse)
 		hub.broadcast <- messageBytes
-		
+
 		c.JSON(201, gin.H{
 			"message": "Message sent successfully",
 			"data":    messageResponse,
@@ -514,27 +514,27 @@ func MarkMessagesAsReadHandler(c *gin.Context) {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
-	
+
 	chatIDStr := c.Param("chatId")
 	chatID, err := strconv.ParseUint(chatIDStr, 10, 32)
 	if err != nil {
 		c.JSON(400, gin.H{"error": "Invalid chat ID"})
 		return
 	}
-	
+
 	// Verify user has access to this chat
 	var chat models.Chat
 	if err := db.DB.Preload("Connection").Where("id = ?", uint(chatID)).First(&chat).Error; err != nil {
 		c.JSON(404, gin.H{"error": "Chat not found"})
 		return
 	}
-	
+
 	// Check if user is part of this connection
 	if chat.Connection.RequesterID != userID && chat.Connection.ReceiverID != userID {
 		c.JSON(403, gin.H{"error": "Access denied to this chat"})
 		return
 	}
-	
+
 	// Mark all unread messages as read
 	if err := db.DB.Model(&models.Message{}).
 		Where("chat_id = ? AND sender_id != ? AND is_read = ?", uint(chatID), userID, false).
@@ -542,8 +542,53 @@ func MarkMessagesAsReadHandler(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Failed to mark messages as read"})
 		return
 	}
-	
+
 	c.JSON(200, gin.H{
 		"message": "Messages marked as read",
+	})
+}
+
+// DeleteChatHandler deletes a chat and all its messages
+func DeleteChatHandler(c *gin.Context) {
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	chatIDStr := c.Param("chatId")
+	chatID, err := strconv.ParseUint(chatIDStr, 10, 32)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Invalid chat ID"})
+		return
+	}
+
+	// Verify user has access to this chat
+	var chat models.Chat
+	if err := db.DB.Preload("Connection").Where("id = ?", uint(chatID)).First(&chat).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Chat not found"})
+		return
+	}
+
+	// Check if user is part of this connection
+	if chat.Connection.RequesterID != userID && chat.Connection.ReceiverID != userID {
+		c.JSON(403, gin.H{"error": "Access denied to this chat"})
+		return
+	}
+
+	// Delete all messages in this chat first
+	if err := db.DB.Where("chat_id = ?", uint(chatID)).Delete(&models.Message{}).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to delete chat messages"})
+		return
+	}
+
+	// Delete the chat
+	if err := db.DB.Delete(&chat).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to delete chat"})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"message": "Chat deleted successfully",
 	})
 }
