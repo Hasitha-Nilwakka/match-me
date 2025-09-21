@@ -21,7 +21,7 @@ echo "   - Network: http://$LOCAL_IP:8080"
 echo ""
 
 # Start backend in background
-cd backend && go run . &
+(cd backend && go run .) &
 BACKEND_PID=$!
 
 # Wait a moment for backend to start
@@ -33,8 +33,8 @@ echo "   - Local:   http://localhost:3000"
 echo "   - Network: http://$LOCAL_IP:3000"
 echo ""
 
-# Start frontend
-cd ../frontend && npm run dev
+# Start frontend (from project root)
+cd frontend && npm run dev
 
 # Cleanup on exit
 trap "echo 'Stopping servers...'; kill $BACKEND_PID 2>/dev/null; exit" INT TERM
