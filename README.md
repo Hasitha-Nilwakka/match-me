@@ -174,7 +174,7 @@ npx prisma db push
 The Prisma schema mirrors GORM models and includes:
 
 - **User Management**: Users, Profiles, Locations
-- **Preferences**: SeekingPreferences with weighted matching criteria
+- **Preferences**: SeekingPreferences with detailed preference values and weighted matching criteria
 - **Social Features**: Connections, Messages, Chats
 - **User Interests**: Hobbies, Interests, Music, Movies, Food, Travel, Languages
 - **Matching System**: DismissedRecommendations, OnlineStatus
@@ -187,6 +187,26 @@ The Prisma schema mirrors GORM models and includes:
 - **Location-based matching**
 - **Rich user profiles** with multiple interest categories
 - **Connection management** system
+- **Comprehensive preference system** with both specific values and priority weights
+
+## Recent Updates
+
+### Enhanced Seeking Preferences System (v2.0)
+
+The seeking preferences system has been significantly enhanced to provide more detailed and flexible matching:
+
+**New Features:**
+- **Detailed Preference Values**: Users can now specify exactly what they're looking for in each category (hobbies, interests, music, movies, food, travel, languages, ethnicity, religion)
+- **Priority Weighting**: Each preference category can be assigned a priority level (1-3 scale) to indicate importance
+- **Dual Data Structure**: The system now stores both what users are looking for AND how important each category is to them
+
+**Technical Improvements:**
+- Added 9 new preference value fields to the `seeking_preferences` table
+- Added 4 new priority weight fields for basic preferences (gender, status, relationship, location)
+- Updated both frontend and backend to handle the complete preference system
+- Enhanced API endpoints to support full CRUD operations for all preference data
+
+This enhancement enables more sophisticated matching algorithms that can prioritize certain preferences over others based on user-defined importance levels.
 
 ## Available Scripts (Frontend)
 

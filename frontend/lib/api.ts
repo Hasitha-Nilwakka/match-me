@@ -21,6 +21,10 @@ export const API_ENDPOINTS = {
     GET_ME: '/me/profile',
     UPDATE_ME: '/me/profile',
     GET_BY_ID: (id: string) => `/users/${id}/profile`,
+    GET_BIographical: '/me/biographical',
+    UPDATE_BIographical: '/me/biographical',
+    UPDATE_SEEKING_PREFERENCES: '/me/seeking-preferences',
+    GET_SEEKING_PREFERENCES: '/me/seeking-preferences',
   },
   REFERENCE: {
     LANGUAGES: '/languages',
@@ -70,6 +74,7 @@ export const authenticatedApiRequest = async (
   options: RequestInit = {}
 ): Promise<Response> => {
   const token = localStorage.getItem('token');
+  console.log('Authenticated request to:', endpoint, 'Token exists:', !!token);
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -485,6 +490,90 @@ export const profileApi = {
     const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.GET_BY_ID(userId));
     if (!response.ok) {
       throw new Error('Failed to fetch user profile');
+    }
+    return response.json();
+  },
+
+  // Get biographical data
+  getBiographicalData: async () => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.GET_BIographical);
+    if (!response.ok) {
+      throw new Error('Failed to fetch biographical data');
+    }
+    return response.json();
+  },
+
+  // Update biographical data
+  updateBiographicalData: async (data: {
+    interests: string[];
+    hobbies: string[];
+    foodPreferences: string[];
+    musicGenres: string[];
+    movieGenres: string[];
+    travelTypes: string[];
+  }) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.UPDATE_BIographical, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update biographical data');
+    }
+    return response.json();
+  },
+
+  // Update seeking preferences
+  updateSeekingPreferences: async (data: {
+    genderPreference?: string;
+    statusPreference?: string;
+    relationshipPreference?: string;
+    locationPreference: string;
+    languagePreference?: string;
+    interestPreference?: string;
+    hobbyPreference?: string;
+    foodPreference?: string;
+    musicPreference?: string;
+    moviePreference?: string;
+    travelPreference?: string;
+    ethnicityPreference?: string;
+    religionPreference?: string;
+    genderWeight: number;
+    statusWeight: number;
+    relationshipWeight: number;
+    locationWeight: number;
+    languageWeight: number;
+    interestWeight: number;
+    hobbyWeight: number;
+    foodWeight: number;
+    musicWeight: number;
+    movieWeight: number;
+    travelWeight: number;
+    ethnicityWeight: number;
+    religionWeight: number;
+  }) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.UPDATE_SEEKING_PREFERENCES, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update seeking preferences');
+    }
+    return response.json();
+  },
+
+  // Get seeking preferences
+  getSeekingPreferences: async () => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.GET_SEEKING_PREFERENCES, {
+      method: 'GET',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to get seeking preferences');
     }
     return response.json();
   },

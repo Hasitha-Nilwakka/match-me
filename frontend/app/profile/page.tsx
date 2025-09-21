@@ -38,12 +38,60 @@ export default function ProfilePage() {
     city: '',
     country: '',
   });
+  
+  // Biographical data selections
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [selectedHobbies, setSelectedHobbies] = useState<string[]>([]);
+  const [selectedFoodPreferences, setSelectedFoodPreferences] = useState<string[]>([]);
+  const [selectedMusicGenres, setSelectedMusicGenres] = useState<string[]>([]);
+  const [selectedMovieGenres, setSelectedMovieGenres] = useState<string[]>([]);
+  const [selectedTravelTypes, setSelectedTravelTypes] = useState<string[]>([]);
+  
+  // Seeking preferences and priority levels
+  const [seekingPreferences, setSeekingPreferences] = useState({
+    gender: '',
+    status: '',
+    relationshipStatus: '',
+    locationPreference: '',
+    language: '',
+    interest: '',
+    hobby: '',
+    foodPreference: '',
+    musicGenre: '',
+    movieGenre: '',
+    travelType: '',
+    ethnicity: '',
+    religion: '',
+  });
+  
+  const [priorityLevels, setPriorityLevels] = useState({
+    gender: 2,
+    status: 2,
+    relationshipStatus: 2,
+    locationPreference: 2,
+    language: 2,
+    interest: 2,
+    hobby: 2,
+    foodPreference: 2,
+    musicGenre: 2,
+    movieGenre: 2,
+    travelType: 2,
+    ethnicity: 2,
+    religion: 2,
+  });
 
   // Check authentication on page load
   useEffect(() => {
+    console.log('Profile page - checking authentication...');
+    console.log('Is authenticated:', authApi.isAuthenticated());
+    console.log('Token exists:', !!localStorage.getItem('token'));
+    console.log('User exists:', !!localStorage.getItem('user'));
+    
     if (!authApi.isAuthenticated()) {
+      console.log('Not authenticated, redirecting to home...');
       router.push('/');
     } else {
+      console.log('Authenticated, loading profile data...');
       setIsAuthenticated(true);
       loadProfileData();
       loadAvailableLanguages();
@@ -210,6 +258,66 @@ export default function ProfilePage() {
         console.log('No existing location found, starting fresh');
         // Location doesn't exist yet, that's okay
       }
+
+      // Try to load existing biographical data
+      try {
+        const biographicalData = await profileApi.getBiographicalData();
+        setSelectedInterests(biographicalData.interests || []);
+        setSelectedHobbies(biographicalData.hobbies || []);
+        setSelectedFoodPreferences(biographicalData.foodPreferences || []);
+        setSelectedMusicGenres(biographicalData.musicGenres || []);
+        setSelectedMovieGenres(biographicalData.movieGenres || []);
+        setSelectedTravelTypes(biographicalData.travelTypes || []);
+      } catch (error) {
+        console.log('No existing biographical data found, starting fresh');
+        // Biographical data doesn't exist yet, that's okay
+      }
+
+      // Try to load existing seeking preferences
+      try {
+        console.log('Attempting to load seeking preferences...');
+        const seekingData = await profileApi.getSeekingPreferences();
+        console.log('Loaded seeking preferences:', seekingData);
+        setSeekingPreferences({
+          gender: seekingData.genderPreference || '',
+          status: seekingData.statusPreference || '',
+          relationshipStatus: seekingData.relationshipPreference || '',
+          locationPreference: seekingData.locationPreference || 'within_city',
+          language: seekingData.languagePreference || '',
+          interest: seekingData.interestPreference || '',
+          hobby: seekingData.hobbyPreference || '',
+          foodPreference: seekingData.foodPreference || '',
+          musicGenre: seekingData.musicPreference || '',
+          movieGenre: seekingData.moviePreference || '',
+          travelType: seekingData.travelPreference || '',
+          ethnicity: seekingData.ethnicityPreference || '',
+          religion: seekingData.religionPreference || '',
+        });
+        setPriorityLevels({
+          gender: seekingData.genderWeight || 2,
+          status: seekingData.statusWeight || 2,
+          relationshipStatus: seekingData.relationshipWeight || 2,
+          locationPreference: seekingData.locationWeight || 2,
+          language: seekingData.languageWeight || 2,
+          interest: seekingData.interestWeight || 2,
+          hobby: seekingData.hobbyWeight || 2,
+          foodPreference: seekingData.foodWeight || 2,
+          musicGenre: seekingData.musicWeight || 2,
+          movieGenre: seekingData.movieWeight || 2,
+          travelType: seekingData.travelWeight || 2,
+          ethnicity: seekingData.ethnicityWeight || 2,
+          religion: seekingData.religionWeight || 2,
+        });
+        console.log('Set seeking preferences state:', {
+          gender: seekingData.genderPreference || '',
+          status: seekingData.statusPreference || '',
+          relationshipStatus: seekingData.relationshipPreference || '',
+          locationPreference: seekingData.locationPreference || 'within_city',
+        });
+      } catch (error) {
+        console.log('No existing seeking preferences found, starting fresh');
+        // Seeking preferences don't exist yet, that's okay
+      }
     } catch (error) {
       console.error('Error loading profile data:', error);
     } finally {
@@ -264,6 +372,70 @@ export default function ProfilePage() {
     }));
   };
 
+  // Handle biographical data selections
+  const handleBiographicalToggle = (type: string, value: string) => {
+    switch (type) {
+      case 'interests':
+        setSelectedInterests(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'hobbies':
+        setSelectedHobbies(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'food':
+        setSelectedFoodPreferences(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'music':
+        setSelectedMusicGenres(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'movies':
+        setSelectedMovieGenres(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'travel':
+        setSelectedTravelTypes(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+    }
+  };
+
+  // Handle seeking preference changes
+  const handleSeekingPreferenceChange = (field: string, value: string) => {
+    setSeekingPreferences(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle priority level changes
+  const handlePriorityChange = (field: string, value: number) => {
+    setPriorityLevels(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   // Save profile data
   const handleSaveProfile = async () => {
     try {
@@ -296,6 +468,74 @@ export default function ProfilePage() {
         }
       } else {
         console.log('No location data to save');
+      }
+
+      // Save biographical data
+      try {
+        const biographicalData = {
+          interests: selectedInterests,
+          hobbies: selectedHobbies,
+          foodPreferences: selectedFoodPreferences,
+          musicGenres: selectedMusicGenres,
+          movieGenres: selectedMovieGenres,
+          travelTypes: selectedTravelTypes,
+        };
+        
+        console.log('Saving biographical data:', biographicalData);
+        const response = await profileApi.updateBiographicalData(biographicalData);
+        console.log('Biographical data saved successfully:', response);
+      } catch (bioError) {
+        console.error('Error saving biographical data:', bioError);
+        const errorMessage = bioError instanceof Error ? bioError.message : 'Unknown error';
+        console.error('Error details:', errorMessage);
+        // Don't fail the entire save if biographical data fails
+        alert('Profile saved, but there was an issue saving biographical data: ' + errorMessage);
+      }
+
+      // Save seeking preferences
+      try {
+        const seekingData = {
+          genderPreference: seekingPreferences.gender || undefined,
+          statusPreference: seekingPreferences.status || undefined,
+          relationshipPreference: seekingPreferences.relationshipStatus || undefined,
+          locationPreference: seekingPreferences.locationPreference || 'within_city',
+          
+          // Preference values (what they're looking for)
+          hobbyPreference: seekingPreferences.hobby || undefined,
+          interestPreference: seekingPreferences.interest || undefined,
+          musicPreference: seekingPreferences.musicGenre || undefined,
+          moviePreference: seekingPreferences.movieGenre || undefined,
+          foodPreference: seekingPreferences.foodPreference || undefined,
+          travelPreference: seekingPreferences.travelType || undefined,
+          languagePreference: seekingPreferences.language || undefined,
+          ethnicityPreference: seekingPreferences.ethnicity || undefined,
+          religionPreference: seekingPreferences.religion || undefined,
+          
+          // Weight values (priority levels)
+          genderWeight: priorityLevels.gender,
+          statusWeight: priorityLevels.status,
+          relationshipWeight: priorityLevels.relationshipStatus,
+          locationWeight: priorityLevels.locationPreference,
+          languageWeight: priorityLevels.language,
+          interestWeight: priorityLevels.interest,
+          hobbyWeight: priorityLevels.hobby,
+          foodWeight: priorityLevels.foodPreference,
+          musicWeight: priorityLevels.musicGenre,
+          movieWeight: priorityLevels.movieGenre,
+          travelWeight: priorityLevels.travelType,
+          ethnicityWeight: priorityLevels.ethnicity,
+          religionWeight: priorityLevels.religion,
+        };
+        
+        console.log('Saving seeking preferences:', seekingData);
+        const response = await profileApi.updateSeekingPreferences(seekingData);
+        console.log('Seeking preferences saved successfully:', response);
+      } catch (seekingError) {
+        console.error('Error saving seeking preferences:', seekingError);
+        const errorMessage = seekingError instanceof Error ? seekingError.message : 'Unknown error';
+        console.error('Error details:', errorMessage);
+        // Don't fail the entire save if seeking preferences fail
+        alert('Profile saved, but there was an issue saving seeking preferences: ' + errorMessage);
       }
       
       alert('Profile saved successfully!');
@@ -703,69 +943,267 @@ export default function ProfilePage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Interests</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Interest</option>
-                    {availableInterests?.map((interest) => (
-                      <option key={interest} value={interest}>
-                        {interest}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Interests Display */}
+                    {selectedInterests.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedInterests.map((interest) => (
+                          <span
+                            key={interest}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                          >
+                            {interest}
+                            <button
+                              type="button"
+                              onClick={() => handleBiographicalToggle('interests', interest)}
+                              className="ml-2 text-blue-600 hover:text-blue-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Interest Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !selectedInterests.includes(e.target.value)) {
+                          handleBiographicalToggle('interests', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select an interest to add</option>
+                      {availableInterests?.map((interest) => (
+                        <option key={interest} value={interest}>
+                          {interest}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select interests from the dropdown to add them to your profile</p>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hobbies</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Hobby</option>
-                    {availableHobbies?.map((hobby) => (
-                      <option key={hobby} value={hobby}>
-                        {hobby}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Hobbies Display */}
+                    {selectedHobbies.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedHobbies.map((hobby) => (
+                          <span
+                            key={hobby}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800"
+                          >
+                            {hobby}
+                            <button
+                              type="button"
+                              onClick={() => handleBiographicalToggle('hobbies', hobby)}
+                              className="ml-2 text-green-600 hover:text-green-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Hobby Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !selectedHobbies.includes(e.target.value)) {
+                          handleBiographicalToggle('hobbies', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a hobby to add</option>
+                      {availableHobbies?.map((hobby) => (
+                        <option key={hobby} value={hobby}>
+                          {hobby}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select hobbies from the dropdown to add them to your profile</p>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Food Preferences</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Food Preference</option>
-                    {availableFoodPreferences?.map((food) => (
-                      <option key={food} value={food}>
-                        {food}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Food Preferences Display */}
+                    {selectedFoodPreferences.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedFoodPreferences.map((food) => (
+                          <span
+                            key={food}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-orange-100 text-orange-800"
+                          >
+                            {food}
+                            <button
+                              type="button"
+                              onClick={() => handleBiographicalToggle('food', food)}
+                              className="ml-2 text-orange-600 hover:text-orange-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Food Preference Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !selectedFoodPreferences.includes(e.target.value)) {
+                          handleBiographicalToggle('food', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a food preference to add</option>
+                      {availableFoodPreferences?.map((food) => (
+                        <option key={food} value={food}>
+                          {food}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select food preferences from the dropdown to add them to your profile</p>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Music Preferences</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Music Genre</option>
-                    {availableMusicGenres?.map((music) => (
-                      <option key={music} value={music}>
-                        {music}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Music Genres Display */}
+                    {selectedMusicGenres.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedMusicGenres.map((music) => (
+                          <span
+                            key={music}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800"
+                          >
+                            {music}
+                            <button
+                              type="button"
+                              onClick={() => handleBiographicalToggle('music', music)}
+                              className="ml-2 text-purple-600 hover:text-purple-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Music Genre Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !selectedMusicGenres.includes(e.target.value)) {
+                          handleBiographicalToggle('music', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a music genre to add</option>
+                      {availableMusicGenres?.map((music) => (
+                        <option key={music} value={music}>
+                          {music}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select music genres from the dropdown to add them to your profile</p>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Movie Preferences</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Movie Genre</option>
-                    {availableMovieGenres?.map((movie) => (
-                      <option key={movie} value={movie}>
-                        {movie}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Movie Genres Display */}
+                    {selectedMovieGenres.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedMovieGenres.map((movie) => (
+                          <span
+                            key={movie}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-red-100 text-red-800"
+                          >
+                            {movie}
+                            <button
+                              type="button"
+                              onClick={() => handleBiographicalToggle('movies', movie)}
+                              className="ml-2 text-red-600 hover:text-red-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Movie Genre Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !selectedMovieGenres.includes(e.target.value)) {
+                          handleBiographicalToggle('movies', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a movie genre to add</option>
+                      {availableMovieGenres?.map((movie) => (
+                        <option key={movie} value={movie}>
+                          {movie}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select movie genres from the dropdown to add them to your profile</p>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Travel Preferences</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Travel Type</option>
-                    {availableTravelTypes?.map((travel) => (
-                      <option key={travel} value={travel}>
-                        {travel}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Travel Types Display */}
+                    {selectedTravelTypes.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {selectedTravelTypes.map((travel) => (
+                          <span
+                            key={travel}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-teal-100 text-teal-800"
+                          >
+                            {travel}
+                            <button
+                              type="button"
+                              onClick={() => handleBiographicalToggle('travel', travel)}
+                              className="ml-2 text-teal-600 hover:text-teal-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Travel Type Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !selectedTravelTypes.includes(e.target.value)) {
+                          handleBiographicalToggle('travel', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a travel type to add</option>
+                      {availableTravelTypes?.map((travel) => (
+                        <option key={travel} value={travel}>
+                          {travel}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select travel types from the dropdown to add them to your profile</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -778,10 +1216,15 @@ export default function ProfilePage() {
                 {/* Gender with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Any</option>
-                    <option>Male</option>
-                    <option>Female</option>
+                  <select 
+                    value={seekingPreferences.gender}
+                    onChange={(e) => handleSeekingPreferenceChange('gender', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Any</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -789,7 +1232,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.gender}
+                      onChange={(e) => handlePriorityChange('gender', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -803,11 +1247,17 @@ export default function ProfilePage() {
                 {/* Status with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Any</option>
-                    <option>Student</option>
-                    <option>Employed</option>
-                    <option>Entrepreneur</option>
+                  <select 
+                    value={seekingPreferences.status}
+                    onChange={(e) => handleSeekingPreferenceChange('status', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Any</option>
+                    <option value="Student">Student</option>
+                    <option value="Employed">Employed</option>
+                    <option value="Entrepreneur">Entrepreneur</option>
+                    <option value="Unemployed">Unemployed</option>
+                    <option value="Retired">Retired</option>
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -815,7 +1265,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.status}
+                      onChange={(e) => handlePriorityChange('status', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -829,11 +1280,17 @@ export default function ProfilePage() {
                 {/* Relationship Status with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Relationship Status</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Any</option>
-                    <option>Single</option>
-                    <option>Married</option>
-                    <option>Divorced</option>
+                  <select 
+                    value={seekingPreferences.relationshipStatus}
+                    onChange={(e) => handleSeekingPreferenceChange('relationshipStatus', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Any</option>
+                    <option value="Single">Single</option>
+                    <option value="In a relationship">In a relationship</option>
+                    <option value="Married">Married</option>
+                    <option value="Divorced">Divorced</option>
+                    <option value="Widowed">Widowed</option>
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -841,7 +1298,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.relationshipStatus}
+                      onChange={(e) => handlePriorityChange('relationshipStatus', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -855,11 +1313,15 @@ export default function ProfilePage() {
                 {/* Location with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Location Preference</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Exact match</option>
-                    <option>Within city or country</option>
-                    <option>Within region</option>
-                    <option>Define radius</option>
+                  <select 
+                    value={seekingPreferences.locationPreference}
+                    onChange={(e) => handleSeekingPreferenceChange('locationPreference', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="exact_match">Exact match</option>
+                    <option value="within_city">Within city or country</option>
+                    <option value="within_region">Within region</option>
+                    <option value="define_radius">Define radius</option>
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -867,7 +1329,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.locationPreference}
+                      onChange={(e) => handlePriorityChange('locationPreference', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -881,14 +1344,17 @@ export default function ProfilePage() {
                 {/* Languages with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Languages</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Language</option>
-                    <option>English</option>
-                    <option>Spanish</option>
-                    <option>French</option>
-                    <option>German</option>
-                    <option>Italian</option>
-                    <option>Portuguese</option>
+                  <select 
+                    value={seekingPreferences.language}
+                    onChange={(e) => handleSeekingPreferenceChange('language', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Language</option>
+                    {availableLanguages?.map((language) => (
+                      <option key={language} value={language}>
+                        {language}
+                      </option>
+                    ))}
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -896,7 +1362,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.language}
+                      onChange={(e) => handlePriorityChange('language', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -910,8 +1377,12 @@ export default function ProfilePage() {
                 {/* Interests with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Interests</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Interest</option>
+                  <select 
+                    value={seekingPreferences.interest}
+                    onChange={(e) => handleSeekingPreferenceChange('interest', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Interest</option>
                     {availableInterests?.map((interest) => (
                       <option key={interest} value={interest}>
                         {interest}
@@ -924,7 +1395,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.interest}
+                      onChange={(e) => handlePriorityChange('interest', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -938,8 +1410,12 @@ export default function ProfilePage() {
                 {/* Hobbies with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hobbies</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Hobby</option>
+                  <select 
+                    value={seekingPreferences.hobby}
+                    onChange={(e) => handleSeekingPreferenceChange('hobby', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Hobby</option>
                     {availableHobbies?.map((hobby) => (
                       <option key={hobby} value={hobby}>
                         {hobby}
@@ -952,7 +1428,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.hobby}
+                      onChange={(e) => handlePriorityChange('hobby', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -966,8 +1443,12 @@ export default function ProfilePage() {
                 {/* Food Preferences with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Food Preferences</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Food Preference</option>
+                  <select 
+                    value={seekingPreferences.foodPreference}
+                    onChange={(e) => handleSeekingPreferenceChange('foodPreference', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Food Preference</option>
                     {availableFoodPreferences?.map((food) => (
                       <option key={food} value={food}>
                         {food}
@@ -980,7 +1461,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.foodPreference}
+                      onChange={(e) => handlePriorityChange('foodPreference', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -994,8 +1476,12 @@ export default function ProfilePage() {
                 {/* Music Preferences with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Music Preferences</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Music Genre</option>
+                  <select 
+                    value={seekingPreferences.musicGenre}
+                    onChange={(e) => handleSeekingPreferenceChange('musicGenre', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Music Genre</option>
                     {availableMusicGenres?.map((music) => (
                       <option key={music} value={music}>
                         {music}
@@ -1008,7 +1494,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.musicGenre}
+                      onChange={(e) => handlePriorityChange('musicGenre', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1022,8 +1509,12 @@ export default function ProfilePage() {
                 {/* Movie Preferences with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Movie Preferences</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Movie Genre</option>
+                  <select 
+                    value={seekingPreferences.movieGenre}
+                    onChange={(e) => handleSeekingPreferenceChange('movieGenre', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Movie Genre</option>
                     {availableMovieGenres?.map((movie) => (
                       <option key={movie} value={movie}>
                         {movie}
@@ -1036,7 +1527,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.movieGenre}
+                      onChange={(e) => handlePriorityChange('movieGenre', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1050,8 +1542,12 @@ export default function ProfilePage() {
                 {/* Travel Preferences with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Travel Preferences</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Travel Type</option>
+                  <select 
+                    value={seekingPreferences.travelType}
+                    onChange={(e) => handleSeekingPreferenceChange('travelType', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Travel Type</option>
                     {availableTravelTypes?.map((travel) => (
                       <option key={travel} value={travel}>
                         {travel}
@@ -1064,7 +1560,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.travelType}
+                      onChange={(e) => handlePriorityChange('travelType', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1078,14 +1575,19 @@ export default function ProfilePage() {
                 {/* Ethnicity with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Ethnicity</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Ethnicity</option>
-                    <option>Asian</option>
-                    <option>African</option>
-                    <option>European</option>
-                    <option>Hispanic</option>
-                    <option>Middle Eastern</option>
-                    <option>Mixed</option>
+                  <select 
+                    value={seekingPreferences.ethnicity}
+                    onChange={(e) => handleSeekingPreferenceChange('ethnicity', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Ethnicity</option>
+                    <option value="Asian">Asian</option>
+                    <option value="African">African</option>
+                    <option value="European">European</option>
+                    <option value="Hispanic">Hispanic</option>
+                    <option value="Middle Eastern">Middle Eastern</option>
+                    <option value="Mixed">Mixed</option>
+                    <option value="Other">Other</option>
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -1093,7 +1595,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.ethnicity}
+                      onChange={(e) => handlePriorityChange('ethnicity', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1107,15 +1610,20 @@ export default function ProfilePage() {
                 {/* Religion with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Religion</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option>Select Religion</option>
-                    <option>Christianity</option>
-                    <option>Islam</option>
-                    <option>Hinduism</option>
-                    <option>Buddhism</option>
-                    <option>Judaism</option>
-                    <option>Atheist</option>
-                    <option>Agnostic</option>
+                  <select 
+                    value={seekingPreferences.religion}
+                    onChange={(e) => handleSeekingPreferenceChange('religion', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Religion</option>
+                    <option value="Christianity">Christianity</option>
+                    <option value="Islam">Islam</option>
+                    <option value="Hinduism">Hinduism</option>
+                    <option value="Buddhism">Buddhism</option>
+                    <option value="Judaism">Judaism</option>
+                    <option value="Atheist">Atheist</option>
+                    <option value="Agnostic">Agnostic</option>
+                    <option value="Other">Other</option>
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -1123,7 +1631,8 @@ export default function ProfilePage() {
                       type="range"
                       min="1"
                       max="3"
-                      defaultValue="2"
+                      value={priorityLevels.religion}
+                      onChange={(e) => handlePriorityChange('religion', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">

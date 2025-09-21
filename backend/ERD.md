@@ -48,16 +48,37 @@
 │ relationshipPref│    └─────────────────┘
 │ locationPref    │             │
 │ maxDistanceKm   │             │
-│ hobbiesWeight   │             ▼
-│ interestsWeight │    ┌─────────────────┐    ┌─────────────────┐
-│ musicWeight     │    │      chats      │    │  online_status  │
-│ moviesWeight    │    ├─────────────────┤    ├─────────────────┤
-│ foodWeight      │    │ id (PK)         │    │ id (PK)         │
-│ travelWeight    │    │ connectionId(FK)│    │ userId (FK)     │
-│ languagesWeight │    │ createdAt       │    │ isOnline        │
-│ ethnicityWeight │    └─────────────────┘    │ lastSeen        │
-│ religionWeight  │             │             └─────────────────┘
-└─────────────────┘             │
+│ hobbyPref       │             │
+│ interestPref    │             │
+│ musicPref       │             │
+│ moviePref       │             │
+│ foodPref        │             │
+│ travelPref      │             │
+│ languagePref    │             │
+│ ethnicityPref   │             │
+│ religionPref    │             │
+│ genderWeight    │             │
+│ statusWeight    │             │
+│ relationshipWeight│           │
+│ locationWeight  │             │
+│ hobbiesWeight   │             │
+│ interestsWeight │             │
+│ musicWeight     │             │
+│ moviesWeight    │             │
+│ foodWeight      │             │
+│ travelWeight    │             │
+│ languagesWeight │             │
+│ ethnicityWeight │             │
+│ religionWeight  │             ▼
+└─────────────────┘    ┌─────────────────┐    ┌─────────────────┐
+                       │      chats      │    │  online_status  │
+                       ├─────────────────┤    ├─────────────────┤
+                       │ id (PK)         │    │ id (PK)         │
+                       │ connectionId(FK)│    │ userId (FK)     │
+                       │ createdAt       │    │ isOnline        │
+                       └─────────────────┘    │ lastSeen        │
+                       │             │             └─────────────────┘
+                       │             │
                                 ▼
                        ┌─────────────────┐
                        │    messages     │
@@ -178,11 +199,29 @@ CREATE TABLE seeking_preferences (
     user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     min_age INTEGER DEFAULT 18,
     max_age INTEGER DEFAULT 99,
+    -- Basic preferences (what they're looking for)
     gender_preference VARCHAR,
     status_preference VARCHAR,
     relationship_preference VARCHAR,
     location_preference VARCHAR DEFAULT 'within_city',
     max_distance_km INTEGER DEFAULT 50,
+    
+    -- Detailed preference values (what they're looking for)
+    hobby_preference VARCHAR,
+    interest_preference VARCHAR,
+    music_preference VARCHAR,
+    movie_preference VARCHAR,
+    food_preference VARCHAR,
+    travel_preference VARCHAR,
+    language_preference VARCHAR,
+    ethnicity_preference VARCHAR,
+    religion_preference VARCHAR,
+    
+    -- Priority weights (how important each category is)
+    gender_weight INTEGER DEFAULT 2,
+    status_weight INTEGER DEFAULT 2,
+    relationship_weight INTEGER DEFAULT 2,
+    location_weight INTEGER DEFAULT 2,
     hobbies_weight INTEGER DEFAULT 5,
     interests_weight INTEGER DEFAULT 5,
     music_weight INTEGER DEFAULT 3,
@@ -194,6 +233,13 @@ CREATE TABLE seeking_preferences (
     religion_weight INTEGER DEFAULT 6
 );
 ```
+
+**📝 Table Description:**
+The `seeking_preferences` table stores user matching preferences with two types of data:
+- **Preference Values**: What the user is looking for (e.g., specific hobbies, music genres, etc.)
+- **Priority Weights**: How important each category is to the user (1-3 scale, where 3 is most important)
+
+This dual approach allows for sophisticated matching algorithms that can prioritize certain preferences over others based on user-defined importance levels.
 
 </details>
 

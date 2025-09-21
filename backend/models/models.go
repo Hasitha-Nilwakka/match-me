@@ -103,18 +103,21 @@ type Language struct {
 
 // Junction tables for many-to-many relationships
 type UserHobby struct {
-	UserID  uint `gorm:"primaryKey"`
-	HobbyID uint `gorm:"primaryKey"`
+	UserID  uint  `gorm:"primaryKey"`
+	HobbyID uint  `gorm:"primaryKey"`
+	Hobby   Hobby `gorm:"foreignKey:HobbyID"`
 }
 
 type UserInterest struct {
-	UserID     uint `gorm:"primaryKey"`
-	InterestID uint `gorm:"primaryKey"`
+	UserID     uint     `gorm:"primaryKey"`
+	InterestID uint     `gorm:"primaryKey"`
+	Interest   Interest `gorm:"foreignKey:InterestID"`
 }
 
 type UserMusic struct {
-	UserID       uint `gorm:"primaryKey"`
-	MusicGenreID uint `gorm:"primaryKey"`
+	UserID       uint       `gorm:"primaryKey"`
+	MusicGenreID uint       `gorm:"primaryKey"`
+	MusicGenre   MusicGenre `gorm:"foreignKey:MusicGenreID"`
 }
 
 func (UserMusic) TableName() string {
@@ -122,13 +125,15 @@ func (UserMusic) TableName() string {
 }
 
 type UserMovie struct {
-	UserID       uint `gorm:"primaryKey"`
-	MovieGenreID uint `gorm:"primaryKey"`
+	UserID       uint       `gorm:"primaryKey"`
+	MovieGenreID uint       `gorm:"primaryKey"`
+	MovieGenre   MovieGenre `gorm:"foreignKey:MovieGenreID"`
 }
 
 type UserFood struct {
-	UserID           uint `gorm:"primaryKey"`
-	FoodPreferenceID uint `gorm:"primaryKey"`
+	UserID           uint           `gorm:"primaryKey"`
+	FoodPreferenceID uint           `gorm:"primaryKey"`
+	FoodPreference   FoodPreference `gorm:"foreignKey:FoodPreferenceID"`
 }
 
 func (UserFood) TableName() string {
@@ -136,8 +141,9 @@ func (UserFood) TableName() string {
 }
 
 type UserTravel struct {
-	UserID       uint `gorm:"primaryKey"`
-	TravelTypeID uint `gorm:"primaryKey"`
+	UserID       uint       `gorm:"primaryKey"`
+	TravelTypeID uint       `gorm:"primaryKey"`
+	TravelType   TravelType `gorm:"foreignKey:TravelTypeID"`
 }
 
 func (UserTravel) TableName() string {
@@ -145,8 +151,9 @@ func (UserTravel) TableName() string {
 }
 
 type UserLanguage struct {
-	UserID     uint `gorm:"primaryKey"`
-	LanguageID uint `gorm:"primaryKey"`
+	UserID     uint     `gorm:"primaryKey"`
+	LanguageID uint     `gorm:"primaryKey"`
+	Language   Language `gorm:"foreignKey:LanguageID"`
 }
 
 // SeekingPreference model for user matching preferences
@@ -160,15 +167,32 @@ type SeekingPreference struct {
 	RelationshipPreference *string
 	LocationPreference     string `gorm:"default:'within_city'"`
 	MaxDistanceKm          int    `gorm:"default:50"`
-	HobbiesWeight          int    `gorm:"default:5"`
-	InterestsWeight        int    `gorm:"default:5"`
-	MusicWeight            int    `gorm:"default:3"`
-	MoviesWeight           int    `gorm:"default:3"`
-	FoodWeight             int    `gorm:"default:2"`
-	TravelWeight           int    `gorm:"default:4"`
-	LanguagesWeight        int    `gorm:"default:7"`
-	EthnicityWeight        int    `gorm:"default:6"`
-	ReligionWeight         int    `gorm:"default:6"`
+
+	// Preference values (what they're looking for)
+	HobbyPreference     *string
+	InterestPreference  *string
+	MusicPreference     *string
+	MoviePreference     *string
+	FoodPreference      *string
+	TravelPreference    *string
+	LanguagePreference  *string
+	EthnicityPreference *string
+	ReligionPreference  *string
+
+	// Weight values (priority levels)
+	GenderWeight       int `gorm:"default:2"`
+	StatusWeight       int `gorm:"default:2"`
+	RelationshipWeight int `gorm:"default:2"`
+	LocationWeight     int `gorm:"default:2"`
+	HobbiesWeight      int `gorm:"default:5"`
+	InterestsWeight    int `gorm:"default:5"`
+	MusicWeight        int `gorm:"default:3"`
+	MoviesWeight       int `gorm:"default:3"`
+	FoodWeight         int `gorm:"default:2"`
+	TravelWeight       int `gorm:"default:4"`
+	LanguagesWeight    int `gorm:"default:7"`
+	EthnicityWeight    int `gorm:"default:6"`
+	ReligionWeight     int `gorm:"default:6"`
 }
 
 // Connection model for user connections
