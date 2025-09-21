@@ -69,8 +69,13 @@ func main() {
 	r.GET("/users", handlers.GetAllUsersHandler)
 
 	// Reference data endpoints (public)
-	r.GET("/languages", handlers.GetAllLanguagesHandler) // Get all available languages
-	r.GET("/hobbies", handlers.GetAllHobbiesHandler)     // Get all available hobbies
+	r.GET("/languages", handlers.GetAllLanguagesHandler)              // Get all available languages
+	r.GET("/hobbies", handlers.GetAllHobbiesHandler)                  // Get all available hobbies
+	r.GET("/interests", handlers.GetAllInterestsHandler)              // Get all available interests
+	r.GET("/food-preferences", handlers.GetAllFoodPreferencesHandler) // Get all available food preferences
+	r.GET("/music-genres", handlers.GetAllMusicGenresHandler)         // Get all available music genres
+	r.GET("/movie-genres", handlers.GetAllMovieGenresHandler)         // Get all available movie genres
+	r.GET("/travel-types", handlers.GetAllTravelTypesHandler)         // Get all available travel types
 
 	// Authentication endpoints
 	r.POST("/auth/register", handlers.RegisterHandler) // User registration

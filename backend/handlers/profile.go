@@ -844,6 +844,96 @@ func GetAllHobbiesHandler(c *gin.Context) {
 	})
 }
 
+// GetAllInterestsHandler returns all available interests from the database
+func GetAllInterestsHandler(c *gin.Context) {
+	var interests []models.Interest
+	if err := db.DB.Find(&interests).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch interests", "details": err.Error()})
+		return
+	}
+
+	var interestNames []string
+	for _, interest := range interests {
+		interestNames = append(interestNames, interest.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"interests": interestNames,
+	})
+}
+
+// GetAllFoodPreferencesHandler returns all available food preferences from the database
+func GetAllFoodPreferencesHandler(c *gin.Context) {
+	var foodPreferences []models.FoodPreference
+	if err := db.DB.Find(&foodPreferences).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch food preferences", "details": err.Error()})
+		return
+	}
+
+	var foodNames []string
+	for _, food := range foodPreferences {
+		foodNames = append(foodNames, food.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"foodPreferences": foodNames,
+	})
+}
+
+// GetAllMusicGenresHandler returns all available music genres from the database
+func GetAllMusicGenresHandler(c *gin.Context) {
+	var musicGenres []models.MusicGenre
+	if err := db.DB.Find(&musicGenres).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch music genres", "details": err.Error()})
+		return
+	}
+
+	var musicNames []string
+	for _, music := range musicGenres {
+		musicNames = append(musicNames, music.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"musicGenres": musicNames,
+	})
+}
+
+// GetAllMovieGenresHandler returns all available movie genres from the database
+func GetAllMovieGenresHandler(c *gin.Context) {
+	var movieGenres []models.MovieGenre
+	if err := db.DB.Find(&movieGenres).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch movie genres", "details": err.Error()})
+		return
+	}
+
+	var movieNames []string
+	for _, movie := range movieGenres {
+		movieNames = append(movieNames, movie.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"movieGenres": movieNames,
+	})
+}
+
+// GetAllTravelTypesHandler returns all available travel types from the database
+func GetAllTravelTypesHandler(c *gin.Context) {
+	var travelTypes []models.TravelType
+	if err := db.DB.Find(&travelTypes).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch travel types", "details": err.Error()})
+		return
+	}
+
+	var travelNames []string
+	for _, travel := range travelTypes {
+		travelNames = append(travelNames, travel.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"travelTypes": travelNames,
+	})
+}
+
 // UpdateMeLocationHandler updates current user's location information
 func UpdateMeLocationHandler(c *gin.Context) {
 	userID, exists := middleware.GetUserIDFromContext(c)

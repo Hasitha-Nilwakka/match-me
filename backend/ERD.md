@@ -278,17 +278,17 @@ CREATE TABLE interests (
 );
 
 -- Sample Data
-INSERT INTO interests (name) VALUES
-('Technology'),
-('Art'),
-('Science'),
-('Politics'),
-('Environment'),
-('Business'),
-('Health'),
-('Fashion'),
-('Food'),
-('Travel');
+INSERT INTO interests (name, updated_at) VALUES
+('Technology', now()),
+('Art',  now()),
+('Science', now()),
+('Politics', now()),
+('Environment', now()),
+('Business', now()),
+('Health', now()),
+('Fashion', now()),
+('Food', now()),
+('Travel', now());
 ```
 
 </details>
@@ -305,9 +305,9 @@ CREATE TABLE music_genres (
 );
 
 -- Sample Data
-INSERT INTO music_genres (name) VALUES
-('Pop'), ('Rock'), ('Hip Hop'), ('Jazz'), ('Classical'),
-('Electronic'), ('Country'), ('R&B'), ('Indie'), ('Alternative');
+INSERT INTO music_genres (name, updated_at) VALUES
+('Pop', now()), ('Rock', now()), ('Hip Hop', now()), ('Jazz', now()), ('Classical', now()),
+('Electronic', now()), ('Country', now()), ('R&B', now()), ('Indie', now()), ('Alternative', now());
 ```
 
 #### `movie_genres` Table
@@ -319,9 +319,9 @@ CREATE TABLE movie_genres (
 );
 
 -- Sample Data
-INSERT INTO movie_genres (name) VALUES
-('Action'), ('Comedy'), ('Drama'), ('Horror'), ('Romance'),
-('Sci-Fi'), ('Thriller'), ('Documentary'), ('Animation'), ('Fantasy');
+INSERT INTO movie_genres (name, updated_at) VALUES
+('Action', now()), ('Comedy', now()), ('Drama', now()), ('Horror', now()), ('Romance', now()),
+('Sci-Fi', now()), ('Thriller', now()), ('Documentary', now()), ('Animation', now()), ('Fantasy', now());
 ```
 
 </details>
@@ -338,9 +338,9 @@ CREATE TABLE food_preferences (
 );
 
 -- Sample Data
-INSERT INTO food_preferences (name) VALUES
-('Italian'), ('Mexican'), ('Chinese'), ('Indian'), ('Japanese'),
-('Mediterranean'), ('Vegetarian'), ('Vegan'), ('Gluten-Free'), ('Keto');
+INSERT INTO food_preferences (name, updated_at) VALUES
+('Italian', now()), ('Mexican', now()), ('Chinese', now()), ('Indian', now()), ('Japanese', now()),
+('Mediterranean', now()), ('Vegetarian', now()), ('Vegan', now()), ('Gluten-Free', now()), ('Keto', now());
 ```
 
 #### `travel_types` Table
@@ -352,9 +352,9 @@ CREATE TABLE travel_types (
 );
 
 -- Sample Data
-INSERT INTO travel_types (name) VALUES
-('Beach'), ('Mountains'), ('City'), ('Adventure'), ('Cultural'),
-('Luxury'), ('Budget'), ('Backpacking'), ('Road Trip'), ('Cruise');
+INSERT INTO travel_types (name, updated_at) VALUES
+('Beach', now()), ('Mountains', now()), ('City', now()), ('Adventure', now()), ('Cultural', now()),
+('Luxury', now()), ('Budget', now()), ('Backpacking', now()), ('Road Trip', now()), ('Cruise', now());
 ```
 
 #### `languages` Table

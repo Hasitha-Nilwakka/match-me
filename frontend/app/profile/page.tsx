@@ -27,6 +27,11 @@ export default function ProfilePage() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
   const [availableLanguages, setAvailableLanguages] = useState<string[]>([]);
   const [availableHobbies, setAvailableHobbies] = useState<string[]>([]);
+  const [availableInterests, setAvailableInterests] = useState<string[]>([]);
+  const [availableFoodPreferences, setAvailableFoodPreferences] = useState<string[]>([]);
+  const [availableMusicGenres, setAvailableMusicGenres] = useState<string[]>([]);
+  const [availableMovieGenres, setAvailableMovieGenres] = useState<string[]>([]);
+  const [availableTravelTypes, setAvailableTravelTypes] = useState<string[]>([]);
   const [countries, setCountries] = useState<{ name: string; code: string }[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [locationData, setLocationData] = useState({
@@ -43,6 +48,11 @@ export default function ProfilePage() {
       loadProfileData();
       loadAvailableLanguages();
       loadAvailableHobbies();
+      loadAvailableInterests();
+      loadAvailableFoodPreferences();
+      loadAvailableMusicGenres();
+      loadAvailableMovieGenres();
+      loadAvailableTravelTypes();
       loadCountries();
     }
   }, [router]);
@@ -73,6 +83,76 @@ export default function ProfilePage() {
       setAvailableHobbies([
         'Photography', 'Cooking', 'Gaming', 'Gardening', 'Painting', 'Writing',
         'Reading', 'Sports', 'Music', 'Travel', 'Art', 'Technology'
+      ]);
+    }
+  };
+
+  // Load available interests from backend
+  const loadAvailableInterests = async () => {
+    try {
+      const interests = await referenceApi.getInterests();
+      setAvailableInterests(interests);
+    } catch (error) {
+      console.error('Error loading available interests:', error);
+      setAvailableInterests([
+        'Sports', 'Reading', 'Technology', 'Art', 'Music', 'Travel',
+        'Photography', 'Cooking', 'Gaming', 'Gardening', 'Writing'
+      ]);
+    }
+  };
+
+  // Load available food preferences from backend
+  const loadAvailableFoodPreferences = async () => {
+    try {
+      const foodPreferences = await referenceApi.getFoodPreferences();
+      setAvailableFoodPreferences(foodPreferences);
+    } catch (error) {
+      console.error('Error loading available food preferences:', error);
+      setAvailableFoodPreferences([
+        'Italian', 'Asian', 'Vegetarian', 'Vegan', 'Mediterranean', 'Mexican',
+        'American', 'Indian', 'Chinese', 'Japanese', 'Thai', 'French'
+      ]);
+    }
+  };
+
+  // Load available music genres from backend
+  const loadAvailableMusicGenres = async () => {
+    try {
+      const musicGenres = await referenceApi.getMusicGenres();
+      setAvailableMusicGenres(musicGenres);
+    } catch (error) {
+      console.error('Error loading available music genres:', error);
+      setAvailableMusicGenres([
+        'Rock', 'Jazz', 'Classical', 'Pop', 'Hip Hop', 'Electronic',
+        'Country', 'R&B', 'Blues', 'Reggae', 'Folk', 'Alternative'
+      ]);
+    }
+  };
+
+  // Load available movie genres from backend
+  const loadAvailableMovieGenres = async () => {
+    try {
+      const movieGenres = await referenceApi.getMovieGenres();
+      setAvailableMovieGenres(movieGenres);
+    } catch (error) {
+      console.error('Error loading available movie genres:', error);
+      setAvailableMovieGenres([
+        'Action', 'Drama', 'Comedy', 'Horror', 'Sci-Fi', 'Romance',
+        'Thriller', 'Adventure', 'Fantasy', 'Documentary', 'Animation', 'Crime'
+      ]);
+    }
+  };
+
+  // Load available travel types from backend
+  const loadAvailableTravelTypes = async () => {
+    try {
+      const travelTypes = await referenceApi.getTravelTypes();
+      setAvailableTravelTypes(travelTypes);
+    } catch (error) {
+      console.error('Error loading available travel types:', error);
+      setAvailableTravelTypes([
+        'Beaches', 'Mountains', 'Cities', 'Adventure', 'Cultural', 'Nature',
+        'Historical', 'Relaxation', 'Wildlife', 'Food & Wine', 'Art & Museums', 'Nightlife'
       ]);
     }
   };
@@ -190,7 +270,9 @@ export default function ProfilePage() {
       setIsSaving(true);
       
       // Save profile data
+      console.log('Saving profile data:', profileData);
       await profileApi.updateMyProfile(profileData);
+      console.log('Profile saved successfully');
       
       // Save location data if provided
       if (locationData.city || locationData.country) {
@@ -540,7 +622,7 @@ export default function ProfilePage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select a language to add</option>
-                      {availableLanguages.map((language) => (
+                      {availableLanguages?.map((language) => (
                         <option key={language} value={language}>
                           {language}
                         </option>
@@ -557,7 +639,7 @@ export default function ProfilePage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select a country</option>
-                    {countries.map((country) => (
+                    {countries?.map((country) => (
                       <option key={country.code} value={country.name}>
                         {country.name}
                       </option>
@@ -623,19 +705,18 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Interests</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Interest</option>
-                    <option>Sports</option>
-                    <option>Reading</option>
-                    <option>Technology</option>
-                    <option>Art</option>
-                    <option>Music</option>
-                    <option>Travel</option>
+                    {availableInterests?.map((interest) => (
+                      <option key={interest} value={interest}>
+                        {interest}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hobbies</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Hobby</option>
-                    {availableHobbies.map((hobby) => (
+                    {availableHobbies?.map((hobby) => (
                       <option key={hobby} value={hobby}>
                         {hobby}
                       </option>
@@ -646,48 +727,44 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Food Preferences</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Food Preference</option>
-                    <option>Italian</option>
-                    <option>Asian</option>
-                    <option>Vegetarian</option>
-                    <option>Vegan</option>
-                    <option>Mediterranean</option>
-                    <option>Mexican</option>
+                    {availableFoodPreferences?.map((food) => (
+                      <option key={food} value={food}>
+                        {food}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Music Preferences</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Music Genre</option>
-                    <option>Rock</option>
-                    <option>Jazz</option>
-                    <option>Classical</option>
-                    <option>Pop</option>
-                    <option>Hip Hop</option>
-                    <option>Electronic</option>
+                    {availableMusicGenres?.map((music) => (
+                      <option key={music} value={music}>
+                        {music}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Movie Preferences</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Movie Genre</option>
-                    <option>Action</option>
-                    <option>Drama</option>
-                    <option>Comedy</option>
-                    <option>Horror</option>
-                    <option>Sci-Fi</option>
-                    <option>Romance</option>
+                    {availableMovieGenres?.map((movie) => (
+                      <option key={movie} value={movie}>
+                        {movie}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Travel Preferences</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Travel Type</option>
-                    <option>Beaches</option>
-                    <option>Mountains</option>
-                    <option>Cities</option>
-                    <option>Adventure</option>
-                    <option>Cultural</option>
-                    <option>Nature</option>
+                    {availableTravelTypes?.map((travel) => (
+                      <option key={travel} value={travel}>
+                        {travel}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -835,12 +912,11 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Interests</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Interest</option>
-                    <option>Sports</option>
-                    <option>Reading</option>
-                    <option>Technology</option>
-                    <option>Art</option>
-                    <option>Music</option>
-                    <option>Travel</option>
+                    {availableInterests?.map((interest) => (
+                      <option key={interest} value={interest}>
+                        {interest}
+                      </option>
+                    ))}
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -864,7 +940,7 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hobbies</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Hobby</option>
-                    {availableHobbies.map((hobby) => (
+                    {availableHobbies?.map((hobby) => (
                       <option key={hobby} value={hobby}>
                         {hobby}
                       </option>
@@ -892,12 +968,11 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Food Preferences</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Food Preference</option>
-                    <option>Italian</option>
-                    <option>Asian</option>
-                    <option>Vegetarian</option>
-                    <option>Vegan</option>
-                    <option>Mediterranean</option>
-                    <option>Mexican</option>
+                    {availableFoodPreferences?.map((food) => (
+                      <option key={food} value={food}>
+                        {food}
+                      </option>
+                    ))}
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -921,12 +996,11 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Music Preferences</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Music Genre</option>
-                    <option>Rock</option>
-                    <option>Jazz</option>
-                    <option>Classical</option>
-                    <option>Pop</option>
-                    <option>Hip Hop</option>
-                    <option>Electronic</option>
+                    {availableMusicGenres?.map((music) => (
+                      <option key={music} value={music}>
+                        {music}
+                      </option>
+                    ))}
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -950,12 +1024,11 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Movie Preferences</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Movie Genre</option>
-                    <option>Action</option>
-                    <option>Drama</option>
-                    <option>Comedy</option>
-                    <option>Horror</option>
-                    <option>Sci-Fi</option>
-                    <option>Romance</option>
+                    {availableMovieGenres?.map((movie) => (
+                      <option key={movie} value={movie}>
+                        {movie}
+                      </option>
+                    ))}
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
@@ -979,12 +1052,11 @@ export default function ProfilePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Travel Preferences</label>
                   <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option>Select Travel Type</option>
-                    <option>Beaches</option>
-                    <option>Mountains</option>
-                    <option>Cities</option>
-                    <option>Adventure</option>
-                    <option>Cultural</option>
-                    <option>Nature</option>
+                    {availableTravelTypes?.map((travel) => (
+                      <option key={travel} value={travel}>
+                        {travel}
+                      </option>
+                    ))}
                   </select>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>

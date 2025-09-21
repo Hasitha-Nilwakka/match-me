@@ -25,6 +25,11 @@ export const API_ENDPOINTS = {
   REFERENCE: {
     LANGUAGES: '/languages',
     HOBBIES: '/hobbies',
+    INTERESTS: '/interests',
+    FOOD_PREFERENCES: '/food-preferences',
+    MUSIC_GENRES: '/music-genres',
+    MOVIE_GENRES: '/movie-genres',
+    TRAVEL_TYPES: '/travel-types',
   },
   CHATS: {
     GET_ALL: '/chats',
@@ -98,6 +103,56 @@ export const referenceApi = {
     }
     const data = await response.json();
     return data.hobbies;
+  },
+
+  // Get all available interests
+  getInterests: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.INTERESTS);
+    if (!response.ok) {
+      throw new Error('Failed to fetch interests');
+    }
+    const data = await response.json();
+    return data.interests;
+  },
+
+  // Get all available food preferences
+  getFoodPreferences: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.FOOD_PREFERENCES);
+    if (!response.ok) {
+      throw new Error('Failed to fetch food preferences');
+    }
+    const data = await response.json();
+    return data.foodPreferences;
+  },
+
+  // Get all available music genres
+  getMusicGenres: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.MUSIC_GENRES);
+    if (!response.ok) {
+      throw new Error('Failed to fetch music genres');
+    }
+    const data = await response.json();
+    return data.musicGenres;
+  },
+
+  // Get all available movie genres
+  getMovieGenres: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.MOVIE_GENRES);
+    if (!response.ok) {
+      throw new Error('Failed to fetch movie genres');
+    }
+    const data = await response.json();
+    return data.movieGenres;
+  },
+
+  // Get all available travel types
+  getTravelTypes: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.TRAVEL_TYPES);
+    if (!response.ok) {
+      throw new Error('Failed to fetch travel types');
+    }
+    const data = await response.json();
+    return data.travelTypes;
   },
 };
 
@@ -196,8 +251,12 @@ export const chatApi = {
 export const recommendationsApi = {
   // Get recommendations for the current user
   getRecommendations: async () => {
+    console.log('API: Fetching recommendations...');
     const response = await authenticatedApiRequest(API_ENDPOINTS.RECOMMENDATIONS.GET_ALL);
+    console.log('API: Recommendations response status:', response.status);
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API: Recommendations fetch failed:', errorText);
       throw new Error('Failed to fetch recommendations');
     }
     return response.json();
@@ -381,11 +440,15 @@ export const profileApi = {
     profilePictureURL?: string;
     languages?: string[];
   }) => {
+    console.log('API: Updating profile with data:', profileData);
     const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.UPDATE_ME, {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });
+    console.log('API: Profile update response status:', response.status);
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API: Profile update failed:', errorText);
       throw new Error('Failed to update profile');
     }
     return response.json();
