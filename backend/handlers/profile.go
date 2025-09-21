@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -1728,4 +1729,66 @@ func UploadProfilePictureHandler(c *gin.Context) {
 		"message":           "Profile picture uploaded successfully",
 		"profilePictureURL": profilePictureURL,
 	})
+}
+
+// ChangePasswordHandler handles password changes
+func ChangePasswordHandler(c *gin.Context) {
+	fmt.Println("ChangePasswordHandler called")
+
+	// Get user ID from JWT token
+	userID, exists := c.Get("user_id")
+	if !exists {
+		fmt.Println("User not authenticated")
+		c.JSON(401, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	fmt.Printf("User ID: %v\n", userID)
+
+	// Parse request body
+	var requestData struct {
+		CurrentPassword string `json:"currentPassword" binding:"required"`
+		NewPassword     string `json:"newPassword" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&requestData); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body", "details": err.Error()})
+		return
+	}
+
+	// Validate new password length
+	if len(requestData.NewPassword) < 6 {
+		c.JSON(400, gin.H{"error": "New password must be at least 6 characters long"})
+		return
+	}
+
+	// Get user from database
+	var user models.User
+	if err := db.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(404, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Verify current password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(requestData.CurrentPassword)); err != nil {
+		c.JSON(400, gin.H{"error": "Current password is incorrect"})
+		return
+	}
+
+	// Hash new password
+	newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(requestData.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to hash new password"})
+		return
+	}
+
+	// Update password in database
+	user.PasswordHash = string(newPasswordHash)
+	if err := db.DB.Save(&user).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to update password"})
+		return
+	}
+
+	fmt.Println("Password changed successfully for user:", userID)
+	c.JSON(200, gin.H{"message": "Password changed successfully"})
 }
