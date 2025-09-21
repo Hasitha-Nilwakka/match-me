@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // GetMeHandler returns current user's basic info
@@ -844,6 +845,96 @@ func GetAllHobbiesHandler(c *gin.Context) {
 	})
 }
 
+// GetAllInterestsHandler returns all available interests from the database
+func GetAllInterestsHandler(c *gin.Context) {
+	var interests []models.Interest
+	if err := db.DB.Find(&interests).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch interests", "details": err.Error()})
+		return
+	}
+
+	var interestNames []string
+	for _, interest := range interests {
+		interestNames = append(interestNames, interest.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"interests": interestNames,
+	})
+}
+
+// GetAllFoodPreferencesHandler returns all available food preferences from the database
+func GetAllFoodPreferencesHandler(c *gin.Context) {
+	var foodPreferences []models.FoodPreference
+	if err := db.DB.Find(&foodPreferences).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch food preferences", "details": err.Error()})
+		return
+	}
+
+	var foodNames []string
+	for _, food := range foodPreferences {
+		foodNames = append(foodNames, food.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"foodPreferences": foodNames,
+	})
+}
+
+// GetAllMusicGenresHandler returns all available music genres from the database
+func GetAllMusicGenresHandler(c *gin.Context) {
+	var musicGenres []models.MusicGenre
+	if err := db.DB.Find(&musicGenres).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch music genres", "details": err.Error()})
+		return
+	}
+
+	var musicNames []string
+	for _, music := range musicGenres {
+		musicNames = append(musicNames, music.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"musicGenres": musicNames,
+	})
+}
+
+// GetAllMovieGenresHandler returns all available movie genres from the database
+func GetAllMovieGenresHandler(c *gin.Context) {
+	var movieGenres []models.MovieGenre
+	if err := db.DB.Find(&movieGenres).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch movie genres", "details": err.Error()})
+		return
+	}
+
+	var movieNames []string
+	for _, movie := range movieGenres {
+		movieNames = append(movieNames, movie.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"movieGenres": movieNames,
+	})
+}
+
+// GetAllTravelTypesHandler returns all available travel types from the database
+func GetAllTravelTypesHandler(c *gin.Context) {
+	var travelTypes []models.TravelType
+	if err := db.DB.Find(&travelTypes).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch travel types", "details": err.Error()})
+		return
+	}
+
+	var travelNames []string
+	for _, travel := range travelTypes {
+		travelNames = append(travelNames, travel.Name)
+	}
+
+	c.JSON(200, gin.H{
+		"travelTypes": travelNames,
+	})
+}
+
 // UpdateMeLocationHandler updates current user's location information
 func UpdateMeLocationHandler(c *gin.Context) {
 	userID, exists := middleware.GetUserIDFromContext(c)
@@ -935,5 +1026,492 @@ func GetMeLocationHandler(c *gin.Context) {
 		"longitude": location.Longitude,
 		"createdAt": location.CreatedAt,
 		"updatedAt": location.UpdatedAt,
+	})
+}
+
+// UpdateMeBiographicalDataHandler updates current user's biographical data
+func UpdateMeBiographicalDataHandler(c *gin.Context) {
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Parse request body
+	var updateData struct {
+		Interests       []string `json:"interests"`
+		Hobbies         []string `json:"hobbies"`
+		FoodPreferences []string `json:"foodPreferences"`
+		MusicGenres     []string `json:"musicGenres"`
+		MovieGenres     []string `json:"movieGenres"`
+		TravelTypes     []string `json:"travelTypes"`
+	}
+
+	if err := c.ShouldBindJSON(&updateData); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body", "details": err.Error()})
+		return
+	}
+
+	// Debug logging
+	fmt.Printf("Received biographical data: %+v\n", updateData)
+
+	// Start transaction
+	tx := db.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Clear existing biographical data
+	if err := tx.Where("user_id = ?", userID).Delete(&models.UserInterest{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to clear existing interests", "details": err.Error()})
+		return
+	}
+	if err := tx.Where("user_id = ?", userID).Delete(&models.UserHobby{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to clear existing hobbies", "details": err.Error()})
+		return
+	}
+	if err := tx.Where("user_id = ?", userID).Delete(&models.UserFood{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to clear existing food preferences", "details": err.Error()})
+		return
+	}
+	if err := tx.Where("user_id = ?", userID).Delete(&models.UserMusic{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to clear existing music preferences", "details": err.Error()})
+		return
+	}
+	if err := tx.Where("user_id = ?", userID).Delete(&models.UserMovie{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to clear existing movie preferences", "details": err.Error()})
+		return
+	}
+	if err := tx.Where("user_id = ?", userID).Delete(&models.UserTravel{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to clear existing travel preferences", "details": err.Error()})
+		return
+	}
+
+	// Save interests
+	for _, interestName := range updateData.Interests {
+		var interest models.Interest
+		if err := tx.Where("name = ?", interestName).First(&interest).Error; err != nil {
+			// Create interest if it doesn't exist
+			interest = models.Interest{Name: interestName}
+			if err := tx.Create(&interest).Error; err != nil {
+				tx.Rollback()
+				c.JSON(500, gin.H{"error": "Failed to create interest", "details": err.Error()})
+				return
+			}
+		}
+		userInterest := models.UserInterest{UserID: userID, InterestID: interest.ID}
+		if err := tx.Create(&userInterest).Error; err != nil {
+			tx.Rollback()
+			c.JSON(500, gin.H{"error": "Failed to save user interest", "details": err.Error()})
+			return
+		}
+	}
+
+	// Save hobbies
+	for _, hobbyName := range updateData.Hobbies {
+		var hobby models.Hobby
+		if err := tx.Where("name = ?", hobbyName).First(&hobby).Error; err != nil {
+			// Create hobby if it doesn't exist
+			hobby = models.Hobby{Name: hobbyName}
+			if err := tx.Create(&hobby).Error; err != nil {
+				tx.Rollback()
+				c.JSON(500, gin.H{"error": "Failed to create hobby", "details": err.Error()})
+				return
+			}
+		}
+		userHobby := models.UserHobby{UserID: userID, HobbyID: hobby.ID}
+		if err := tx.Create(&userHobby).Error; err != nil {
+			tx.Rollback()
+			c.JSON(500, gin.H{"error": "Failed to save user hobby", "details": err.Error()})
+			return
+		}
+	}
+
+	// Save food preferences
+	for _, foodName := range updateData.FoodPreferences {
+		var food models.FoodPreference
+		if err := tx.Where("name = ?", foodName).First(&food).Error; err != nil {
+			// Create food preference if it doesn't exist
+			food = models.FoodPreference{Name: foodName}
+			if err := tx.Create(&food).Error; err != nil {
+				tx.Rollback()
+				c.JSON(500, gin.H{"error": "Failed to create food preference", "details": err.Error()})
+				return
+			}
+		}
+		userFood := models.UserFood{UserID: userID, FoodPreferenceID: food.ID}
+		if err := tx.Create(&userFood).Error; err != nil {
+			tx.Rollback()
+			c.JSON(500, gin.H{"error": "Failed to save user food preference", "details": err.Error()})
+			return
+		}
+	}
+
+	// Save music genres
+	for _, musicName := range updateData.MusicGenres {
+		var music models.MusicGenre
+		if err := tx.Where("name = ?", musicName).First(&music).Error; err != nil {
+			// Create music genre if it doesn't exist
+			music = models.MusicGenre{Name: musicName}
+			if err := tx.Create(&music).Error; err != nil {
+				tx.Rollback()
+				c.JSON(500, gin.H{"error": "Failed to create music genre", "details": err.Error()})
+				return
+			}
+		}
+		userMusic := models.UserMusic{UserID: userID, MusicGenreID: music.ID}
+		if err := tx.Create(&userMusic).Error; err != nil {
+			tx.Rollback()
+			c.JSON(500, gin.H{"error": "Failed to save user music genre", "details": err.Error()})
+			return
+		}
+	}
+
+	// Save movie genres
+	for _, movieName := range updateData.MovieGenres {
+		var movie models.MovieGenre
+		if err := tx.Where("name = ?", movieName).First(&movie).Error; err != nil {
+			// Create movie genre if it doesn't exist
+			movie = models.MovieGenre{Name: movieName}
+			if err := tx.Create(&movie).Error; err != nil {
+				tx.Rollback()
+				c.JSON(500, gin.H{"error": "Failed to create movie genre", "details": err.Error()})
+				return
+			}
+		}
+		userMovie := models.UserMovie{UserID: userID, MovieGenreID: movie.ID}
+		if err := tx.Create(&userMovie).Error; err != nil {
+			tx.Rollback()
+			c.JSON(500, gin.H{"error": "Failed to save user movie genre", "details": err.Error()})
+			return
+		}
+	}
+
+	// Save travel types
+	for _, travelName := range updateData.TravelTypes {
+		var travel models.TravelType
+		if err := tx.Where("name = ?", travelName).First(&travel).Error; err != nil {
+			// Create travel type if it doesn't exist
+			travel = models.TravelType{Name: travelName}
+			if err := tx.Create(&travel).Error; err != nil {
+				tx.Rollback()
+				c.JSON(500, gin.H{"error": "Failed to create travel type", "details": err.Error()})
+				return
+			}
+		}
+		userTravel := models.UserTravel{UserID: userID, TravelTypeID: travel.ID}
+		if err := tx.Create(&userTravel).Error; err != nil {
+			tx.Rollback()
+			c.JSON(500, gin.H{"error": "Failed to save user travel type", "details": err.Error()})
+			return
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to save biographical data", "details": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"message": "Biographical data saved successfully",
+		"data": gin.H{
+			"interests":       updateData.Interests,
+			"hobbies":         updateData.Hobbies,
+			"foodPreferences": updateData.FoodPreferences,
+			"musicGenres":     updateData.MusicGenres,
+			"movieGenres":     updateData.MovieGenres,
+			"travelTypes":     updateData.TravelTypes,
+		},
+	})
+}
+
+// GetMeBiographicalDataHandler retrieves current user's biographical data
+func GetMeBiographicalDataHandler(c *gin.Context) {
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Get interests using raw SQL join
+	var interests []string
+	if err := db.DB.Raw(`
+		SELECT i.name 
+		FROM interests i 
+		INNER JOIN user_interests ui ON i.id = ui.interest_id 
+		WHERE ui.user_id = ?
+	`, userID).Scan(&interests).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch interests", "details": err.Error()})
+		return
+	}
+
+	// Get hobbies using raw SQL join
+	var hobbies []string
+	if err := db.DB.Raw(`
+		SELECT h.name 
+		FROM hobbies h 
+		INNER JOIN user_hobbies uh ON h.id = uh.hobby_id 
+		WHERE uh.user_id = ?
+	`, userID).Scan(&hobbies).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch hobbies", "details": err.Error()})
+		return
+	}
+
+	// Get food preferences using raw SQL join
+	var foodPreferences []string
+	if err := db.DB.Raw(`
+		SELECT fp.name 
+		FROM food_preferences fp 
+		INNER JOIN user_food uf ON fp.id = uf.food_preference_id 
+		WHERE uf.user_id = ?
+	`, userID).Scan(&foodPreferences).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch food preferences", "details": err.Error()})
+		return
+	}
+
+	// Get music genres using raw SQL join
+	var musicGenres []string
+	if err := db.DB.Raw(`
+		SELECT mg.name 
+		FROM music_genres mg 
+		INNER JOIN user_music um ON mg.id = um.music_genre_id 
+		WHERE um.user_id = ?
+	`, userID).Scan(&musicGenres).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch music genres", "details": err.Error()})
+		return
+	}
+
+	// Get movie genres using raw SQL join
+	var movieGenres []string
+	if err := db.DB.Raw(`
+		SELECT mg.name 
+		FROM movie_genres mg 
+		INNER JOIN user_movies um ON mg.id = um.movie_genre_id 
+		WHERE um.user_id = ?
+	`, userID).Scan(&movieGenres).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch movie genres", "details": err.Error()})
+		return
+	}
+
+	// Get travel types using raw SQL join
+	var travelTypes []string
+	if err := db.DB.Raw(`
+		SELECT tt.name 
+		FROM travel_types tt 
+		INNER JOIN user_travel ut ON tt.id = ut.travel_type_id 
+		WHERE ut.user_id = ?
+	`, userID).Scan(&travelTypes).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to fetch travel types", "details": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"interests":       interests,
+		"hobbies":         hobbies,
+		"foodPreferences": foodPreferences,
+		"musicGenres":     musicGenres,
+		"movieGenres":     movieGenres,
+		"travelTypes":     travelTypes,
+	})
+}
+
+// UpdateMeSeekingPreferencesHandler updates current user's seeking preferences
+func UpdateMeSeekingPreferencesHandler(c *gin.Context) {
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Parse request body
+	var updateData struct {
+		GenderPreference       *string `json:"genderPreference"`
+		StatusPreference       *string `json:"statusPreference"`
+		RelationshipPreference *string `json:"relationshipPreference"`
+		LocationPreference     string  `json:"locationPreference"`
+
+		// Preference values (what they're looking for)
+		HobbyPreference     *string `json:"hobbyPreference"`
+		InterestPreference  *string `json:"interestPreference"`
+		MusicPreference     *string `json:"musicPreference"`
+		MoviePreference     *string `json:"moviePreference"`
+		FoodPreference      *string `json:"foodPreference"`
+		TravelPreference    *string `json:"travelPreference"`
+		LanguagePreference  *string `json:"languagePreference"`
+		EthnicityPreference *string `json:"ethnicityPreference"`
+		ReligionPreference  *string `json:"religionPreference"`
+
+		// Weight values (priority levels)
+		GenderWeight       int `json:"genderWeight"`
+		StatusWeight       int `json:"statusWeight"`
+		RelationshipWeight int `json:"relationshipWeight"`
+		LocationWeight     int `json:"locationWeight"`
+		LanguageWeight     int `json:"languageWeight"`
+		InterestWeight     int `json:"interestWeight"`
+		HobbyWeight        int `json:"hobbyWeight"`
+		FoodWeight         int `json:"foodWeight"`
+		MusicWeight        int `json:"musicWeight"`
+		MovieWeight        int `json:"movieWeight"`
+		TravelWeight       int `json:"travelWeight"`
+		EthnicityWeight    int `json:"ethnicityWeight"`
+		ReligionWeight     int `json:"religionWeight"`
+	}
+
+	if err := c.ShouldBindJSON(&updateData); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body", "details": err.Error()})
+		return
+	}
+
+	// Debug logging
+	fmt.Printf("Received seeking preferences: %+v\n", updateData)
+
+	// Find or create seeking preference
+	var seekingPreference models.SeekingPreference
+	result := db.DB.Where("user_id = ?", userID).First(&seekingPreference)
+	if result.Error != nil {
+		// Create new seeking preference if not exists
+		seekingPreference = models.SeekingPreference{
+			UserID: userID,
+		}
+	}
+
+	// Update the seeking preference
+	seekingPreference.GenderPreference = updateData.GenderPreference
+	seekingPreference.StatusPreference = updateData.StatusPreference
+	seekingPreference.RelationshipPreference = updateData.RelationshipPreference
+	seekingPreference.LocationPreference = updateData.LocationPreference
+
+	// Update preference values (what they're looking for)
+	seekingPreference.HobbyPreference = updateData.HobbyPreference
+	seekingPreference.InterestPreference = updateData.InterestPreference
+	seekingPreference.MusicPreference = updateData.MusicPreference
+	seekingPreference.MoviePreference = updateData.MoviePreference
+	seekingPreference.FoodPreference = updateData.FoodPreference
+	seekingPreference.TravelPreference = updateData.TravelPreference
+	seekingPreference.LanguagePreference = updateData.LanguagePreference
+	seekingPreference.EthnicityPreference = updateData.EthnicityPreference
+	seekingPreference.ReligionPreference = updateData.ReligionPreference
+
+	// Update weight values (priority levels)
+	seekingPreference.GenderWeight = updateData.GenderWeight
+	seekingPreference.StatusWeight = updateData.StatusWeight
+	seekingPreference.RelationshipWeight = updateData.RelationshipWeight
+	seekingPreference.LocationWeight = updateData.LocationWeight
+	seekingPreference.HobbiesWeight = updateData.HobbyWeight
+	seekingPreference.InterestsWeight = updateData.InterestWeight
+	seekingPreference.MusicWeight = updateData.MusicWeight
+	seekingPreference.MoviesWeight = updateData.MovieWeight
+	seekingPreference.FoodWeight = updateData.FoodWeight
+	seekingPreference.TravelWeight = updateData.TravelWeight
+	seekingPreference.LanguagesWeight = updateData.LanguageWeight
+	seekingPreference.EthnicityWeight = updateData.EthnicityWeight
+	seekingPreference.ReligionWeight = updateData.ReligionWeight
+
+	// Save to database
+	if err := db.DB.Save(&seekingPreference).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to save seeking preferences", "details": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"message": "Seeking preferences saved successfully",
+		"data": gin.H{
+			"genderPreference":       seekingPreference.GenderPreference,
+			"statusPreference":       seekingPreference.StatusPreference,
+			"relationshipPreference": seekingPreference.RelationshipPreference,
+			"locationPreference":     seekingPreference.LocationPreference,
+			"hobbiesWeight":          seekingPreference.HobbiesWeight,
+			"interestsWeight":        seekingPreference.InterestsWeight,
+			"musicWeight":            seekingPreference.MusicWeight,
+			"moviesWeight":           seekingPreference.MoviesWeight,
+			"foodWeight":             seekingPreference.FoodWeight,
+			"travelWeight":           seekingPreference.TravelWeight,
+			"languagesWeight":        seekingPreference.LanguagesWeight,
+			"ethnicityWeight":        seekingPreference.EthnicityWeight,
+			"religionWeight":         seekingPreference.ReligionWeight,
+		},
+	})
+}
+
+// GetMeSeekingPreferencesHandler retrieves the current user's seeking preferences
+func GetMeSeekingPreferencesHandler(c *gin.Context) {
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Get seeking preferences from database
+	var seekingPreference models.SeekingPreference
+	if err := db.DB.Where("user_id = ?", userID).First(&seekingPreference).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Return default values if no seeking preferences exist
+			c.JSON(200, gin.H{
+				"genderPreference":       nil,
+				"statusPreference":       nil,
+				"relationshipPreference": nil,
+				"locationPreference":     "within_city",
+				"genderWeight":           2,
+				"statusWeight":           2,
+				"relationshipWeight":     2,
+				"locationWeight":         2,
+				"languageWeight":         2,
+				"interestWeight":         2,
+				"hobbyWeight":            2,
+				"foodWeight":             2,
+				"musicWeight":            2,
+				"movieWeight":            2,
+				"travelWeight":           2,
+				"ethnicityWeight":        2,
+				"religionWeight":         2,
+			})
+			return
+		}
+		c.JSON(500, gin.H{"error": "Failed to retrieve seeking preferences"})
+		return
+	}
+
+	// Return seeking preferences
+	c.JSON(200, gin.H{
+		"genderPreference":       seekingPreference.GenderPreference,
+		"statusPreference":       seekingPreference.StatusPreference,
+		"relationshipPreference": seekingPreference.RelationshipPreference,
+		"locationPreference":     seekingPreference.LocationPreference,
+
+		// Preference values (what they're looking for)
+		"hobbyPreference":     seekingPreference.HobbyPreference,
+		"interestPreference":  seekingPreference.InterestPreference,
+		"musicPreference":     seekingPreference.MusicPreference,
+		"moviePreference":     seekingPreference.MoviePreference,
+		"foodPreference":      seekingPreference.FoodPreference,
+		"travelPreference":    seekingPreference.TravelPreference,
+		"languagePreference":  seekingPreference.LanguagePreference,
+		"ethnicityPreference": seekingPreference.EthnicityPreference,
+		"religionPreference":  seekingPreference.ReligionPreference,
+
+		// Weight values (priority levels)
+		"genderWeight":       seekingPreference.GenderWeight,
+		"statusWeight":       seekingPreference.StatusWeight,
+		"relationshipWeight": seekingPreference.RelationshipWeight,
+		"locationWeight":     seekingPreference.LocationWeight,
+		"languageWeight":     seekingPreference.LanguagesWeight,
+		"interestWeight":     seekingPreference.InterestsWeight,
+		"hobbyWeight":        seekingPreference.HobbiesWeight,
+		"foodWeight":         seekingPreference.FoodWeight,
+		"musicWeight":        seekingPreference.MusicWeight,
+		"movieWeight":        seekingPreference.MoviesWeight,
+		"travelWeight":       seekingPreference.TravelWeight,
+		"ethnicityWeight":    seekingPreference.EthnicityWeight,
+		"religionWeight":     seekingPreference.ReligionWeight,
 	})
 }

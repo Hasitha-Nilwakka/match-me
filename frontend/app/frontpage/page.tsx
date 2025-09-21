@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, profileApi, recommendationsApi } from "../../lib/api";
@@ -46,19 +46,8 @@ export default function FrontPage() {
   const [currentRecommendationIndex, setCurrentRecommendationIndex] = useState(0);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
 
-  // Check authentication on page load
-  useEffect(() => {
-    if (!authApi.isAuthenticated()) {
-      router.push('/');
-    } else {
-      setIsAuthenticated(true);
-      loadUserProfile();
-      loadRecommendations();
-    }
-  }, [router]);
-
   // Load user profile data
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
     try {
       const currentUser = authApi.getCurrentUser();
       if (currentUser) {
@@ -76,6 +65,13 @@ export default function FrontPage() {
           firstName: profile.firstName || '',
           lastName: profile.lastName || '',
         }));
+        
+        // Only load recommendations if profile is complete
+        if (profile.firstName && profile.firstName.trim()) {
+          loadRecommendations();
+        } else {
+          console.log('Profile incomplete, skipping recommendations');
+        }
       } catch {
         console.log('No profile data found yet');
       }
@@ -84,8 +80,19 @@ export default function FrontPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
+  // Check authentication on page load
+  useEffect(() => {
+    if (!authApi.isAuthenticated()) {
+      router.push('/');
+    } else {
+      setIsAuthenticated(true);
+      loadUserProfile();
+      // Only load recommendations after profile is loaded
+      // loadRecommendations will be called from loadUserProfile if profile is complete
+    }
+  }, [router, loadUserProfile]);
 
   // Load recommendations
   const loadRecommendations = async () => {
@@ -132,14 +139,14 @@ export default function FrontPage() {
       setCurrentRecommendationIndex(0);
     } catch (error) {
       console.error('Error loading recommendations:', error);
-      // Show user-friendly error message
+      // Don't show error to user if profile is incomplete - this is expected
       if (error instanceof Error) {
         if (error.message.includes('Profile must be completed')) {
-          console.log('User needs to complete profile before getting recommendations');
+          console.log('Profile incomplete, skipping recommendations');
         } else if (error.message.includes('401')) {
           console.log('Authentication error - user may need to log in again');
         } else {
-          console.log('Failed to load recommendations:', error.message);
+          console.error('Unexpected error loading recommendations:', error.message);
         }
       }
       // Keep empty array if loading fails

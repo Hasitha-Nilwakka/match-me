@@ -69,8 +69,13 @@ func main() {
 	r.GET("/users", handlers.GetAllUsersHandler)
 
 	// Reference data endpoints (public)
-	r.GET("/languages", handlers.GetAllLanguagesHandler) // Get all available languages
-	r.GET("/hobbies", handlers.GetAllHobbiesHandler)     // Get all available hobbies
+	r.GET("/languages", handlers.GetAllLanguagesHandler)              // Get all available languages
+	r.GET("/hobbies", handlers.GetAllHobbiesHandler)                  // Get all available hobbies
+	r.GET("/interests", handlers.GetAllInterestsHandler)              // Get all available interests
+	r.GET("/food-preferences", handlers.GetAllFoodPreferencesHandler) // Get all available food preferences
+	r.GET("/music-genres", handlers.GetAllMusicGenresHandler)         // Get all available music genres
+	r.GET("/movie-genres", handlers.GetAllMovieGenresHandler)         // Get all available movie genres
+	r.GET("/travel-types", handlers.GetAllTravelTypesHandler)         // Get all available travel types
 
 	// Authentication endpoints
 	r.POST("/auth/register", handlers.RegisterHandler) // User registration
@@ -85,14 +90,18 @@ func main() {
 	protected.Use(middleware.AuthMiddleware())
 	{
 		// User profile management endpoints
-		protected.GET("/me", handlers.GetMeHandler)                           // Get current user info
-		protected.GET("/me/profile", handlers.GetMeProfileHandler)            // Get current user profile
-		protected.PUT("/me/profile", handlers.UpdateMeProfileHandler)         // Update current user profile
-		protected.GET("/me/bio", handlers.GetMeBioHandler)                    // Get current user bio data
-		protected.PUT("/me/bio", handlers.UpdateMeBioHandler)                 // Update current user bio data
-		protected.PUT("/me/preferences", handlers.UpdateMePreferencesHandler) // Update seeking preferences
-		protected.GET("/me/location", handlers.GetMeLocationHandler)          // Get current user location
-		protected.PUT("/me/location", handlers.UpdateMeLocationHandler)       // Update current user location
+		protected.GET("/me", handlers.GetMeHandler)                                          // Get current user info
+		protected.GET("/me/profile", handlers.GetMeProfileHandler)                           // Get current user profile
+		protected.PUT("/me/profile", handlers.UpdateMeProfileHandler)                        // Update current user profile
+		protected.GET("/me/bio", handlers.GetMeBioHandler)                                   // Get current user bio data
+		protected.PUT("/me/bio", handlers.UpdateMeBioHandler)                                // Update current user bio data
+		protected.PUT("/me/preferences", handlers.UpdateMePreferencesHandler)                // Update seeking preferences
+		protected.GET("/me/location", handlers.GetMeLocationHandler)                         // Get current user location
+		protected.PUT("/me/location", handlers.UpdateMeLocationHandler)                      // Update current user location
+		protected.GET("/me/biographical", handlers.GetMeBiographicalDataHandler)             // Get biographical data
+		protected.PUT("/me/biographical", handlers.UpdateMeBiographicalDataHandler)          // Update biographical data
+		protected.GET("/me/seeking-preferences", handlers.GetMeSeekingPreferencesHandler)    // Get seeking preferences
+		protected.PUT("/me/seeking-preferences", handlers.UpdateMeSeekingPreferencesHandler) // Update seeking preferences
 
 		// Other user information endpoints
 		protected.GET("/users/:id", handlers.GetUserHandler)                // Get other user basic info

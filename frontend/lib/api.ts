@@ -21,10 +21,19 @@ export const API_ENDPOINTS = {
     GET_ME: '/me/profile',
     UPDATE_ME: '/me/profile',
     GET_BY_ID: (id: string) => `/users/${id}/profile`,
+    GET_BIographical: '/me/biographical',
+    UPDATE_BIographical: '/me/biographical',
+    UPDATE_SEEKING_PREFERENCES: '/me/seeking-preferences',
+    GET_SEEKING_PREFERENCES: '/me/seeking-preferences',
   },
   REFERENCE: {
     LANGUAGES: '/languages',
     HOBBIES: '/hobbies',
+    INTERESTS: '/interests',
+    FOOD_PREFERENCES: '/food-preferences',
+    MUSIC_GENRES: '/music-genres',
+    MOVIE_GENRES: '/movie-genres',
+    TRAVEL_TYPES: '/travel-types',
   },
   CHATS: {
     GET_ALL: '/chats',
@@ -65,6 +74,7 @@ export const authenticatedApiRequest = async (
   options: RequestInit = {}
 ): Promise<Response> => {
   const token = localStorage.getItem('token');
+  console.log('Authenticated request to:', endpoint, 'Token exists:', !!token);
   if (!token) {
     throw new Error('No authentication token found');
   }
@@ -98,6 +108,56 @@ export const referenceApi = {
     }
     const data = await response.json();
     return data.hobbies;
+  },
+
+  // Get all available interests
+  getInterests: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.INTERESTS);
+    if (!response.ok) {
+      throw new Error('Failed to fetch interests');
+    }
+    const data = await response.json();
+    return data.interests;
+  },
+
+  // Get all available food preferences
+  getFoodPreferences: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.FOOD_PREFERENCES);
+    if (!response.ok) {
+      throw new Error('Failed to fetch food preferences');
+    }
+    const data = await response.json();
+    return data.foodPreferences;
+  },
+
+  // Get all available music genres
+  getMusicGenres: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.MUSIC_GENRES);
+    if (!response.ok) {
+      throw new Error('Failed to fetch music genres');
+    }
+    const data = await response.json();
+    return data.musicGenres;
+  },
+
+  // Get all available movie genres
+  getMovieGenres: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.MOVIE_GENRES);
+    if (!response.ok) {
+      throw new Error('Failed to fetch movie genres');
+    }
+    const data = await response.json();
+    return data.movieGenres;
+  },
+
+  // Get all available travel types
+  getTravelTypes: async (): Promise<string[]> => {
+    const response = await apiRequest(API_ENDPOINTS.REFERENCE.TRAVEL_TYPES);
+    if (!response.ok) {
+      throw new Error('Failed to fetch travel types');
+    }
+    const data = await response.json();
+    return data.travelTypes;
   },
 };
 
@@ -199,7 +259,9 @@ export const recommendationsApi = {
   // Get recommendations for the current user
   getRecommendations: async () => {
     try {
+      console.log('API: Fetching recommendations...');
       const response = await authenticatedApiRequest(API_ENDPOINTS.RECOMMENDATIONS.GET_ALL);
+      console.log('API: Recommendations response status:', response.status);
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Recommendations API Error:', {
@@ -395,11 +457,15 @@ export const profileApi = {
     profilePictureURL?: string;
     languages?: string[];
   }) => {
+    console.log('API: Updating profile with data:', profileData);
     const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.UPDATE_ME, {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });
+    console.log('API: Profile update response status:', response.status);
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API: Profile update failed:', errorText);
       throw new Error('Failed to update profile');
     }
     return response.json();
@@ -436,6 +502,90 @@ export const profileApi = {
     const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.GET_BY_ID(userId));
     if (!response.ok) {
       throw new Error('Failed to fetch user profile');
+    }
+    return response.json();
+  },
+
+  // Get biographical data
+  getBiographicalData: async () => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.GET_BIographical);
+    if (!response.ok) {
+      throw new Error('Failed to fetch biographical data');
+    }
+    return response.json();
+  },
+
+  // Update biographical data
+  updateBiographicalData: async (data: {
+    interests: string[];
+    hobbies: string[];
+    foodPreferences: string[];
+    musicGenres: string[];
+    movieGenres: string[];
+    travelTypes: string[];
+  }) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.UPDATE_BIographical, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update biographical data');
+    }
+    return response.json();
+  },
+
+  // Update seeking preferences
+  updateSeekingPreferences: async (data: {
+    genderPreference?: string;
+    statusPreference?: string;
+    relationshipPreference?: string;
+    locationPreference: string;
+    languagePreference?: string;
+    interestPreference?: string;
+    hobbyPreference?: string;
+    foodPreference?: string;
+    musicPreference?: string;
+    moviePreference?: string;
+    travelPreference?: string;
+    ethnicityPreference?: string;
+    religionPreference?: string;
+    genderWeight: number;
+    statusWeight: number;
+    relationshipWeight: number;
+    locationWeight: number;
+    languageWeight: number;
+    interestWeight: number;
+    hobbyWeight: number;
+    foodWeight: number;
+    musicWeight: number;
+    movieWeight: number;
+    travelWeight: number;
+    ethnicityWeight: number;
+    religionWeight: number;
+  }) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.UPDATE_SEEKING_PREFERENCES, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update seeking preferences');
+    }
+    return response.json();
+  },
+
+  // Get seeking preferences
+  getSeekingPreferences: async () => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.GET_SEEKING_PREFERENCES, {
+      method: 'GET',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to get seeking preferences');
     }
     return response.json();
   },

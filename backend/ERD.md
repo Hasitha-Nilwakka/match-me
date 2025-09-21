@@ -48,16 +48,37 @@
 │ relationshipPref│    └─────────────────┘
 │ locationPref    │             │
 │ maxDistanceKm   │             │
-│ hobbiesWeight   │             ▼
-│ interestsWeight │    ┌─────────────────┐    ┌─────────────────┐
-│ musicWeight     │    │      chats      │    │  online_status  │
-│ moviesWeight    │    ├─────────────────┤    ├─────────────────┤
-│ foodWeight      │    │ id (PK)         │    │ id (PK)         │
-│ travelWeight    │    │ connectionId(FK)│    │ userId (FK)     │
-│ languagesWeight │    │ createdAt       │    │ isOnline        │
-│ ethnicityWeight │    └─────────────────┘    │ lastSeen        │
-│ religionWeight  │             │             └─────────────────┘
-└─────────────────┘             │
+│ hobbyPref       │             │
+│ interestPref    │             │
+│ musicPref       │             │
+│ moviePref       │             │
+│ foodPref        │             │
+│ travelPref      │             │
+│ languagePref    │             │
+│ ethnicityPref   │             │
+│ religionPref    │             │
+│ genderWeight    │             │
+│ statusWeight    │             │
+│ relationshipWeight│           │
+│ locationWeight  │             │
+│ hobbiesWeight   │             │
+│ interestsWeight │             │
+│ musicWeight     │             │
+│ moviesWeight    │             │
+│ foodWeight      │             │
+│ travelWeight    │             │
+│ languagesWeight │             │
+│ ethnicityWeight │             │
+│ religionWeight  │             ▼
+└─────────────────┘    ┌─────────────────┐    ┌─────────────────┐
+                       │      chats      │    │  online_status  │
+                       ├─────────────────┤    ├─────────────────┤
+                       │ id (PK)         │    │ id (PK)         │
+                       │ connectionId(FK)│    │ userId (FK)     │
+                       │ createdAt       │    │ isOnline        │
+                       └─────────────────┘    │ lastSeen        │
+                       │             │             └─────────────────┘
+                       │             │
                                 ▼
                        ┌─────────────────┐
                        │    messages     │
@@ -178,11 +199,29 @@ CREATE TABLE seeking_preferences (
     user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     min_age INTEGER DEFAULT 18,
     max_age INTEGER DEFAULT 99,
+    -- Basic preferences (what they're looking for)
     gender_preference VARCHAR,
     status_preference VARCHAR,
     relationship_preference VARCHAR,
     location_preference VARCHAR DEFAULT 'within_city',
     max_distance_km INTEGER DEFAULT 50,
+    
+    -- Detailed preference values (what they're looking for)
+    hobby_preference VARCHAR,
+    interest_preference VARCHAR,
+    music_preference VARCHAR,
+    movie_preference VARCHAR,
+    food_preference VARCHAR,
+    travel_preference VARCHAR,
+    language_preference VARCHAR,
+    ethnicity_preference VARCHAR,
+    religion_preference VARCHAR,
+    
+    -- Priority weights (how important each category is)
+    gender_weight INTEGER DEFAULT 2,
+    status_weight INTEGER DEFAULT 2,
+    relationship_weight INTEGER DEFAULT 2,
+    location_weight INTEGER DEFAULT 2,
     hobbies_weight INTEGER DEFAULT 5,
     interests_weight INTEGER DEFAULT 5,
     music_weight INTEGER DEFAULT 3,
@@ -194,6 +233,13 @@ CREATE TABLE seeking_preferences (
     religion_weight INTEGER DEFAULT 6
 );
 ```
+
+**📝 Table Description:**
+The `seeking_preferences` table stores user matching preferences with two types of data:
+- **Preference Values**: What the user is looking for (e.g., specific hobbies, music genres, etc.)
+- **Priority Weights**: How important each category is to the user (1-3 scale, where 3 is most important)
+
+This dual approach allows for sophisticated matching algorithms that can prioritize certain preferences over others based on user-defined importance levels.
 
 </details>
 
@@ -278,17 +324,17 @@ CREATE TABLE interests (
 );
 
 -- Sample Data
-INSERT INTO interests (name) VALUES
-('Technology'),
-('Art'),
-('Science'),
-('Politics'),
-('Environment'),
-('Business'),
-('Health'),
-('Fashion'),
-('Food'),
-('Travel');
+INSERT INTO interests (name, updated_at) VALUES
+('Technology', now()),
+('Art',  now()),
+('Science', now()),
+('Politics', now()),
+('Environment', now()),
+('Business', now()),
+('Health', now()),
+('Fashion', now()),
+('Food', now()),
+('Travel', now());
 ```
 
 </details>
@@ -305,9 +351,9 @@ CREATE TABLE music_genres (
 );
 
 -- Sample Data
-INSERT INTO music_genres (name) VALUES
-('Pop'), ('Rock'), ('Hip Hop'), ('Jazz'), ('Classical'),
-('Electronic'), ('Country'), ('R&B'), ('Indie'), ('Alternative');
+INSERT INTO music_genres (name, updated_at) VALUES
+('Pop', now()), ('Rock', now()), ('Hip Hop', now()), ('Jazz', now()), ('Classical', now()),
+('Electronic', now()), ('Country', now()), ('R&B', now()), ('Indie', now()), ('Alternative', now());
 ```
 
 #### `movie_genres` Table
@@ -319,9 +365,9 @@ CREATE TABLE movie_genres (
 );
 
 -- Sample Data
-INSERT INTO movie_genres (name) VALUES
-('Action'), ('Comedy'), ('Drama'), ('Horror'), ('Romance'),
-('Sci-Fi'), ('Thriller'), ('Documentary'), ('Animation'), ('Fantasy');
+INSERT INTO movie_genres (name, updated_at) VALUES
+('Action', now()), ('Comedy', now()), ('Drama', now()), ('Horror', now()), ('Romance', now()),
+('Sci-Fi', now()), ('Thriller', now()), ('Documentary', now()), ('Animation', now()), ('Fantasy', now());
 ```
 
 </details>
@@ -338,9 +384,9 @@ CREATE TABLE food_preferences (
 );
 
 -- Sample Data
-INSERT INTO food_preferences (name) VALUES
-('Italian'), ('Mexican'), ('Chinese'), ('Indian'), ('Japanese'),
-('Mediterranean'), ('Vegetarian'), ('Vegan'), ('Gluten-Free'), ('Keto');
+INSERT INTO food_preferences (name, updated_at) VALUES
+('Italian', now()), ('Mexican', now()), ('Chinese', now()), ('Indian', now()), ('Japanese', now()),
+('Mediterranean', now()), ('Vegetarian', now()), ('Vegan', now()), ('Gluten-Free', now()), ('Keto', now());
 ```
 
 #### `travel_types` Table
@@ -352,9 +398,9 @@ CREATE TABLE travel_types (
 );
 
 -- Sample Data
-INSERT INTO travel_types (name) VALUES
-('Beach'), ('Mountains'), ('City'), ('Adventure'), ('Cultural'),
-('Luxury'), ('Budget'), ('Backpacking'), ('Road Trip'), ('Cruise');
+INSERT INTO travel_types (name, updated_at) VALUES
+('Beach', now()), ('Mountains', now()), ('City', now()), ('Adventure', now()), ('Cultural', now()),
+('Luxury', now()), ('Budget', now()), ('Backpacking', now()), ('Road Trip', now()), ('Cruise', now());
 ```
 
 #### `languages` Table
