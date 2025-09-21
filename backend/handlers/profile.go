@@ -4,8 +4,14 @@ import (
 	"backend/db"
 	"backend/middleware"
 	"backend/models"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -1339,31 +1345,33 @@ func UpdateMeSeekingPreferencesHandler(c *gin.Context) {
 		RelationshipPreference *string `json:"relationshipPreference"`
 		LocationPreference     string  `json:"locationPreference"`
 
-		// Preference values (what they're looking for)
-		HobbyPreference     *string `json:"hobbyPreference"`
-		InterestPreference  *string `json:"interestPreference"`
-		MusicPreference     *string `json:"musicPreference"`
-		MoviePreference     *string `json:"moviePreference"`
-		FoodPreference      *string `json:"foodPreference"`
-		TravelPreference    *string `json:"travelPreference"`
-		LanguagePreference  *string `json:"languagePreference"`
+		// Single preference values
 		EthnicityPreference *string `json:"ethnicityPreference"`
 		ReligionPreference  *string `json:"religionPreference"`
 
+		// Multiple preference values (what they're looking for)
+		InterestsPreference       []string `json:"interestsPreference"`
+		HobbiesPreference         []string `json:"hobbiesPreference"`
+		FoodPreferencesPreference []string `json:"foodPreferencesPreference"`
+		MusicGenresPreference     []string `json:"musicGenresPreference"`
+		MovieGenresPreference     []string `json:"movieGenresPreference"`
+		TravelTypesPreference     []string `json:"travelTypesPreference"`
+		LanguagesPreference       []string `json:"languagesPreference"`
+
 		// Weight values (priority levels)
-		GenderWeight       int `json:"genderWeight"`
-		StatusWeight       int `json:"statusWeight"`
-		RelationshipWeight int `json:"relationshipWeight"`
-		LocationWeight     int `json:"locationWeight"`
-		LanguageWeight     int `json:"languageWeight"`
-		InterestWeight     int `json:"interestWeight"`
-		HobbyWeight        int `json:"hobbyWeight"`
-		FoodWeight         int `json:"foodWeight"`
-		MusicWeight        int `json:"musicWeight"`
-		MovieWeight        int `json:"movieWeight"`
-		TravelWeight       int `json:"travelWeight"`
-		EthnicityWeight    int `json:"ethnicityWeight"`
-		ReligionWeight     int `json:"religionWeight"`
+		GenderWeight          int `json:"genderWeight"`
+		StatusWeight          int `json:"statusWeight"`
+		RelationshipWeight    int `json:"relationshipWeight"`
+		LocationWeight        int `json:"locationWeight"`
+		LanguagesWeight       int `json:"languagesWeight"`
+		InterestsWeight       int `json:"interestsWeight"`
+		HobbiesWeight         int `json:"hobbiesWeight"`
+		FoodPreferencesWeight int `json:"foodPreferencesWeight"`
+		MusicGenresWeight     int `json:"musicGenresWeight"`
+		MovieGenresWeight     int `json:"movieGenresWeight"`
+		TravelTypesWeight     int `json:"travelTypesWeight"`
+		EthnicityWeight       int `json:"ethnicityWeight"`
+		ReligionWeight        int `json:"religionWeight"`
 	}
 
 	if err := c.ShouldBindJSON(&updateData); err != nil {
@@ -1390,29 +1398,79 @@ func UpdateMeSeekingPreferencesHandler(c *gin.Context) {
 	seekingPreference.RelationshipPreference = updateData.RelationshipPreference
 	seekingPreference.LocationPreference = updateData.LocationPreference
 
-	// Update preference values (what they're looking for)
-	seekingPreference.HobbyPreference = updateData.HobbyPreference
-	seekingPreference.InterestPreference = updateData.InterestPreference
-	seekingPreference.MusicPreference = updateData.MusicPreference
-	seekingPreference.MoviePreference = updateData.MoviePreference
-	seekingPreference.FoodPreference = updateData.FoodPreference
-	seekingPreference.TravelPreference = updateData.TravelPreference
-	seekingPreference.LanguagePreference = updateData.LanguagePreference
+	// Update single preference values
 	seekingPreference.EthnicityPreference = updateData.EthnicityPreference
 	seekingPreference.ReligionPreference = updateData.ReligionPreference
+
+	// Update multiple preference values (stored as JSON strings)
+	if len(updateData.InterestsPreference) > 0 {
+		interestsJSON, _ := json.Marshal(updateData.InterestsPreference)
+		interestsStr := string(interestsJSON)
+		seekingPreference.InterestPreference = &interestsStr
+	} else {
+		seekingPreference.InterestPreference = nil
+	}
+
+	if len(updateData.HobbiesPreference) > 0 {
+		hobbiesJSON, _ := json.Marshal(updateData.HobbiesPreference)
+		hobbiesStr := string(hobbiesJSON)
+		seekingPreference.HobbyPreference = &hobbiesStr
+	} else {
+		seekingPreference.HobbyPreference = nil
+	}
+
+	if len(updateData.FoodPreferencesPreference) > 0 {
+		foodJSON, _ := json.Marshal(updateData.FoodPreferencesPreference)
+		foodStr := string(foodJSON)
+		seekingPreference.FoodPreference = &foodStr
+	} else {
+		seekingPreference.FoodPreference = nil
+	}
+
+	if len(updateData.MusicGenresPreference) > 0 {
+		musicJSON, _ := json.Marshal(updateData.MusicGenresPreference)
+		musicStr := string(musicJSON)
+		seekingPreference.MusicPreference = &musicStr
+	} else {
+		seekingPreference.MusicPreference = nil
+	}
+
+	if len(updateData.MovieGenresPreference) > 0 {
+		movieJSON, _ := json.Marshal(updateData.MovieGenresPreference)
+		movieStr := string(movieJSON)
+		seekingPreference.MoviePreference = &movieStr
+	} else {
+		seekingPreference.MoviePreference = nil
+	}
+
+	if len(updateData.TravelTypesPreference) > 0 {
+		travelJSON, _ := json.Marshal(updateData.TravelTypesPreference)
+		travelStr := string(travelJSON)
+		seekingPreference.TravelPreference = &travelStr
+	} else {
+		seekingPreference.TravelPreference = nil
+	}
+
+	if len(updateData.LanguagesPreference) > 0 {
+		languagesJSON, _ := json.Marshal(updateData.LanguagesPreference)
+		languagesStr := string(languagesJSON)
+		seekingPreference.LanguagePreference = &languagesStr
+	} else {
+		seekingPreference.LanguagePreference = nil
+	}
 
 	// Update weight values (priority levels)
 	seekingPreference.GenderWeight = updateData.GenderWeight
 	seekingPreference.StatusWeight = updateData.StatusWeight
 	seekingPreference.RelationshipWeight = updateData.RelationshipWeight
 	seekingPreference.LocationWeight = updateData.LocationWeight
-	seekingPreference.HobbiesWeight = updateData.HobbyWeight
-	seekingPreference.InterestsWeight = updateData.InterestWeight
-	seekingPreference.MusicWeight = updateData.MusicWeight
-	seekingPreference.MoviesWeight = updateData.MovieWeight
-	seekingPreference.FoodWeight = updateData.FoodWeight
-	seekingPreference.TravelWeight = updateData.TravelWeight
-	seekingPreference.LanguagesWeight = updateData.LanguageWeight
+	seekingPreference.LanguagesWeight = updateData.LanguagesWeight
+	seekingPreference.InterestsWeight = updateData.InterestsWeight
+	seekingPreference.HobbiesWeight = updateData.HobbiesWeight
+	seekingPreference.FoodWeight = updateData.FoodPreferencesWeight
+	seekingPreference.MusicWeight = updateData.MusicGenresWeight
+	seekingPreference.MoviesWeight = updateData.MovieGenresWeight
+	seekingPreference.TravelWeight = updateData.TravelTypesWeight
 	seekingPreference.EthnicityWeight = updateData.EthnicityWeight
 	seekingPreference.ReligionWeight = updateData.ReligionWeight
 
@@ -1461,24 +1519,70 @@ func GetMeSeekingPreferencesHandler(c *gin.Context) {
 				"statusPreference":       nil,
 				"relationshipPreference": nil,
 				"locationPreference":     "within_city",
-				"genderWeight":           2,
-				"statusWeight":           2,
-				"relationshipWeight":     2,
-				"locationWeight":         2,
-				"languageWeight":         2,
-				"interestWeight":         2,
-				"hobbyWeight":            2,
-				"foodWeight":             2,
-				"musicWeight":            2,
-				"movieWeight":            2,
-				"travelWeight":           2,
-				"ethnicityWeight":        2,
-				"religionWeight":         2,
+
+				// Single preference values
+				"ethnicityPreference": nil,
+				"religionPreference":  nil,
+
+				// Multiple preference values (empty arrays by default)
+				"interestsPreference":       []string{},
+				"hobbiesPreference":         []string{},
+				"foodPreferencesPreference": []string{},
+				"musicGenresPreference":     []string{},
+				"movieGenresPreference":     []string{},
+				"travelTypesPreference":     []string{},
+				"languagesPreference":       []string{},
+
+				// Weight values (priority levels)
+				"genderWeight":          2,
+				"statusWeight":          2,
+				"relationshipWeight":    2,
+				"locationWeight":        2,
+				"languagesWeight":       2,
+				"interestsWeight":       2,
+				"hobbiesWeight":         2,
+				"foodPreferencesWeight": 2,
+				"musicGenresWeight":     2,
+				"movieGenresWeight":     2,
+				"travelTypesWeight":     2,
+				"ethnicityWeight":       2,
+				"religionWeight":        2,
 			})
 			return
 		}
 		c.JSON(500, gin.H{"error": "Failed to retrieve seeking preferences"})
 		return
+	}
+
+	// Parse JSON strings back to arrays for multiple selections
+	var interestsPreference []string
+	var hobbiesPreference []string
+	var foodPreferencesPreference []string
+	var musicGenresPreference []string
+	var movieGenresPreference []string
+	var travelTypesPreference []string
+	var languagesPreference []string
+
+	if seekingPreference.InterestPreference != nil {
+		json.Unmarshal([]byte(*seekingPreference.InterestPreference), &interestsPreference)
+	}
+	if seekingPreference.HobbyPreference != nil {
+		json.Unmarshal([]byte(*seekingPreference.HobbyPreference), &hobbiesPreference)
+	}
+	if seekingPreference.FoodPreference != nil {
+		json.Unmarshal([]byte(*seekingPreference.FoodPreference), &foodPreferencesPreference)
+	}
+	if seekingPreference.MusicPreference != nil {
+		json.Unmarshal([]byte(*seekingPreference.MusicPreference), &musicGenresPreference)
+	}
+	if seekingPreference.MoviePreference != nil {
+		json.Unmarshal([]byte(*seekingPreference.MoviePreference), &movieGenresPreference)
+	}
+	if seekingPreference.TravelPreference != nil {
+		json.Unmarshal([]byte(*seekingPreference.TravelPreference), &travelTypesPreference)
+	}
+	if seekingPreference.LanguagePreference != nil {
+		json.Unmarshal([]byte(*seekingPreference.LanguagePreference), &languagesPreference)
 	}
 
 	// Return seeking preferences
@@ -1488,30 +1592,129 @@ func GetMeSeekingPreferencesHandler(c *gin.Context) {
 		"relationshipPreference": seekingPreference.RelationshipPreference,
 		"locationPreference":     seekingPreference.LocationPreference,
 
-		// Preference values (what they're looking for)
-		"hobbyPreference":     seekingPreference.HobbyPreference,
-		"interestPreference":  seekingPreference.InterestPreference,
-		"musicPreference":     seekingPreference.MusicPreference,
-		"moviePreference":     seekingPreference.MoviePreference,
-		"foodPreference":      seekingPreference.FoodPreference,
-		"travelPreference":    seekingPreference.TravelPreference,
-		"languagePreference":  seekingPreference.LanguagePreference,
+		// Single preference values
 		"ethnicityPreference": seekingPreference.EthnicityPreference,
 		"religionPreference":  seekingPreference.ReligionPreference,
 
+		// Multiple preference values (parsed from JSON)
+		"interestsPreference":       interestsPreference,
+		"hobbiesPreference":         hobbiesPreference,
+		"foodPreferencesPreference": foodPreferencesPreference,
+		"musicGenresPreference":     musicGenresPreference,
+		"movieGenresPreference":     movieGenresPreference,
+		"travelTypesPreference":     travelTypesPreference,
+		"languagesPreference":       languagesPreference,
+
 		// Weight values (priority levels)
-		"genderWeight":       seekingPreference.GenderWeight,
-		"statusWeight":       seekingPreference.StatusWeight,
-		"relationshipWeight": seekingPreference.RelationshipWeight,
-		"locationWeight":     seekingPreference.LocationWeight,
-		"languageWeight":     seekingPreference.LanguagesWeight,
-		"interestWeight":     seekingPreference.InterestsWeight,
-		"hobbyWeight":        seekingPreference.HobbiesWeight,
-		"foodWeight":         seekingPreference.FoodWeight,
-		"musicWeight":        seekingPreference.MusicWeight,
-		"movieWeight":        seekingPreference.MoviesWeight,
-		"travelWeight":       seekingPreference.TravelWeight,
-		"ethnicityWeight":    seekingPreference.EthnicityWeight,
-		"religionWeight":     seekingPreference.ReligionWeight,
+		"genderWeight":          seekingPreference.GenderWeight,
+		"statusWeight":          seekingPreference.StatusWeight,
+		"relationshipWeight":    seekingPreference.RelationshipWeight,
+		"locationWeight":        seekingPreference.LocationWeight,
+		"languagesWeight":       seekingPreference.LanguagesWeight,
+		"interestsWeight":       seekingPreference.InterestsWeight,
+		"hobbiesWeight":         seekingPreference.HobbiesWeight,
+		"foodPreferencesWeight": seekingPreference.FoodWeight,
+		"musicGenresWeight":     seekingPreference.MusicWeight,
+		"movieGenresWeight":     seekingPreference.MoviesWeight,
+		"travelTypesWeight":     seekingPreference.TravelWeight,
+		"ethnicityWeight":       seekingPreference.EthnicityWeight,
+		"religionWeight":        seekingPreference.ReligionWeight,
+	})
+}
+
+// UploadProfilePictureHandler handles profile picture uploads
+func UploadProfilePictureHandler(c *gin.Context) {
+	// Get user ID from JWT token
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(401, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// Parse multipart form with 10MB max memory
+	err := c.Request.ParseMultipartForm(10 << 20) // 10MB
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Failed to parse multipart form", "details": err.Error()})
+		return
+	}
+
+	// Get the uploaded file
+	file, header, err := c.Request.FormFile("profilePicture")
+	if err != nil {
+		c.JSON(400, gin.H{"error": "No file uploaded", "details": err.Error()})
+		return
+	}
+	defer file.Close()
+
+	// Validate file type
+	contentType := header.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "image/") {
+		c.JSON(400, gin.H{"error": "File must be an image"})
+		return
+	}
+
+	// Validate file size (5MB max)
+	if header.Size > 5*1024*1024 {
+		c.JSON(400, gin.H{"error": "File size must be less than 5MB"})
+		return
+	}
+
+	// Generate unique filename
+	fileExt := filepath.Ext(header.Filename)
+	fileName := fmt.Sprintf("profile_%d_%d%s", userID, time.Now().Unix(), fileExt)
+
+	// Create uploads directory if it doesn't exist
+	uploadDir := "uploads/profile_pictures"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		c.JSON(500, gin.H{"error": "Failed to create upload directory", "details": err.Error()})
+		return
+	}
+
+	// Save file to disk
+	filePath := filepath.Join(uploadDir, fileName)
+	dst, err := os.Create(filePath)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to create file", "details": err.Error()})
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		c.JSON(500, gin.H{"error": "Failed to save file", "details": err.Error()})
+		return
+	}
+
+	// Generate URL for the uploaded file
+	profilePictureURL := fmt.Sprintf("/uploads/profile_pictures/%s", fileName)
+
+	// Update profile in database
+	var profile models.Profile
+	if err := db.DB.Where("user_id = ?", userID).First(&profile).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Create new profile if it doesn't exist
+			profile = models.Profile{
+				UserID:            userID.(uint),
+				ProfilePictureURL: profilePictureURL,
+			}
+			if err := db.DB.Create(&profile).Error; err != nil {
+				c.JSON(500, gin.H{"error": "Failed to create profile", "details": err.Error()})
+				return
+			}
+		} else {
+			c.JSON(500, gin.H{"error": "Failed to find profile", "details": err.Error()})
+			return
+		}
+	} else {
+		// Update existing profile
+		profile.ProfilePictureURL = profilePictureURL
+		if err := db.DB.Save(&profile).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update profile", "details": err.Error()})
+			return
+		}
+	}
+
+	c.JSON(200, gin.H{
+		"message":           "Profile picture uploaded successfully",
+		"profilePictureURL": profilePictureURL,
 	})
 }
