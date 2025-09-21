@@ -520,7 +520,12 @@ export default function ProfilePage() {
   // Handle profile picture upload
   const handleProfilePictureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log('No file selected');
+      return;
+    }
+
+    console.log('File selected:', file.name, 'Type:', file.type, 'Size:', file.size);
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -535,30 +540,49 @@ export default function ProfilePage() {
     }
 
     setIsUploadingPicture(true);
+    console.log('Starting upload...');
     
     try {
       const formData = new FormData();
       formData.append('profilePicture', file);
 
+      const token = localStorage.getItem('token');
+      console.log('Token exists:', !!token);
+      console.log('Token value:', token ? token.substring(0, 20) + '...' : 'null');
+      
+      if (!token) {
+        setSaveError('Please log in to upload a profile picture');
+        setTimeout(() => setSaveError(''), 5000);
+        return;
+      }
+
       const response = await fetch('http://localhost:8080/me/profile-picture', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         },
         body: formData
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Failed to upload profile picture');
+        const errorText = await response.text();
+        console.error('Upload failed:', errorText);
+        throw new Error(`Failed to upload profile picture: ${response.status}`);
       }
 
       const result = await response.json();
+      console.log('Upload result:', result);
       
       // Update profile data with new picture URL
-      setProfileData(prev => ({
-        ...prev,
-        profilePictureURL: result.profilePictureURL
-      }));
+      setProfileData(prev => {
+        console.log('Updating profile data with new URL:', result.profilePictureURL);
+        return {
+          ...prev,
+          profilePictureURL: result.profilePictureURL
+        };
+      });
 
       // Show success message
       setSaveMessage('Profile picture updated successfully!');
@@ -566,7 +590,7 @@ export default function ProfilePage() {
 
     } catch (error) {
       console.error('Error uploading profile picture:', error);
-      setSaveError('Failed to upload profile picture. Please try again.');
+      setSaveError(`Failed to upload profile picture: ${error.message}`);
       setTimeout(() => setSaveError(''), 5000);
     } finally {
       setIsUploadingPicture(false);
@@ -857,6 +881,7 @@ export default function ProfilePage() {
               <div className="flex items-center space-x-4 mb-6">
                 <div className="relative">
                   <Image
+                    key={profileData.profilePictureURL || 'default'}
                     src={
                       profileData.profilePictureURL && profileData.profilePictureURL.startsWith('http')
                         ? profileData.profilePictureURL
@@ -877,7 +902,10 @@ export default function ProfilePage() {
                     type="file"
                     id="profilePictureInput"
                     accept="image/*"
-                    onChange={handleProfilePictureUpload}
+                    onChange={(e) => {
+                      console.log('File input changed:', e.target.files);
+                      handleProfilePictureUpload(e);
+                    }}
                     className="hidden"
                   />
                   <label

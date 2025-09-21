@@ -1624,27 +1624,38 @@ func GetMeSeekingPreferencesHandler(c *gin.Context) {
 
 // UploadProfilePictureHandler handles profile picture uploads
 func UploadProfilePictureHandler(c *gin.Context) {
+	fmt.Println("UploadProfilePictureHandler called")
+
 	// Get user ID from JWT token
-	userID, exists := c.Get("userID")
+	userID, exists := c.Get("user_id")
 	if !exists {
+		fmt.Println("User not authenticated")
 		c.JSON(401, gin.H{"error": "User not authenticated"})
 		return
 	}
 
+	fmt.Printf("User ID: %v\n", userID)
+
 	// Parse multipart form with 10MB max memory
 	err := c.Request.ParseMultipartForm(10 << 20) // 10MB
 	if err != nil {
+		fmt.Printf("Failed to parse multipart form: %v\n", err)
 		c.JSON(400, gin.H{"error": "Failed to parse multipart form", "details": err.Error()})
 		return
 	}
 
+	fmt.Println("Multipart form parsed successfully")
+
 	// Get the uploaded file
 	file, header, err := c.Request.FormFile("profilePicture")
 	if err != nil {
+		fmt.Printf("No file uploaded: %v\n", err)
 		c.JSON(400, gin.H{"error": "No file uploaded", "details": err.Error()})
 		return
 	}
 	defer file.Close()
+
+	fmt.Printf("File received: %s, Size: %d\n", header.Filename, header.Size)
 
 	// Validate file type
 	contentType := header.Header.Get("Content-Type")
