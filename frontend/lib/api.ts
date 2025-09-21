@@ -164,7 +164,9 @@ export const chatApi = {
       throw new Error('No authentication token found');
     }
 
-    const wsUrl = `ws://localhost:8080/chats/${chatId}/ws`;
+    // Use the same base URL as API calls, but convert to WebSocket protocol
+    const baseUrl = getApiUrl();
+    const wsUrl = baseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + `/chats/${chatId}/ws`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
@@ -196,11 +198,23 @@ export const chatApi = {
 export const recommendationsApi = {
   // Get recommendations for the current user
   getRecommendations: async () => {
-    const response = await authenticatedApiRequest(API_ENDPOINTS.RECOMMENDATIONS.GET_ALL);
-    if (!response.ok) {
-      throw new Error('Failed to fetch recommendations');
+    try {
+      const response = await authenticatedApiRequest(API_ENDPOINTS.RECOMMENDATIONS.GET_ALL);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Recommendations API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+          url: `${getApiUrl()}${API_ENDPOINTS.RECOMMENDATIONS.GET_ALL}`
+        });
+        throw new Error(`Failed to fetch recommendations: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('Recommendations fetch error:', error);
+      throw error;
     }
-    return response.json();
   },
 
   // Like a recommendation (send connection request)

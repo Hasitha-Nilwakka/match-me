@@ -163,9 +163,12 @@ export default function ChatPage() {
       if (!token) return;
 
       // TODO: Connect to real WebSocket endpoint
-      // const ws = new WebSocket(`ws://localhost:8080/chats/${chatId}/ws`);
+      // Use environment-aware WebSocket URL
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const wsUrl = baseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + `/chats/${chatId}/ws`;
+      // const ws = new WebSocket(wsUrl);
       // For now, just log the connection attempt
-      console.log(`Would connect to WebSocket: ws://localhost:8080/chats/${chatId}/ws`);
+      console.log(`Would connect to WebSocket: ${wsUrl}`);
       
       // Mock WebSocket setup
       // wsRef.current = ws;

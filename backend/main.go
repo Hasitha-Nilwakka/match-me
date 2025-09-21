@@ -37,7 +37,7 @@ func main() {
 	r := gin.Default()
 
 	// Add CORS middleware to allow frontend requests
-	// This enables cross-origin requests from the Next.js frontend
+	// This enables cross-origin requests from the Next.js frontend and local network devices
 	r.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -123,8 +123,10 @@ func main() {
 	// Server test.html file
 	r.StaticFile("/test", "./test.html")
 
-	// Start the HTTP server on port 8080
-	log.Println("Starting Match-Me server on http://localhost:8080")
+	// Start the HTTP server on port 8080 (accessible from local network)
+	log.Println("Starting Match-Me server on:")
+	log.Println("  Local:   http://localhost:8080")
+	log.Println("  Network: http://192.168.1.118:8080")
 	if err := r.Run(":8080"); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}

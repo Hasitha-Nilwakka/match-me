@@ -93,18 +93,24 @@ export default function FrontPage() {
       setIsLoadingRecommendations(true);
       const recData = await recommendationsApi.getRecommendations();
       
+      // Get API base URL
+      const getAPIBaseURL = () => {
+        return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      };
+      
       // Get detailed user info for each recommendation
       const detailedRecs = await Promise.all(
         recData.recommendations.map(async (rec: {id: number; score: number}) => {
           try {
+            const baseUrl = getAPIBaseURL();
             const [userInfo, userProfile, userBio] = await Promise.all([
-              fetch(`http://localhost:8080/users/${rec.id}`, {
+              fetch(`${baseUrl}/users/${rec.id}`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
               }).then(r => r.json()),
-              fetch(`http://localhost:8080/users/${rec.id}/profile`, {
+              fetch(`${baseUrl}/users/${rec.id}/profile`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
               }).then(r => r.json()),
-              fetch(`http://localhost:8080/users/${rec.id}/bio`, {
+              fetch(`${baseUrl}/users/${rec.id}/bio`, {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
               }).then(r => r.json())
             ]);
@@ -126,6 +132,16 @@ export default function FrontPage() {
       setCurrentRecommendationIndex(0);
     } catch (error) {
       console.error('Error loading recommendations:', error);
+      // Show user-friendly error message
+      if (error instanceof Error) {
+        if (error.message.includes('Profile must be completed')) {
+          console.log('User needs to complete profile before getting recommendations');
+        } else if (error.message.includes('401')) {
+          console.log('Authentication error - user may need to log in again');
+        } else {
+          console.log('Failed to load recommendations:', error.message);
+        }
+      }
       // Keep empty array if loading fails
     } finally {
       setIsLoadingRecommendations(false);
@@ -354,16 +370,6 @@ export default function FrontPage() {
             >
               Connection Requests
             </Link>
-            <button
-              onClick={() => handleNavigation("chat")}
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "chat"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              Chat
-            </button>
           </div>
         </div>
       </nav>
@@ -389,17 +395,17 @@ export default function FrontPage() {
           </div>
 
           {/* Recommendation Card */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-2xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-2xl mx-auto w-full">
             
             {/* Profile Picture Section */}
             <div className="relative">
-              <div className="h-80 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+              <div className="h-64 sm:h-80 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
                 <Image
                   src="/sitefiles/default-profile-picture.png"
                   alt="Recommendation Profile"
                   width={200}
                   height={200}
-                  className="rounded-full border-8 border-white shadow-2xl"
+                  className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-8 border-white shadow-2xl object-cover"
                 />
               </div>
               
@@ -413,7 +419,7 @@ export default function FrontPage() {
             </div>
 
             {/* Profile Info */}
-            <div className="p-8">
+            <div className="p-4 sm:p-8">
               <div className="text-center mb-6">
                 {recommendations.length > 0 && recommendations[currentRecommendationIndex] ? (
                   <>
