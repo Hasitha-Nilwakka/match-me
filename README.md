@@ -128,7 +128,36 @@ npm run dev                         # Start development server
 - We could make everything work with one command using a script, but for now, we keep them separate.
 - You must first generate the database and run migrations/seed before starting developing the backend or frontend.
 - Everytime we need to change the Prisma schema, we must run `npx prisma migrate dev` and `npx prisma generate` again.
-- Now the app works so that frontend (Prisma) only modifies and initializes the schema and the backend (GORM) uses CRUD operations to modify or read the actual PostreSQL database.  
+- Now the app works so that frontend (Prisma) only modifies and initializes the schema and the backend (GORM) uses CRUD operations to modify or read the actual PostreSQL database.
+
+### Network Access & Multi-Device Testing
+
+For testing on multiple devices (mobile phones, tablets, other computers) on your local WiFi network:
+
+#### Quick Start (Recommended)
+```bash
+./start-network.sh
+```
+
+#### Manual Setup
+```bash
+# Start backend (from project root)
+cd backend && go run .
+
+# Start frontend with network access (in new terminal)
+cd frontend && NEXT_PUBLIC_API_URL="http://YOUR_LOCAL_IP:8080" npm run dev
+```
+
+#### Access Points
+- **Local computer**: `http://localhost:3000`
+- **Other devices**: `http://YOUR_LOCAL_IP:3000` (replace with your actual IP)
+
+#### Features Available on Network
+- ✅ **Full app functionality** across all devices
+- ✅ **Real-time chat** with WebSocket support
+- ✅ **Mobile-responsive design** optimized for phones/tablets
+- ✅ **Synchronized data** across all connected devices
+- ✅ **Multi-user testing** - Multiple people can use the app simultaneously  
 
 ### Database Management
 
@@ -182,14 +211,41 @@ The Prisma schema mirrors GORM models and includes:
 ## Key Features
 
 - **Type-safe database access** with Prisma Client
-- **Real-time messaging** support
-- **Advanced matching algorithm** with weighted preferences
-- **Location-based matching**
-- **Rich user profiles** with multiple interest categories
-- **Connection management** system
+- **Real-time messaging** support with WebSocket chat system
+- **Advanced matching algorithm** with weighted preferences and location-based filtering
+- **Location-based matching** with Finnish municipality support
+- **Rich user profiles** with multiple interest categories and multi-select bio data
+- **Connection management** system (send requests, accept/reject, disconnect)
 - **Comprehensive preference system** with both specific values and priority weights
+- **Global floating chat** - Persistent chat access across all pages
+- **Mobile-responsive design** - Works on desktop and mobile devices
+- **Network access support** - Multi-device testing on local WiFi
+- **Chat deletion** - Delete conversations with confirmation dialogs
+- **Enhanced error handling** - Detailed debugging and user-friendly messages
 
 ## Recent Updates
+
+### Latest Features (v3.0) - December 2024
+
+**🎯 Mobile & Network Improvements:**
+- **Mobile-responsive recommendations** - Fixed API URL handling for mobile devices
+- **Network access support** - App now accessible across local WiFi network
+- **Enhanced error handling** - Detailed debugging information and user-friendly messages
+- **Global floating chat** - Persistent chat access across all authenticated pages
+
+**💬 Chat System Enhancements:**
+- **Real-time WebSocket chat** - Live messaging between connected users
+- **Chat deletion functionality** - Delete conversations with confirmation dialogs
+- **Chat history pagination** - Efficient loading of message history
+- **Unread message indicators** - Visual notifications for new messages
+- **Mobile-optimized chat UI** - Responsive design for all screen sizes
+
+**🔧 Technical Improvements:**
+- **Dynamic API URL resolution** - Supports both localhost and network access
+- **Finnish test data** - 120 realistic Finnish profiles with real municipalities
+- **Improved error categorization** - Better debugging for profile completion, auth issues
+- **Network startup script** - Easy multi-device testing setup
+- **Backend testing suite** - Unit tests for authentication and recommendations
 
 ### Enhanced Seeking Preferences System (v2.0)
 
@@ -217,4 +273,46 @@ This enhancement enables more sophisticated matching algorithms that can priorit
 - `npm run db:migrate` - Create and run migrations
 - `npm run db:studio` - Open Prisma Studio (visual database browser)
 - `npm run db:seed` - Seed database with initial data
+
+## Troubleshooting
+
+### Common Issues
+
+#### "Failed to fetch recommendations" Error
+1. **Check if profile is complete** - Fill in First Name, Last Name, and other required fields
+2. **Verify backend is running** - `cd backend && go run .`
+3. **Check API URL** - For mobile: `NEXT_PUBLIC_API_URL="http://YOUR_LOCAL_IP:8080"`
+4. **Check browser console** - Look for detailed error messages
+
+#### Mobile Device Can't Connect
+1. **Same WiFi network** - Ensure all devices are on the same network
+2. **Check firewall** - Allow Node.js and Go through firewall
+3. **Use IP address** - Replace `localhost` with your computer's local IP
+4. **Verify ports** - Backend (8080) and Frontend (3000) should be accessible
+
+#### WebSocket Connection Issues
+1. **Check network settings** - WebSocket URLs should match API base URL
+2. **Browser compatibility** - Modern browsers support WebSockets
+3. **Firewall settings** - Ensure WebSocket traffic is allowed
+
+#### Database Connection Problems
+1. **PostgreSQL running** - `brew services start postgresql` (macOS)
+2. **Correct credentials** - Check `.env` files for DATABASE_URL
+3. **Database exists** - Run the database setup commands
+4. **Migrations applied** - `npx prisma migrate dev`
+
+### Getting Help
+
+If you encounter issues:
+1. **Check browser console** for detailed error messages
+2. **Check backend logs** for server-side errors  
+3. **Verify environment variables** are set correctly
+4. **Ensure all dependencies** are installed (`npm install`, `go mod tidy`)
+
+### Testing Data
+
+The app includes 120 Finnish test profiles for realistic testing:
+- **Seed data**: `npm run db:seed`
+- **Reset database**: `npx prisma migrate reset`
+- **Location-based matching**: Finnish municipalities with real coordinates
 
