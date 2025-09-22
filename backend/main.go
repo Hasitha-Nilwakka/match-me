@@ -93,6 +93,8 @@ func main() {
 		protected.GET("/me", handlers.GetMeHandler)                                          // Get current user info
 		protected.GET("/me/profile", handlers.GetMeProfileHandler)                           // Get current user profile
 		protected.PUT("/me/profile", handlers.UpdateMeProfileHandler)                        // Update current user profile
+		protected.POST("/me/profile-picture", handlers.UploadProfilePictureHandler)          // Upload profile picture
+		protected.POST("/me/change-password", handlers.ChangePasswordHandler)                // Change password
 		protected.GET("/me/bio", handlers.GetMeBioHandler)                                   // Get current user bio data
 		protected.PUT("/me/bio", handlers.UpdateMeBioHandler)                                // Update current user bio data
 		protected.PUT("/me/preferences", handlers.UpdateMePreferencesHandler)                // Update seeking preferences
@@ -131,6 +133,9 @@ func main() {
 
 	// Server test.html file
 	r.StaticFile("/test", "./test.html")
+
+	// Serve uploaded profile pictures
+	r.Static("/uploads", "./uploads")
 
 	// Start the HTTP server on port 8080 (accessible from local network)
 	log.Println("Starting Match-Me server on:")

@@ -11,6 +11,17 @@ export default function ProfilePage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPicture, setIsUploadingPicture] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [changePasswordData, setChangePasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
@@ -53,29 +64,31 @@ export default function ProfilePage() {
     status: '',
     relationshipStatus: '',
     locationPreference: '',
-    language: '',
-    interest: '',
-    hobby: '',
-    foodPreference: '',
-    musicGenre: '',
-    movieGenre: '',
-    travelType: '',
     ethnicity: '',
     religion: '',
   });
+  
+  // Multiple selection seeking preferences
+  const [seekingInterests, setSeekingInterests] = useState<string[]>([]);
+  const [seekingHobbies, setSeekingHobbies] = useState<string[]>([]);
+  const [seekingFoodPreferences, setSeekingFoodPreferences] = useState<string[]>([]);
+  const [seekingMusicGenres, setSeekingMusicGenres] = useState<string[]>([]);
+  const [seekingMovieGenres, setSeekingMovieGenres] = useState<string[]>([]);
+  const [seekingTravelTypes, setSeekingTravelTypes] = useState<string[]>([]);
+  const [seekingLanguages, setSeekingLanguages] = useState<string[]>([]);
   
   const [priorityLevels, setPriorityLevels] = useState({
     gender: 2,
     status: 2,
     relationshipStatus: 2,
     locationPreference: 2,
-    language: 2,
-    interest: 2,
-    hobby: 2,
-    foodPreference: 2,
-    musicGenre: 2,
-    movieGenre: 2,
-    travelType: 2,
+    languages: 2,
+    interests: 2,
+    hobbies: 2,
+    foodPreferences: 2,
+    musicGenres: 2,
+    movieGenres: 2,
+    travelTypes: 2,
     ethnicity: 2,
     religion: 2,
   });
@@ -237,7 +250,7 @@ export default function ProfilePage() {
           aboutMe: profile.aboutMe || '',
           ethnicity: profile.ethnicity || '',
           religion: profile.religion || '',
-          profilePictureURL: profile.profilePictureURL || '',
+          profilePictureURL: profile.profilePictureURL || '/sitefiles/default-profile-picture.png',
           languages: profile.languages || [],
         });
         setSelectedLanguages(profile.languages || []);
@@ -278,36 +291,49 @@ export default function ProfilePage() {
         console.log('Attempting to load seeking preferences...');
         const seekingData = await profileApi.getSeekingPreferences();
         console.log('Loaded seeking preferences:', seekingData);
+        console.log('Multiple selection fields:', {
+          interestsPreference: seekingData.interestsPreference,
+          hobbiesPreference: seekingData.hobbiesPreference,
+          foodPreferencesPreference: seekingData.foodPreferencesPreference,
+          musicGenresPreference: seekingData.musicGenresPreference,
+          movieGenresPreference: seekingData.movieGenresPreference,
+          travelTypesPreference: seekingData.travelTypesPreference,
+        });
+        
         setSeekingPreferences({
           gender: seekingData.genderPreference || '',
           status: seekingData.statusPreference || '',
           relationshipStatus: seekingData.relationshipPreference || '',
           locationPreference: seekingData.locationPreference || 'within_city',
-          language: seekingData.languagePreference || '',
-          interest: seekingData.interestPreference || '',
-          hobby: seekingData.hobbyPreference || '',
-          foodPreference: seekingData.foodPreference || '',
-          musicGenre: seekingData.musicPreference || '',
-          movieGenre: seekingData.moviePreference || '',
-          travelType: seekingData.travelPreference || '',
           ethnicity: seekingData.ethnicityPreference || '',
           religion: seekingData.religionPreference || '',
         });
+        
+        // Load multiple selection seeking preferences with better error handling
+        setSeekingInterests(Array.isArray(seekingData.interestsPreference) ? seekingData.interestsPreference : []);
+        setSeekingHobbies(Array.isArray(seekingData.hobbiesPreference) ? seekingData.hobbiesPreference : []);
+        setSeekingFoodPreferences(Array.isArray(seekingData.foodPreferencesPreference) ? seekingData.foodPreferencesPreference : []);
+        setSeekingMusicGenres(Array.isArray(seekingData.musicGenresPreference) ? seekingData.musicGenresPreference : []);
+        setSeekingMovieGenres(Array.isArray(seekingData.movieGenresPreference) ? seekingData.movieGenresPreference : []);
+        setSeekingTravelTypes(Array.isArray(seekingData.travelTypesPreference) ? seekingData.travelTypesPreference : []);
+        setSeekingLanguages(Array.isArray(seekingData.languagesPreference) ? seekingData.languagesPreference : []);
+        
         setPriorityLevels({
           gender: seekingData.genderWeight || 2,
           status: seekingData.statusWeight || 2,
           relationshipStatus: seekingData.relationshipWeight || 2,
           locationPreference: seekingData.locationWeight || 2,
-          language: seekingData.languageWeight || 2,
-          interest: seekingData.interestWeight || 2,
-          hobby: seekingData.hobbyWeight || 2,
-          foodPreference: seekingData.foodWeight || 2,
-          musicGenre: seekingData.musicWeight || 2,
-          movieGenre: seekingData.movieWeight || 2,
-          travelType: seekingData.travelWeight || 2,
+          languages: seekingData.languagesWeight || 2,
+          interests: seekingData.interestsWeight || 2,
+          hobbies: seekingData.hobbiesWeight || 2,
+          foodPreferences: seekingData.foodPreferencesWeight || 2,
+          musicGenres: seekingData.musicGenresWeight || 2,
+          movieGenres: seekingData.movieGenresWeight || 2,
+          travelTypes: seekingData.travelTypesWeight || 2,
           ethnicity: seekingData.ethnicityWeight || 2,
           religion: seekingData.religionWeight || 2,
         });
+        
         console.log('Set seeking preferences state:', {
           gender: seekingData.genderPreference || '',
           status: seekingData.statusPreference || '',
@@ -316,7 +342,15 @@ export default function ProfilePage() {
         });
       } catch (error) {
         console.log('No existing seeking preferences found, starting fresh');
-        // Seeking preferences don't exist yet, that's okay
+        console.log('Error details:', error);
+        // Initialize with empty arrays for multiple selections
+        setSeekingInterests([]);
+        setSeekingHobbies([]);
+        setSeekingFoodPreferences([]);
+        setSeekingMusicGenres([]);
+        setSeekingMovieGenres([]);
+        setSeekingTravelTypes([]);
+        setSeekingLanguages([]);
       }
     } catch (error) {
       console.error('Error loading profile data:', error);
@@ -420,6 +454,61 @@ export default function ProfilePage() {
     }
   };
 
+  // Handle seeking preference multiple selections
+  const handleSeekingToggle = (type: string, value: string) => {
+    switch (type) {
+      case 'seeking-interests':
+        setSeekingInterests(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'seeking-hobbies':
+        setSeekingHobbies(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'seeking-food':
+        setSeekingFoodPreferences(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'seeking-music':
+        setSeekingMusicGenres(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'seeking-movies':
+        setSeekingMovieGenres(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'seeking-travel':
+        setSeekingTravelTypes(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+      case 'seeking-languages':
+        setSeekingLanguages(prev => 
+          prev.includes(value) 
+            ? prev.filter(item => item !== value)
+            : [...prev, value]
+        );
+        break;
+    }
+  };
+
   // Handle seeking preference changes
   const handleSeekingPreferenceChange = (field: string, value: string) => {
     setSeekingPreferences(prev => ({
@@ -434,6 +523,158 @@ export default function ProfilePage() {
       ...prev,
       [field]: value
     }));
+  };
+
+  // Handle profile picture upload
+  const handleProfilePictureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      console.log('No file selected');
+      return;
+    }
+
+    console.log('File selected:', file.name, 'Type:', file.type, 'Size:', file.size);
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    setIsUploadingPicture(true);
+    console.log('Starting upload...');
+    
+    try {
+      const formData = new FormData();
+      formData.append('profilePicture', file);
+
+      const token = localStorage.getItem('token');
+      console.log('Token exists:', !!token);
+      console.log('Token value:', token ? token.substring(0, 20) + '...' : 'null');
+      
+      if (!token) {
+        setSaveError('Please log in to upload a profile picture');
+        setTimeout(() => setSaveError(''), 5000);
+        return;
+      }
+
+      const response = await fetch('http://localhost:8080/me/profile-picture', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload failed:', errorText);
+        throw new Error(`Failed to upload profile picture: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Upload result:', result);
+      
+      // Update profile data with new picture URL
+      setProfileData(prev => {
+        console.log('Updating profile data with new URL:', result.profilePictureURL);
+        return {
+          ...prev,
+          profilePictureURL: result.profilePictureURL
+        };
+      });
+
+      // Show success message
+      setSaveMessage('Profile picture updated successfully!');
+      setTimeout(() => setSaveMessage(''), 3000);
+
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      setSaveError(`Failed to upload profile picture: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTimeout(() => setSaveError(''), 5000);
+    } finally {
+      setIsUploadingPicture(false);
+    }
+  };
+
+  // Handle change password
+  const handleChangePassword = async () => {
+    // Validate form
+    if (!changePasswordData.currentPassword || !changePasswordData.newPassword || !changePasswordData.confirmPassword) {
+      setPasswordError('All fields are required');
+      return;
+    }
+
+    if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+
+    if (changePasswordData.newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters long');
+      return;
+    }
+
+    if (changePasswordData.currentPassword === changePasswordData.newPassword) {
+      setPasswordError('New password must be different from current password');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    setPasswordError('');
+
+    try {
+      const response = await fetch('http://localhost:8080/me/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          currentPassword: changePasswordData.currentPassword,
+          newPassword: changePasswordData.newPassword
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to change password');
+      }
+
+      // Success - close modal and reset form
+      setShowChangePasswordModal(false);
+      setChangePasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setSaveMessage('Password changed successfully!');
+      setTimeout(() => setSaveMessage(''), 3000);
+
+    } catch (error) {
+      console.error('Error changing password:', error);
+      setPasswordError(error instanceof Error ? error.message : 'Failed to change password. Please try again.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  // Reset change password form
+  const resetChangePasswordForm = () => {
+    setChangePasswordData({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setPasswordError('');
   };
 
   // Save profile data
@@ -500,29 +741,31 @@ export default function ProfilePage() {
           relationshipPreference: seekingPreferences.relationshipStatus || undefined,
           locationPreference: seekingPreferences.locationPreference || 'within_city',
           
-          // Preference values (what they're looking for)
-          hobbyPreference: seekingPreferences.hobby || undefined,
-          interestPreference: seekingPreferences.interest || undefined,
-          musicPreference: seekingPreferences.musicGenre || undefined,
-          moviePreference: seekingPreferences.movieGenre || undefined,
-          foodPreference: seekingPreferences.foodPreference || undefined,
-          travelPreference: seekingPreferences.travelType || undefined,
-          languagePreference: seekingPreferences.language || undefined,
+          // Single preference values
           ethnicityPreference: seekingPreferences.ethnicity || undefined,
           religionPreference: seekingPreferences.religion || undefined,
+          
+          // Multiple preference values (what they're looking for)
+          interestsPreference: seekingInterests,
+          hobbiesPreference: seekingHobbies,
+          foodPreferencesPreference: seekingFoodPreferences,
+          musicGenresPreference: seekingMusicGenres,
+          movieGenresPreference: seekingMovieGenres,
+          travelTypesPreference: seekingTravelTypes,
+          languagesPreference: seekingLanguages,
           
           // Weight values (priority levels)
           genderWeight: priorityLevels.gender,
           statusWeight: priorityLevels.status,
           relationshipWeight: priorityLevels.relationshipStatus,
           locationWeight: priorityLevels.locationPreference,
-          languageWeight: priorityLevels.language,
-          interestWeight: priorityLevels.interest,
-          hobbyWeight: priorityLevels.hobby,
-          foodWeight: priorityLevels.foodPreference,
-          musicWeight: priorityLevels.musicGenre,
-          movieWeight: priorityLevels.movieGenre,
-          travelWeight: priorityLevels.travelType,
+          languagesWeight: priorityLevels.languages,
+          interestsWeight: priorityLevels.interests,
+          hobbiesWeight: priorityLevels.hobbies,
+          foodPreferencesWeight: priorityLevels.foodPreferences,
+          musicGenresWeight: priorityLevels.musicGenres,
+          movieGenresWeight: priorityLevels.movieGenres,
+          travelTypesWeight: priorityLevels.travelTypes,
           ethnicityWeight: priorityLevels.ethnicity,
           religionWeight: priorityLevels.religion,
         };
@@ -702,11 +945,30 @@ export default function ProfilePage() {
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-6">Profile Information</h2>
               
+              {/* Success/Error Messages */}
+              {saveMessage && (
+                <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+                  {saveMessage}
+                </div>
+              )}
+              {saveError && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                  {saveError}
+                </div>
+              )}
+              
               {/* Profile Picture */}
               <div className="flex items-center space-x-4 mb-6">
                 <div className="relative">
                   <Image
-                    src="/sitefiles/default-profile-picture.png"
+                    key={profileData.profilePictureURL || 'default'}
+                    src={
+                      profileData.profilePictureURL && profileData.profilePictureURL.startsWith('http')
+                        ? profileData.profilePictureURL
+                        : profileData.profilePictureURL && profileData.profilePictureURL.startsWith('/uploads')
+                        ? `http://localhost:8080${profileData.profilePictureURL}`
+                        : "/sitefiles/default-profile-picture.png"
+                    }
                     alt="Profile Picture"
                     width={80}
                     height={80}
@@ -716,10 +978,27 @@ export default function ProfilePage() {
                   <div className="absolute bottom-2 right-2 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                 </div>
                 <div>
-                  <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                    Change Picture
-                  </button>
-                  <p className="text-sm text-gray-500 mt-1">Click to upload new photo</p>
+                  <input
+                    type="file"
+                    id="profilePictureInput"
+                    accept="image/*"
+                    onChange={(e) => {
+                      console.log('File input changed:', e.target.files);
+                      handleProfilePictureUpload(e);
+                    }}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="profilePictureInput"
+                    className={`inline-block bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer ${
+                      isUploadingPicture ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {isUploadingPicture ? 'Uploading...' : 'Change Picture'}
+                  </label>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {isUploadingPicture ? 'Please wait...' : 'Click to upload new photo (max 5MB)'}
+                  </p>
                 </div>
               </div>
 
@@ -739,11 +1018,11 @@ export default function ProfilePage() {
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
                 <div className="flex space-x-2">
-                  <button className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">
+                  <button 
+                    onClick={() => setShowChangePasswordModal(true)}
+                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm"
+                  >
                     Change Password
-                  </button>
-                  <button className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-md text-sm">
-                    Reset Password
                   </button>
                 </div>
               </div>
@@ -1344,26 +1623,55 @@ export default function ProfilePage() {
                 {/* Languages with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Languages</label>
-                  <select 
-                    value={seekingPreferences.language}
-                    onChange={(e) => handleSeekingPreferenceChange('language', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Language</option>
-                    {availableLanguages?.map((language) => (
-                      <option key={language} value={language}>
-                        {language}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Seeking Languages Display */}
+                    {seekingLanguages.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {seekingLanguages.map((language) => (
+                          <span
+                            key={language}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-indigo-100 text-indigo-800"
+                          >
+                            {language}
+                            <button
+                              type="button"
+                              onClick={() => handleSeekingToggle('seeking-languages', language)}
+                              className="ml-2 text-indigo-600 hover:text-indigo-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Language Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !seekingLanguages.includes(e.target.value)) {
+                          handleSeekingToggle('seeking-languages', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a language to add</option>
+                      {availableLanguages?.map((language) => (
+                        <option key={language} value={language}>
+                          {language}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select languages from the dropdown to add them to your preferences</p>
+                  </div>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
                     <input
                       type="range"
                       min="1"
                       max="3"
-                      value={priorityLevels.language}
-                      onChange={(e) => handlePriorityChange('language', parseInt(e.target.value))}
+                      value={priorityLevels.languages}
+                      onChange={(e) => handlePriorityChange('languages', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1377,26 +1685,55 @@ export default function ProfilePage() {
                 {/* Interests with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Interests</label>
-                  <select 
-                    value={seekingPreferences.interest}
-                    onChange={(e) => handleSeekingPreferenceChange('interest', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Interest</option>
-                    {availableInterests?.map((interest) => (
-                      <option key={interest} value={interest}>
-                        {interest}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Seeking Interests Display */}
+                    {seekingInterests.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {seekingInterests.map((interest) => (
+                          <span
+                            key={interest}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                          >
+                            {interest}
+                            <button
+                              type="button"
+                              onClick={() => handleSeekingToggle('seeking-interests', interest)}
+                              className="ml-2 text-blue-600 hover:text-blue-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Interest Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !seekingInterests.includes(e.target.value)) {
+                          handleSeekingToggle('seeking-interests', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select an interest to add</option>
+                      {availableInterests?.map((interest) => (
+                        <option key={interest} value={interest}>
+                          {interest}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select interests from the dropdown to add them to your preferences</p>
+                  </div>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
                     <input
                       type="range"
                       min="1"
                       max="3"
-                      value={priorityLevels.interest}
-                      onChange={(e) => handlePriorityChange('interest', parseInt(e.target.value))}
+                      value={priorityLevels.interests}
+                      onChange={(e) => handlePriorityChange('interests', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1410,26 +1747,55 @@ export default function ProfilePage() {
                 {/* Hobbies with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hobbies</label>
-                  <select 
-                    value={seekingPreferences.hobby}
-                    onChange={(e) => handleSeekingPreferenceChange('hobby', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Hobby</option>
-                    {availableHobbies?.map((hobby) => (
-                      <option key={hobby} value={hobby}>
-                        {hobby}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Seeking Hobbies Display */}
+                    {seekingHobbies.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {seekingHobbies.map((hobby) => (
+                          <span
+                            key={hobby}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800"
+                          >
+                            {hobby}
+                            <button
+                              type="button"
+                              onClick={() => handleSeekingToggle('seeking-hobbies', hobby)}
+                              className="ml-2 text-green-600 hover:text-green-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Hobby Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !seekingHobbies.includes(e.target.value)) {
+                          handleSeekingToggle('seeking-hobbies', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a hobby to add</option>
+                      {availableHobbies?.map((hobby) => (
+                        <option key={hobby} value={hobby}>
+                          {hobby}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select hobbies from the dropdown to add them to your preferences</p>
+                  </div>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
                     <input
                       type="range"
                       min="1"
                       max="3"
-                      value={priorityLevels.hobby}
-                      onChange={(e) => handlePriorityChange('hobby', parseInt(e.target.value))}
+                      value={priorityLevels.hobbies}
+                      onChange={(e) => handlePriorityChange('hobbies', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1443,26 +1809,55 @@ export default function ProfilePage() {
                 {/* Food Preferences with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Food Preferences</label>
-                  <select 
-                    value={seekingPreferences.foodPreference}
-                    onChange={(e) => handleSeekingPreferenceChange('foodPreference', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Food Preference</option>
-                    {availableFoodPreferences?.map((food) => (
-                      <option key={food} value={food}>
-                        {food}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Seeking Food Preferences Display */}
+                    {seekingFoodPreferences.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {seekingFoodPreferences.map((food) => (
+                          <span
+                            key={food}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-orange-100 text-orange-800"
+                          >
+                            {food}
+                            <button
+                              type="button"
+                              onClick={() => handleSeekingToggle('seeking-food', food)}
+                              className="ml-2 text-orange-600 hover:text-orange-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Food Preference Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !seekingFoodPreferences.includes(e.target.value)) {
+                          handleSeekingToggle('seeking-food', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a food preference to add</option>
+                      {availableFoodPreferences?.map((food) => (
+                        <option key={food} value={food}>
+                          {food}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select food preferences from the dropdown to add them to your preferences</p>
+                  </div>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
                     <input
                       type="range"
                       min="1"
                       max="3"
-                      value={priorityLevels.foodPreference}
-                      onChange={(e) => handlePriorityChange('foodPreference', parseInt(e.target.value))}
+                      value={priorityLevels.foodPreferences}
+                      onChange={(e) => handlePriorityChange('foodPreferences', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1476,26 +1871,55 @@ export default function ProfilePage() {
                 {/* Music Preferences with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Music Preferences</label>
-                  <select 
-                    value={seekingPreferences.musicGenre}
-                    onChange={(e) => handleSeekingPreferenceChange('musicGenre', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Music Genre</option>
-                    {availableMusicGenres?.map((music) => (
-                      <option key={music} value={music}>
-                        {music}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Seeking Music Genres Display */}
+                    {seekingMusicGenres.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {seekingMusicGenres.map((music) => (
+                          <span
+                            key={music}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800"
+                          >
+                            {music}
+                            <button
+                              type="button"
+                              onClick={() => handleSeekingToggle('seeking-music', music)}
+                              className="ml-2 text-purple-600 hover:text-purple-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Music Genre Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !seekingMusicGenres.includes(e.target.value)) {
+                          handleSeekingToggle('seeking-music', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a music genre to add</option>
+                      {availableMusicGenres?.map((music) => (
+                        <option key={music} value={music}>
+                          {music}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select music genres from the dropdown to add them to your preferences</p>
+                  </div>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
                     <input
                       type="range"
                       min="1"
                       max="3"
-                      value={priorityLevels.musicGenre}
-                      onChange={(e) => handlePriorityChange('musicGenre', parseInt(e.target.value))}
+                      value={priorityLevels.musicGenres}
+                      onChange={(e) => handlePriorityChange('musicGenres', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1509,26 +1933,55 @@ export default function ProfilePage() {
                 {/* Movie Preferences with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Movie Preferences</label>
-                  <select 
-                    value={seekingPreferences.movieGenre}
-                    onChange={(e) => handleSeekingPreferenceChange('movieGenre', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Movie Genre</option>
-                    {availableMovieGenres?.map((movie) => (
-                      <option key={movie} value={movie}>
-                        {movie}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Seeking Movie Genres Display */}
+                    {seekingMovieGenres.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {seekingMovieGenres.map((movie) => (
+                          <span
+                            key={movie}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-red-100 text-red-800"
+                          >
+                            {movie}
+                            <button
+                              type="button"
+                              onClick={() => handleSeekingToggle('seeking-movies', movie)}
+                              className="ml-2 text-red-600 hover:text-red-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Movie Genre Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !seekingMovieGenres.includes(e.target.value)) {
+                          handleSeekingToggle('seeking-movies', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a movie genre to add</option>
+                      {availableMovieGenres?.map((movie) => (
+                        <option key={movie} value={movie}>
+                          {movie}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select movie genres from the dropdown to add them to your preferences</p>
+                  </div>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
                     <input
                       type="range"
                       min="1"
                       max="3"
-                      value={priorityLevels.movieGenre}
-                      onChange={(e) => handlePriorityChange('movieGenre', parseInt(e.target.value))}
+                      value={priorityLevels.movieGenres}
+                      onChange={(e) => handlePriorityChange('movieGenres', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1542,26 +1995,55 @@ export default function ProfilePage() {
                 {/* Travel Preferences with Priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Travel Preferences</label>
-                  <select 
-                    value={seekingPreferences.travelType}
-                    onChange={(e) => handleSeekingPreferenceChange('travelType', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Travel Type</option>
-                    {availableTravelTypes?.map((travel) => (
-                      <option key={travel} value={travel}>
-                        {travel}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="space-y-2">
+                    {/* Selected Seeking Travel Types Display */}
+                    {seekingTravelTypes.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {seekingTravelTypes.map((travel) => (
+                          <span
+                            key={travel}
+                            className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-teal-100 text-teal-800"
+                          >
+                            {travel}
+                            <button
+                              type="button"
+                              onClick={() => handleSeekingToggle('seeking-travel', travel)}
+                              className="ml-2 text-teal-600 hover:text-teal-800"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Travel Type Selection Dropdown */}
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value && !seekingTravelTypes.includes(e.target.value)) {
+                          handleSeekingToggle('seeking-travel', e.target.value);
+                          e.target.value = ''; // Reset selection
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a travel type to add</option>
+                      {availableTravelTypes?.map((travel) => (
+                        <option key={travel} value={travel}>
+                          {travel}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">Select travel types from the dropdown to add them to your preferences</p>
+                  </div>
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
                     <input
                       type="range"
                       min="1"
                       max="3"
-                      value={priorityLevels.travelType}
-                      onChange={(e) => handlePriorityChange('travelType', parseInt(e.target.value))}
+                      value={priorityLevels.travelTypes}
+                      onChange={(e) => handlePriorityChange('travelTypes', parseInt(e.target.value))}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                     />
                     <div className="flex justify-between text-xs text-gray-500 mt-1">
@@ -1662,6 +2144,99 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
+
+      {/* Change Password Modal */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
+            
+            {passwordError && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {passwordError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* Current Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  value={changePasswordData.currentPassword}
+                  onChange={(e) => setChangePasswordData(prev => ({
+                    ...prev,
+                    currentPassword: e.target.value
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter current password"
+                />
+              </div>
+
+              {/* New Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={changePasswordData.newPassword}
+                  onChange={(e) => setChangePasswordData(prev => ({
+                    ...prev,
+                    newPassword: e.target.value
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter new password"
+                />
+              </div>
+
+              {/* Confirm New Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={changePasswordData.confirmPassword}
+                  onChange={(e) => setChangePasswordData(prev => ({
+                    ...prev,
+                    confirmPassword: e.target.value
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowChangePasswordModal(false);
+                  resetChangePasswordForm();
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                disabled={isChangingPassword}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePassword}
+                disabled={isChangingPassword}
+                className={`flex-1 px-4 py-2 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isChangingPassword
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                {isChangingPassword ? 'Changing...' : 'Change Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

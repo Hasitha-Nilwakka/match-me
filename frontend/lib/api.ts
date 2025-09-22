@@ -543,26 +543,28 @@ export const profileApi = {
     statusPreference?: string;
     relationshipPreference?: string;
     locationPreference: string;
-    languagePreference?: string;
-    interestPreference?: string;
-    hobbyPreference?: string;
-    foodPreference?: string;
-    musicPreference?: string;
-    moviePreference?: string;
-    travelPreference?: string;
     ethnicityPreference?: string;
     religionPreference?: string;
+    // Multiple preference values
+    interestsPreference?: string[];
+    hobbiesPreference?: string[];
+    foodPreferencesPreference?: string[];
+    musicGenresPreference?: string[];
+    movieGenresPreference?: string[];
+    travelTypesPreference?: string[];
+    languagesPreference?: string[];
+    // Weight values
     genderWeight: number;
     statusWeight: number;
     relationshipWeight: number;
     locationWeight: number;
-    languageWeight: number;
-    interestWeight: number;
-    hobbyWeight: number;
-    foodWeight: number;
-    musicWeight: number;
-    movieWeight: number;
-    travelWeight: number;
+    languagesWeight: number;
+    interestsWeight: number;
+    hobbiesWeight: number;
+    foodPreferencesWeight: number;
+    musicGenresWeight: number;
+    movieGenresWeight: number;
+    travelTypesWeight: number;
     ethnicityWeight: number;
     religionWeight: number;
   }) => {
