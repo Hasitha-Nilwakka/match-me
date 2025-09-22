@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, profileApi, recommendationsApi } from "../../lib/api";
+import ProfileModal from "../../components/ProfileModal";
+import DataModeToggle from "../../components/DataModeToggle";
+import { useDataMode } from "../../context/DataModeContext";
 
 interface Recommendation {
   id: number;
@@ -33,6 +36,7 @@ interface Recommendation {
 }
 
 export default function FrontPage() {
+  const { mode } = useDataMode();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("frontpage");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -45,6 +49,8 @@ export default function FrontPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [currentRecommendationIndex, setCurrentRecommendationIndex] = useState(0);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   // Load user profile data
   const loadUserProfile = useCallback(async () => {
@@ -98,7 +104,18 @@ export default function FrontPage() {
   const loadRecommendations = async () => {
     try {
       setIsLoadingRecommendations(true);
-      const recData = await recommendationsApi.getRecommendations();
+      let recData: any;
+      if (mode === "mock") {
+        // simple mock set
+        recData = {
+          recommendations: [
+            { id: 101, score: 92 },
+            { id: 102, score: 88 },
+          ],
+        };
+      } else {
+        recData = await recommendationsApi.getRecommendations();
+      }
       
       // Get API base URL
       const getAPIBaseURL = () => {
@@ -110,17 +127,23 @@ export default function FrontPage() {
         recData.recommendations.map(async (rec: {id: number; score: number}) => {
           try {
             const baseUrl = getAPIBaseURL();
-            const [userInfo, userProfile, userBio] = await Promise.all([
-              fetch(`${baseUrl}/users/${rec.id}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-              }).then(r => r.json()),
-              fetch(`${baseUrl}/users/${rec.id}/profile`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-              }).then(r => r.json()),
-              fetch(`${baseUrl}/users/${rec.id}/bio`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-              }).then(r => r.json())
-            ]);
+            const [userInfo, userProfile, userBio] = mode === "mock"
+              ? [
+                  { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true },
+                  { firstName: "Demo", lastName: `User ${rec.id}`, aboutMe: "Mock profile", gender: "N/A", status: "mock" },
+                  { interests: ["music"], hobbies: ["hiking"], musicGenres: ["rock"], movieGenres: ["drama"], foodPreferences: ["vegan"], travelTypes: ["roadtrip"], languages: ["English"] }
+                ]
+              : await Promise.all([
+                  fetch(`${baseUrl}/users/${rec.id}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  }).then(r => r.json()),
+                  fetch(`${baseUrl}/users/${rec.id}/profile`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  }).then(r => r.json()),
+                  fetch(`${baseUrl}/users/${rec.id}/bio`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  }).then(r => r.json())
+                ]);
             
             return {
               ...rec,
@@ -234,6 +257,12 @@ export default function FrontPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Profile Modal */}
+      <ProfileModal
+        userId={selectedUserId}
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+      />
       {/* Top Navigation Menu */}
       <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -295,8 +324,9 @@ export default function FrontPage() {
               </div>
             </div>
 
-            {/* Logout Button */}
-            <div className="flex items-center">
+            {/* Data Mode Toggle + Logout */}
+            <div className="flex items-center gap-4">
+              <DataModeToggle />
               <button
                 onClick={handleLogout}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition"
@@ -401,28 +431,39 @@ export default function FrontPage() {
             )}
           </div>
 
-          {/* Recommendation Card */}
+          {/* Recommendation Card / Empty State */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-2xl mx-auto w-full">
             
-            {/* Profile Picture Section */}
+            {/* Profile Picture Section (hidden when no recs) */}
             <div className="relative">
-              <div className="h-64 sm:h-80 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                <Image
-                  src="/sitefiles/default-profile-picture.png"
-                  alt="Recommendation Profile"
-                  width={200}
-                  height={200}
-                  className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-8 border-white shadow-2xl object-cover"
-                />
-              </div>
+              {recommendations.length > 0 ? (
+                <div className="h-64 sm:h-80 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                  <Image
+                    src="/sitefiles/default-profile-picture.png"
+                    alt="Recommendation Profile"
+                    width={200}
+                    height={200}
+                    className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-8 border-white shadow-2xl object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="h-40 sm:h-48 bg-gray-50 flex items-center justify-center">
+                  <div className="text-center px-6">
+                    <div className="text-gray-500 mb-2">No recommendations right now</div>
+                    <div className="text-sm text-gray-500">Try updating your profile, preferences, or check back later.</div>
+                  </div>
+                </div>
+              )}
               
               {/* Online Status */}
-              <div className="absolute top-6 right-6">
-                <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                  <div className="w-2 h-2 bg-white rounded-full mr-2"></div>
-                  Online
+              {recommendations.length > 0 && (
+                <div className="absolute top-6 right-6">
+                  <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                    <div className="w-2 h-2 bg-white rounded-full mr-2"></div>
+                    Online
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Profile Info */}
@@ -556,45 +597,54 @@ export default function FrontPage() {
                 );
               })()}
 
-              {/* Action Buttons */}
-              <div className="flex space-x-4 mb-6">
-                <button 
-                  onClick={handleLike}
-                  disabled={recommendations.length === 0}
-                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                  </svg>
-                  Connect
-                </button>
-                <button 
-                  onClick={handleDismiss}
-                  disabled={recommendations.length === 0}
-                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Dismiss
-                </button>
-              </div>
+              {/* Action Buttons or Empty Actions */}
+              {recommendations.length > 0 ? (
+                <div className="flex space-x-4 mb-6">
+                  <button 
+                    onClick={handleLike}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                    Connect
+                  </button>
+                  <button 
+                    onClick={handleDismiss}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Dismiss
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                  <Link href="/profile" className="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition">
+                    Complete Your Profile
+                  </Link>
+                  <button onClick={loadRecommendations} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-semibold transition">
+                    Refresh Recommendations
+                  </button>
+                </div>
+              )}
 
               {/* View Profile Button */}
-              <button
-                onClick={() => {
-                  const currentRec = recommendations[currentRecommendationIndex];
-                  if (currentRec) {
-                    // TODO: Navigate to user profile page when implemented
-                    // router.push(`/users/${currentRec.id}`);
-                    console.log(`Would view profile for user ${currentRec.id}`);
-                    alert(`Profile viewing for user ${currentRec.id} will be implemented soon!`);
-                  }
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition mb-6"
-              >
-                View Full Profile
-              </button>
+              {recommendations.length > 0 && (
+                <button
+                  onClick={() => {
+                    const currentRec = recommendations[currentRecommendationIndex];
+                    if (currentRec) {
+                      setSelectedUserId(currentRec.id);
+                      setIsProfileOpen(true);
+                    }
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition mb-6"
+                >
+                  View Full Profile
+                </button>
+              )}
 
               {/* Navigation Controls */}
               <div className="flex justify-between items-center">

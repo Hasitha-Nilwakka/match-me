@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi } from "../../lib/api";
+import ProfileModal from "../../components/ProfileModal";
 
 // Mock connection request data
 const mockConnectionRequests = [
@@ -75,6 +76,8 @@ export default function ConnectionRequestsPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [requests, setRequests] = useState(mockConnectionRequests);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   // Check authentication on page load
   useEffect(() => {
@@ -110,9 +113,21 @@ export default function ConnectionRequestsPage() {
   };
 
   const handleViewProfile = (requestId: number) => {
-    // TODO: Navigate to profile view page
-    console.log(`Viewing profile for request ${requestId}`);
-    // This would typically navigate to a profile view page
+    const req = requests.find(r => r.id === requestId);
+    if (!req) return;
+    setSelectedUserId(null);
+    setIsProfileOpen(true);
+    (window as unknown as { __mm_profile_mock?: unknown }).__mm_profile_mock = {
+      firstName: req.firstName,
+      lastName: req.lastName,
+      aboutMe: req.message,
+      languages: [],
+      hobbies: [],
+      interests: [],
+      city: req.city,
+      country: req.country,
+      profilePictureURL: req.profilePicture,
+    };
   };
 
   // Show loading screen while checking authentication
@@ -280,6 +295,21 @@ export default function ConnectionRequestsPage() {
           </div>
         </div>
       </nav>
+
+      {/* Profile Modal */}
+      <ProfileModal
+        userId={selectedUserId}
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+      />
+
+      {/* Profile Modal */}
+      <ProfileModal
+        userId={selectedUserId}
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        initialProfile={(typeof window !== 'undefined' ? (window as unknown as { __mm_profile_mock?: unknown }).__mm_profile_mock as unknown : null) || null}
+      />
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">

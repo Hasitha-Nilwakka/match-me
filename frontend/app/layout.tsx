@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import GlobalChatProvider from "../components/GlobalChatProvider";
+import { DataModeProvider } from "../context/DataModeContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,9 +27,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <GlobalChatProvider>
-          {children}
-        </GlobalChatProvider>
+        <DataModeProvider>
+          <GlobalChatProvider>
+            {children}
+          </GlobalChatProvider>
+        </DataModeProvider>
       </body>
     </html>
   );
