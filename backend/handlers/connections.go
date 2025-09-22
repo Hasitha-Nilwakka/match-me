@@ -2,11 +2,15 @@ package handlers
 
 import (
 	"backend/db"
-	"backend/middleware"
 	"backend/models"
+	"fmt"
+	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // ConnectionResponse represents a connection in the API response
@@ -17,10 +21,10 @@ type ConnectionResponse struct {
 	Status      string `json:"status"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
-	
+
 	// User details for display
-	RequesterName string `json:"requesterName,omitempty"`
-	ReceiverName  string `json:"receiverName,omitempty"`
+	RequesterName           string `json:"requesterName,omitempty"`
+	ReceiverName            string `json:"receiverName,omitempty"`
 	RequesterProfilePicture string `json:"requesterProfilePicture,omitempty"`
 	ReceiverProfilePicture  string `json:"receiverProfilePicture,omitempty"`
 }
@@ -53,214 +57,386 @@ func toConnectionResponse(conn models.Connection) ConnectionResponse {
 	return response
 }
 
-// GetConnectionsHandler returns all connections for the current user
+// GetConnectionsHandler returns all user connections with profile information
 func GetConnectionsHandler(c *gin.Context) {
-	userID, exists := middleware.GetUserIDFromContext(c)
+	// Get current user ID from JWT middleware
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  http.StatusUnauthorized,
+			"success": false,
+			"data":    gin.H{"error": "User not authenticated"},
+		})
 		return
 	}
 
-	// Get all connections where user is either requester or receiver
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"success": false,
+			"data":    gin.H{"error": "Invalid user ID"},
+		})
+		return
+	}
+
+	// Fetch accepted connections for the current user
 	var connections []models.Connection
-	if err := db.DB.Where("requester_id = ? OR receiver_id = ?", userID, userID).
-		Preload("Requester.Profile").Preload("Receiver.Profile").
-		Find(&connections).Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to fetch connections"})
+	result := db.DB.Where("(requester_id = ? OR receiver_id = ?) AND status = ?",
+		userID, userID, "accepted").Find(&connections)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"success": false,
+			"data":    gin.H{"error": "Failed to fetch connections"},
+		})
 		return
 	}
 
-	// Build response with user details
-	var connectionResponses []ConnectionResponse
+	// Format connections for frontend
+	var formattedConnections []gin.H
 	for _, conn := range connections {
-		connectionResponses = append(connectionResponses, toConnectionResponse(conn))
+		// Determine which user is the connected user (not the current user)
+		var connectedUserID uint
+		if conn.RequesterID == userID {
+			connectedUserID = conn.ReceiverID
+		} else {
+			connectedUserID = conn.RequesterID
+		}
+
+		// Get connected user's profile information
+		var profile models.Profile
+		var user models.User
+		var location models.Location
+
+		// Fetch user data
+		if err := db.DB.First(&user, connectedUserID).Error; err != nil {
+			continue // Skip if user not found
+		}
+
+		// Fetch profile data
+		if err := db.DB.Where("user_id = ?", connectedUserID).First(&profile).Error; err != nil {
+			continue // Skip if profile not found
+		}
+
+		// Fetch location data (optional)
+		db.DB.Where("user_id = ?", connectedUserID).First(&location)
+
+		// Fetch online status (optional) - handle missing records gracefully with silent mode
+		var onlineStatusExists models.OnlineStatus
+		err := db.DB.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)}).
+			Where("user_id = ?", connectedUserID).First(&onlineStatusExists).Error
+		isOnline := false
+		var lastSeen time.Time
+		if err == nil {
+			// Online status record exists
+			isOnline = onlineStatusExists.IsOnline
+			lastSeen = onlineStatusExists.LastSeen
+		}
+		// If error != nil, use default values (isOnline = false, lastSeen = zero time)
+
+		// Create formatted connection object
+		formattedConnection := gin.H{
+			"id":             conn.ID,
+			"userId":         connectedUserID,
+			"firstName":      profile.FirstName,
+			"lastName":       profile.LastName,
+			"city":           location.City,
+			"country":        location.Country,
+			"profilePicture": profile.ProfilePictureURL,
+			"isOnline":       isOnline,
+			"lastSeen":       formatLastSeen(lastSeen),
+			"connectionDate": conn.CreatedAt.Format("2006-01-02"),
+			"status":         conn.Status,
+		}
+
+		formattedConnections = append(formattedConnections, formattedConnection)
 	}
 
-	c.JSON(200, ConnectionsResponse{
-		Connections: connectionResponses,
-		Total:       len(connectionResponses),
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"success": true,
+		"data":    gin.H{"connections": formattedConnections},
+	})
+}
+
+// Helper function to format last seen time
+func formatLastSeen(lastSeen time.Time) string {
+	if lastSeen.IsZero() {
+		return "Never"
+	}
+
+	now := time.Now()
+	duration := now.Sub(lastSeen)
+
+	if duration < time.Minute {
+		return "just now"
+	} else if duration < time.Hour {
+		minutes := int(duration.Minutes())
+		if minutes == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	} else if duration < 24*time.Hour {
+		hours := int(duration.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	} else {
+		days := int(duration.Hours() / 24)
+		if days == 1 {
+			return "yesterday"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	}
+}
+
+// DeleteConnectionHandler handles removing a connection
+func DeleteConnectionHandler(c *gin.Context) {
+	// Get current user ID from JWT middleware
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  http.StatusUnauthorized,
+			"success": false,
+			"data":    gin.H{"error": "User not authenticated"},
+		})
+		return
+	}
+
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"success": false,
+			"data":    gin.H{"error": "Invalid user ID"},
+		})
+		return
+	}
+
+	// Get connection ID from URL parameter
+	connectionIDStr := c.Param("id")
+	connectionID, err := strconv.ParseUint(connectionIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"success": false,
+			"data":    gin.H{"error": "Invalid connection ID"},
+		})
+		return
+	}
+
+	// Find the connection and verify it belongs to the current user
+	var connection models.Connection
+	result := db.DB.Where("id = ? AND (requester_id = ? OR receiver_id = ?)",
+		uint(connectionID), userID, userID).First(&connection)
+
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  http.StatusNotFound,
+			"success": false,
+			"data":    gin.H{"error": "Connection not found"},
+		})
+		return
+	}
+
+	// Delete the connection
+	if err := db.DB.Delete(&connection).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"success": false,
+			"data":    gin.H{"error": "Failed to delete connection"},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"success": true,
+		"data":    gin.H{"message": "Connection removed successfully"},
+	})
+}
+
+// UpdateConnectionHandler handles updating connection status (accept/reject)
+func UpdateConnectionHandler(c *gin.Context) {
+	// Get current user ID from JWT middleware
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  http.StatusUnauthorized,
+			"success": false,
+			"data":    gin.H{"error": "User not authenticated"},
+		})
+		return
+	}
+
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"success": false,
+			"data":    gin.H{"error": "Invalid user ID"},
+		})
+		return
+	}
+
+	// Get connection ID from URL parameter
+	connectionIDStr := c.Param("id")
+	connectionID, err := strconv.ParseUint(connectionIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"success": false,
+			"data":    gin.H{"error": "Invalid connection ID"},
+		})
+		return
+	}
+
+	// Parse request body
+	var updateData struct {
+		Status string `json:"status" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&updateData); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"success": false,
+			"data":    gin.H{"error": "Invalid request data"},
+		})
+		return
+	}
+
+	// Validate status values
+	if updateData.Status != "accepted" && updateData.Status != "rejected" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"success": false,
+			"data":    gin.H{"error": "Invalid status. Must be 'accepted' or 'rejected'"},
+		})
+		return
+	}
+
+	// Find the connection and verify the current user is the recipient
+	var connection models.Connection
+	result := db.DB.Where("id = ? AND receiver_id = ?",
+		uint(connectionID), userID).First(&connection)
+
+	if result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  http.StatusNotFound,
+			"success": false,
+			"data":    gin.H{"error": "Connection request not found"},
+		})
+		return
+	}
+
+	// Update the connection status
+	connection.Status = updateData.Status
+	if err := db.DB.Save(&connection).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"success": false,
+			"data":    gin.H{"error": "Failed to update connection"},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"success": true,
+		"data": gin.H{
+			"message":    "Connection updated successfully",
+			"connection": connection,
+		},
 	})
 }
 
 // GetConnectionRequestsHandler returns pending connection requests for the current user
 func GetConnectionRequestsHandler(c *gin.Context) {
-	userID, exists := middleware.GetUserIDFromContext(c)
+	// Get current user ID from JWT middleware
+	userIDInterface, exists := c.Get("user_id")
 	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  http.StatusUnauthorized,
+			"success": false,
+			"data":    gin.H{"error": "User not authenticated"},
+		})
 		return
 	}
 
-	// Get pending connection requests where user is the receiver
-	var connections []models.Connection
-	if err := db.DB.Where("receiver_id = ? AND status = ?", userID, "pending").
-		Preload("Requester.Profile").
-		Find(&connections).Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to fetch connection requests"})
+	userID, ok := userIDInterface.(uint)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"success": false,
+			"data":    gin.H{"error": "Invalid user ID"},
+		})
 		return
 	}
 
-	// Build response with requester details
-	var connectionResponses []ConnectionResponse
-	for _, conn := range connections {
-		connectionResponses = append(connectionResponses, toConnectionResponse(conn))
+	// Fetch pending connection requests where current user is the recipient
+	var requests []models.Connection
+	result := db.DB.Where("receiver_id = ? AND status = ?",
+		userID, "pending").Find(&requests)
+
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"success": false,
+			"data":    gin.H{"error": "Failed to fetch connection requests"},
+		})
+		return
 	}
 
-	c.JSON(200, ConnectionsResponse{
-		Connections: connectionResponses,
-		Total:       len(connectionResponses),
+	// Format requests for frontend
+	var formattedRequests []gin.H
+	for _, req := range requests {
+		// Get sender's profile information
+		var profile models.Profile
+		var user models.User
+		var location models.Location
+
+		// Fetch user data
+		if err := db.DB.First(&user, req.RequesterID).Error; err != nil {
+			continue // Skip if user not found
+		}
+
+		// Fetch profile data
+		if err := db.DB.Where("user_id = ?", req.RequesterID).First(&profile).Error; err != nil {
+			continue // Skip if profile not found
+		}
+
+		// Fetch location data (optional)
+		db.DB.Where("user_id = ?", req.RequesterID).First(&location)
+
+		// Create formatted request object
+		formattedRequest := gin.H{
+			"id":             req.ID,
+			"userId":         req.RequesterID,
+			"firstName":      profile.FirstName,
+			"lastName":       profile.LastName,
+			"city":           location.City,
+			"country":        location.Country,
+			"profilePicture": profile.ProfilePictureURL,
+			"requestDate":    req.CreatedAt.Format("2006-01-02"),
+			"status":         req.Status,
+		}
+
+		formattedRequests = append(formattedRequests, formattedRequest)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"success": true,
+		"data":    gin.H{"requests": formattedRequests},
 	})
 }
 
-// UpdateConnectionHandler handles accepting, rejecting, or disconnecting
-func UpdateConnectionHandler(c *gin.Context) {
-	userID, exists := middleware.GetUserIDFromContext(c)
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	// Get connection ID from URL parameter
-	connectionIDStr := c.Param("id")
-	connectionID, err := strconv.ParseUint(connectionIDStr, 10, 32)
-	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid connection ID"})
-		return
-	}
-
-	// Parse request body
-	var req struct {
-		Status string `json:"status" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "Invalid request body"})
-		return
-	}
-
-	// Validate status
-	validStatuses := []string{"accepted", "rejected", "disconnected"}
-	if !contains(validStatuses, req.Status) {
-		c.JSON(400, gin.H{"error": "Invalid status. Must be: accepted, rejected, or disconnected"})
-		return
-	}
-
-	// Find the connection
-	var connection models.Connection
-	if err := db.DB.Where("id = ?", uint(connectionID)).First(&connection).Error; err != nil {
-		c.JSON(404, gin.H{"error": "Connection not found"})
-		return
-	}
-
-	// Check if user has permission to update this connection
-	if connection.ReceiverID != userID && connection.RequesterID != userID {
-		c.JSON(403, gin.H{"error": "You don't have permission to update this connection"})
-		return
-	}
-
-	// Check if connection is already in a final state
-	if connection.Status == "accepted" || connection.Status == "rejected" {
-		c.JSON(409, gin.H{"error": "Connection is already in a final state"})
-		return
-	}
-
-	// Update connection status
-	connection.Status = req.Status
-	if err := db.DB.Save(&connection).Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to update connection"})
-		return
-	}
-
-	// If connection is accepted, create a chat
-	if req.Status == "accepted" {
-		chat := models.Chat{
-			ConnectionID: connection.ID,
-		}
-		if err := db.DB.Create(&chat).Error; err != nil {
-			// Log error but don't fail the request
-			// The chat can be created later if needed
-		}
-	}
-
-	c.JSON(200, gin.H{
-		"message": "Connection updated successfully",
-		"connection": toConnectionResponse(connection),
-	})
-}
-
-// GetMatchesHandler returns accepted connections (matches)
+// GetMatchesHandler returns accepted connections (matches) for the current user
 func GetMatchesHandler(c *gin.Context) {
-	userID, exists := middleware.GetUserIDFromContext(c)
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	// Get accepted connections where user is either requester or receiver
-	var connections []models.Connection
-	if err := db.DB.Where("(requester_id = ? OR receiver_id = ?) AND status = ?", userID, userID, "accepted").
-		Preload("Requester.Profile").Preload("Receiver.Profile").
-		Find(&connections).Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to fetch matches"})
-		return
-	}
-
-	// Build response with user details
-	var connectionResponses []ConnectionResponse
-	for _, conn := range connections {
-		connectionResponses = append(connectionResponses, toConnectionResponse(conn))
-	}
-
-	c.JSON(200, ConnectionsResponse{
-		Connections: connectionResponses,
-		Total:       len(connectionResponses),
-	})
-}
-
-// DeleteConnectionHandler handles disconnecting from a user
-func DeleteConnectionHandler(c *gin.Context) {
-	userID, exists := middleware.GetUserIDFromContext(c)
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	// Get connection ID from URL parameter
-	connectionIDStr := c.Param("id")
-	connectionID, err := strconv.ParseUint(connectionIDStr, 10, 32)
-	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid connection ID"})
-		return
-	}
-
-	// Find the connection
-	var connection models.Connection
-	if err := db.DB.Where("id = ?", uint(connectionID)).First(&connection).Error; err != nil {
-		c.JSON(404, gin.H{"error": "Connection not found"})
-		return
-	}
-
-	// Check if user has permission to delete this connection
-	if connection.ReceiverID != userID && connection.RequesterID != userID {
-		c.JSON(403, gin.H{"error": "You don't have permission to delete this connection"})
-		return
-	}
-
-	// Delete the connection (this will cascade delete the chat and messages)
-	if err := db.DB.Delete(&connection).Error; err != nil {
-		c.JSON(500, gin.H{"error": "Failed to delete connection"})
-		return
-	}
-
-	c.JSON(200, gin.H{
-		"message": "Connection deleted successfully",
-	})
-}
-
-// Helper function to check if a slice contains a string
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
+	// This is the same as GetConnectionsHandler but with a different endpoint name
+	// Call the existing function
+	GetConnectionsHandler(c)
 }
