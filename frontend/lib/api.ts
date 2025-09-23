@@ -48,6 +48,12 @@ export const API_ENDPOINTS = {
     LIKE: (id: string) => `/recommendations/${id}/like`,
     DISMISS: (id: string) => `/recommendations/${id}/dismiss`,
   },
+  CONNECTIONS: {
+    GET_ALL: '/connections',
+    DELETE: (id: string) => `/connections/${id}`,
+    UPDATE: (id: string) => `/connections/${id}`,
+    GET_REQUESTS: '/connections/requests',
+  },
   // Add more endpoints as needed
 } as const;
 
@@ -590,5 +596,103 @@ export const profileApi = {
       throw new Error('Failed to get seeking preferences');
     }
     return response.json();
+  },
+};
+
+// Connections API functions
+export const connectionsApi = {
+  // Get all user connections
+  getConnections: async () => {
+    try {
+      console.log('API: Fetching connections...');
+      const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.GET_ALL);
+      console.log('API: Connections response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Connections API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+          url: `${getApiUrl()}${API_ENDPOINTS.CONNECTIONS.GET_ALL}`
+        });
+        throw new Error(`Failed to fetch connections: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('Connections fetch error:', error);
+      throw error;
+    }
+  },
+
+  // Delete a connection
+  deleteConnection: async (connectionId: string) => {
+    try {
+      console.log('API: Deleting connection:', connectionId);
+      const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.DELETE(connectionId), {
+        method: 'DELETE',
+      });
+      console.log('API: Delete connection response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Delete connection API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+        throw new Error(`Failed to delete connection: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('Delete connection error:', error);
+      throw error;
+    }
+  },
+
+  // Update connection status (accept/reject)
+  updateConnection: async (connectionId: string, status: 'accepted' | 'rejected') => {
+    try {
+      console.log('API: Updating connection:', connectionId, 'status:', status);
+      const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.UPDATE(connectionId), {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+      console.log('API: Update connection response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Update connection API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+        throw new Error(`Failed to update connection: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('Update connection error:', error);
+      throw error;
+    }
+  },
+
+  // Get connection requests
+  getConnectionRequests: async () => {
+    try {
+      console.log('API: Fetching connection requests...');
+      const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.GET_REQUESTS);
+      console.log('API: Connection requests response status:', response.status);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Connection requests API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+          url: `${getApiUrl()}${API_ENDPOINTS.CONNECTIONS.GET_REQUESTS}`
+        });
+        throw new Error(`Failed to fetch connection requests: ${response.status} ${response.statusText}${errorText ? ' - ' + errorText : ''}`);
+      }
+      return response.json();
+    } catch (error) {
+      console.error('Connection requests fetch error:', error);
+      throw error;
+    }
   },
 };
