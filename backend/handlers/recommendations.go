@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // RecommendationResponse represents a single recommendation
@@ -50,17 +51,29 @@ func GetRecommendationsHandler(c *gin.Context) {
 	// Get all potential matches (exclude current user, dismissed users, and existing connections)
 	excludedUserIDs := getExcludedUserIDs(userID)
 
-	// Get all other users with their bio data
+	// Get potential matches with spatial filtering if user has location data
 	var potentialMatches []models.User
-	query := db.DB.Where("id NOT IN ? AND is_active = ?", excludedUserIDs, true).
-		Preload("Profile").Preload("Location").
-		Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
-		Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
-		Preload("UserLanguages").Find(&potentialMatches)
+	var query *gorm.DB
 
-	if query.Error != nil {
-		c.JSON(500, gin.H{"error": "Failed to fetch potential matches"})
-		return
+	// Apply spatial filtering if user has location and preferences
+	if user.Location != nil && user.Location.Latitude != nil && user.Location.Longitude != nil &&
+		user.SeekingPreference != nil && user.SeekingPreference.LocationPreference == "define_radius" {
+
+		// Get nearby users using bounding box pre-filtering
+		potentialMatches = getNearbyUsers(*user.Location.Latitude, *user.Location.Longitude,
+			user.SeekingPreference.MaxDistanceKm, excludedUserIDs)
+	} else {
+		// Fallback to loading all users (original behavior)
+		query = db.DB.Where("id NOT IN ? AND is_active = ?", excludedUserIDs, true).
+			Preload("Profile").Preload("Location").
+			Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
+			Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
+			Preload("UserLanguages").Find(&potentialMatches)
+
+		if query.Error != nil {
+			c.JSON(500, gin.H{"error": "Failed to fetch potential matches"})
+			return
+		}
 	}
 
 	// Calculate match scores for each potential match
@@ -220,7 +233,7 @@ func calculateMatchScore(userA, userB models.User) float64 {
 	if userA.Location != nil && userB.Location != nil &&
 		userA.Location.Latitude != nil && userA.Location.Longitude != nil &&
 		userB.Location.Latitude != nil && userB.Location.Longitude != nil {
-		
+
 		distance := calculateDistance(
 			*userA.Location.Latitude, *userA.Location.Longitude,
 			*userB.Location.Latitude, *userB.Location.Longitude,
@@ -240,135 +253,135 @@ func calculateMatchScore(userA, userB models.User) float64 {
 func findCommonHobbies(hobbiesA, hobbiesB []models.UserHobby) []uint {
 	common := []uint{}
 	hobbyMap := make(map[uint]bool)
-	
+
 	for _, hobby := range hobbiesA {
 		hobbyMap[hobby.HobbyID] = true
 	}
-	
+
 	for _, hobby := range hobbiesB {
 		if hobbyMap[hobby.HobbyID] {
 			common = append(common, hobby.HobbyID)
 		}
 	}
-	
+
 	return common
 }
 
 func findCommonInterests(interestsA, interestsB []models.UserInterest) []uint {
 	common := []uint{}
 	interestMap := make(map[uint]bool)
-	
+
 	for _, interest := range interestsA {
 		interestMap[interest.InterestID] = true
 	}
-	
+
 	for _, interest := range interestsB {
 		if interestMap[interest.InterestID] {
 			common = append(common, interest.InterestID)
 		}
 	}
-	
+
 	return common
 }
 
 func findCommonMusic(musicA, musicB []models.UserMusic) []uint {
 	common := []uint{}
 	musicMap := make(map[uint]bool)
-	
+
 	for _, music := range musicA {
 		musicMap[music.MusicGenreID] = true
 	}
-	
+
 	for _, music := range musicB {
 		if musicMap[music.MusicGenreID] {
 			common = append(common, music.MusicGenreID)
 		}
 	}
-	
+
 	return common
 }
 
 func findCommonMovies(moviesA, moviesB []models.UserMovie) []uint {
 	common := []uint{}
 	movieMap := make(map[uint]bool)
-	
+
 	for _, movie := range moviesA {
 		movieMap[movie.MovieGenreID] = true
 	}
-	
+
 	for _, movie := range moviesB {
 		if movieMap[movie.MovieGenreID] {
 			common = append(common, movie.MovieGenreID)
 		}
 	}
-	
+
 	return common
 }
 
 func findCommonFood(foodA, foodB []models.UserFood) []uint {
 	common := []uint{}
 	foodMap := make(map[uint]bool)
-	
+
 	for _, food := range foodA {
 		foodMap[food.FoodPreferenceID] = true
 	}
-	
+
 	for _, food := range foodB {
 		if foodMap[food.FoodPreferenceID] {
 			common = append(common, food.FoodPreferenceID)
 		}
 	}
-	
+
 	return common
 }
 
 func findCommonTravel(travelA, travelB []models.UserTravel) []uint {
 	common := []uint{}
 	travelMap := make(map[uint]bool)
-	
+
 	for _, travel := range travelA {
 		travelMap[travel.TravelTypeID] = true
 	}
-	
+
 	for _, travel := range travelB {
 		if travelMap[travel.TravelTypeID] {
 			common = append(common, travel.TravelTypeID)
 		}
 	}
-	
+
 	return common
 }
 
 func findCommonLanguages(languagesA, languagesB []models.UserLanguage) []uint {
 	common := []uint{}
 	languageMap := make(map[uint]bool)
-	
+
 	for _, language := range languagesA {
 		languageMap[language.LanguageID] = true
 	}
-	
+
 	for _, language := range languagesB {
 		if languageMap[language.LanguageID] {
 			common = append(common, language.LanguageID)
 		}
 	}
-	
+
 	return common
 }
 
 // calculateDistance calculates the distance between two coordinates using Haversine formula
 func calculateDistance(lat1, lon1, lat2, lon2 float64) float64 {
 	const R = 6371 // Earth's radius in kilometers
-	
+
 	dLat := (lat2 - lat1) * math.Pi / 180
 	dLon := (lon2 - lon1) * math.Pi / 180
-	
+
 	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
 		math.Cos(lat1*math.Pi/180)*math.Cos(lat2*math.Pi/180)*
-		math.Sin(dLon/2)*math.Sin(dLon/2)
-	
+			math.Sin(dLon/2)*math.Sin(dLon/2)
+
 	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
-	
+
 	return R * c
 }
 
@@ -466,4 +479,56 @@ func DismissRecommendationHandler(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"message": "Recommendation dismissed",
 	})
+}
+
+// getNearbyUsers efficiently finds users within a specified radius using bounding box pre-filtering
+func getNearbyUsers(userLat, userLon float64, radiusKm int, excludedUserIDs []uint) []models.User {
+	// Calculate bounding box for efficient pre-filtering
+	// Approximate km per degree of latitude (constant)
+	latDelta := float64(radiusKm) / 111.0
+
+	// Approximate km per degree of longitude (varies by latitude)
+	lonDelta := float64(radiusKm) / (111.0 * math.Cos(userLat*math.Pi/180))
+
+	// Define bounding box
+	minLat := userLat - latDelta
+	maxLat := userLat + latDelta
+	minLon := userLon - lonDelta
+	maxLon := userLon + lonDelta
+
+	// Query users within bounding box first (much faster than Haversine for all users)
+	var nearbyUsers []models.User
+	query := db.DB.Where(`
+		id NOT IN ? AND is_active = ? AND 
+		latitude IS NOT NULL AND longitude IS NOT NULL AND
+		latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?
+	`, excludedUserIDs, true, minLat, maxLat, minLon, maxLon).
+		Preload("Profile").Preload("Location").
+		Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
+		Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
+		Preload("UserLanguages").Find(&nearbyUsers)
+
+	if query.Error != nil {
+		// If spatial query fails, fallback to loading all users
+		var allUsers []models.User
+		db.DB.Where("id NOT IN ? AND is_active = ?", excludedUserIDs, true).
+			Preload("Profile").Preload("Location").
+			Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
+			Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
+			Preload("UserLanguages").Find(&allUsers)
+		return allUsers
+	}
+
+	// Now apply precise Haversine distance filtering to the pre-filtered results
+	var filteredUsers []models.User
+	for _, user := range nearbyUsers {
+		if user.Location != nil && user.Location.Latitude != nil && user.Location.Longitude != nil {
+			distance := calculateDistance(userLat, userLon, *user.Location.Latitude, *user.Location.Longitude)
+			if distance <= float64(radiusKm) {
+				filteredUsers = append(filteredUsers, user)
+			}
+		}
+	}
+
+	return filteredUsers
 }

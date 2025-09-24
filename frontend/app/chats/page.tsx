@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, chatApi } from "../../lib/api";
+import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
 
 interface ChatUser {
   id: number;
@@ -206,9 +207,10 @@ export default function ChatsPage() {
                 </Link>
                 <Link
                   href="/connectionrequests"
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-100 transition"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-100 transition relative"
                 >
                   Requests
+                  <PendingRequestsIndicator className="absolute -top-1 -right-1" />
                 </Link>
                 <button
                   onClick={() => handleNavigation("chats")}

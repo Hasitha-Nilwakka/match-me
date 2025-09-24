@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, profileApi, recommendationsApi } from "../../lib/api";
+import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
 
 interface Recommendation {
   id: number;
@@ -333,13 +334,14 @@ export default function FrontPage() {
                 </Link>
                 <Link
                   href="/connectionrequests"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition relative ${
                     activeTab === "requests"
                       ? "bg-blue-100 text-blue-700"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
                   }`}
                 >
                   Connection Requests
+                  <PendingRequestsIndicator className="absolute -top-1 -right-1" />
                 </Link>
               </div>
             </div>
@@ -418,13 +420,14 @@ export default function FrontPage() {
             </Link>
             <Link
               href="/connectionrequests"
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
+              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left relative ${
                 activeTab === "requests"
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
             >
               Connection Requests
+              <PendingRequestsIndicator className="absolute top-1 right-1" />
             </Link>
           </div>
         </div>

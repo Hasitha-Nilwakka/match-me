@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, connectionsApi } from "../../lib/api";
+import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
 
 // Interface for connection request data
 interface ConnectionRequest {
@@ -111,9 +112,6 @@ export default function ConnectionRequestsPage() {
       // Remove from requests list (optimistic update)
       setRequests((prev) => prev.filter((req) => req.id !== requestId));
       console.log(`Accepted connection request ${requestId}`);
-
-      // TODO: Could show success message or redirect to connections list
-      alert("Connection request accepted!");
     } catch (error) {
       console.error("Error accepting connection request:", error);
       alert("Failed to accept connection request. Please try again.");
@@ -211,13 +209,14 @@ export default function ConnectionRequestsPage() {
                 </Link>
                 <button
                   onClick={() => handleNavigation("requests")}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition relative ${
                     activeTab === "requests"
                       ? "bg-blue-100 text-blue-700"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
                   }`}
                 >
                   Connection Requests
+                  <PendingRequestsIndicator className="absolute -top-1 -right-1" />
                 </button>
               </div>
             </div>
@@ -296,13 +295,14 @@ export default function ConnectionRequestsPage() {
             </Link>
             <button
               onClick={() => handleNavigation("requests")}
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
+              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left relative ${
                 activeTab === "requests"
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
             >
               Connection Requests
+              <PendingRequestsIndicator className="absolute top-1 right-1" />
             </button>
           </div>
         </div>

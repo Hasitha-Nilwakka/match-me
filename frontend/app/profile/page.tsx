@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, profileApi, referenceApi, externalApi } from "../../lib/api";
+import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function ProfilePage() {
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [changePasswordData, setChangePasswordData] = useState({
     currentPassword: '',
@@ -48,7 +50,11 @@ export default function ProfilePage() {
   const [locationData, setLocationData] = useState({
     city: '',
     country: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
   });
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationError, setLocationError] = useState('');
   
   // Biographical data selections
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -67,6 +73,7 @@ export default function ProfilePage() {
     ethnicity: '',
     religion: '',
   });
+  const [searchRadius, setSearchRadius] = useState(50); // Default 50km radius
   
   // Multiple selection seeking preferences
   const [seekingInterests, setSeekingInterests] = useState<string[]>([]);
@@ -265,6 +272,8 @@ export default function ProfilePage() {
         setLocationData({
           city: location.city || '',
           country: location.country || '',
+          latitude: location.latitude || null,
+          longitude: location.longitude || null,
         });
         setSelectedCountry(location.country || '');
       } catch (error) {
@@ -308,6 +317,11 @@ export default function ProfilePage() {
           ethnicity: seekingData.ethnicityPreference || '',
           religion: seekingData.religionPreference || '',
         });
+        
+        // Load search radius if available
+        if (seekingData.maxDistanceKm) {
+          setSearchRadius(seekingData.maxDistanceKm);
+        }
         
         // Load multiple selection seeking preferences with better error handling
         setSeekingInterests(Array.isArray(seekingData.interestsPreference) ? seekingData.interestsPreference : []);
@@ -359,6 +373,7 @@ export default function ProfilePage() {
     }
   };
 
+
   const handleLogout = () => {
     authApi.logout();
     router.push('/');
@@ -404,6 +419,86 @@ export default function ProfilePage() {
       ...prev,
       city: cityName
     }));
+  };
+
+  // Show beautiful success notification
+  const showSuccessMessage = (message: string) => {
+    setSaveMessage(message);
+    setShowSuccessNotification(true);
+    setTimeout(() => {
+      setShowSuccessNotification(false);
+      setTimeout(() => setSaveMessage(''), 300); // Clear message after animation
+    }, 2000);
+  };
+
+
+  // Get current location using browser geolocation API
+  const getCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by this browser');
+      return;
+    }
+
+    setIsGettingLocation(true);
+    setLocationError('');
+
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      
+      // Update location data with coordinates
+      setLocationData(prev => ({
+        ...prev,
+        latitude,
+        longitude
+      }));
+
+      // Try to reverse geocode to get city and country
+      try {
+        const response = await fetch(
+          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+        );
+        const data = await response.json();
+        
+        if (data.city && data.countryName) {
+          setLocationData(prev => ({
+            ...prev,
+            city: data.city,
+            country: data.countryName
+          }));
+          setSelectedCountry(data.countryName);
+        }
+      } catch (geocodeError) {
+        console.log('Reverse geocoding failed, but coordinates are saved:', geocodeError);
+        setLocationError('Location detected but city/country could not be determined automatically');
+      }
+
+    } catch (error: any) {
+      console.error('Geolocation error:', error);
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          setLocationError('Location access denied. Please enable location permissions in your browser.');
+          break;
+        case error.POSITION_UNAVAILABLE:
+          setLocationError('Location information is unavailable.');
+          break;
+        case error.TIMEOUT:
+          setLocationError('Location request timed out.');
+          break;
+        default:
+          setLocationError('An unknown error occurred while retrieving location.');
+          break;
+      }
+    } finally {
+      setIsGettingLocation(false);
+    }
   };
 
   // Handle biographical data selections
@@ -593,8 +688,7 @@ export default function ProfilePage() {
       });
 
       // Show success message
-      setSaveMessage('Profile picture updated successfully!');
-      setTimeout(() => setSaveMessage(''), 3000);
+      showSuccessMessage('Profile picture updated successfully! 📸');
 
     } catch (error) {
       console.error('Error uploading profile picture:', error);
@@ -656,8 +750,7 @@ export default function ProfilePage() {
         newPassword: '',
         confirmPassword: ''
       });
-      setSaveMessage('Password changed successfully!');
-      setTimeout(() => setSaveMessage(''), 3000);
+      showSuccessMessage('Password changed successfully! 🔐');
 
     } catch (error) {
       console.error('Error changing password:', error);
@@ -688,15 +781,26 @@ export default function ProfilePage() {
       console.log('Profile saved successfully');
       
       // Save location data if provided
-      if (locationData.city || locationData.country) {
+      if (locationData.city || locationData.country || locationData.latitude || locationData.longitude) {
         try {
           // Only send non-empty values
-          const locationToSave: { city?: string; country?: string } = {};
+          const locationToSave: { 
+            city?: string; 
+            country?: string; 
+            latitude?: number; 
+            longitude?: number; 
+          } = {};
           if (locationData.city && locationData.city.trim()) {
             locationToSave.city = locationData.city.trim();
           }
           if (locationData.country && locationData.country.trim()) {
             locationToSave.country = locationData.country.trim();
+          }
+          if (locationData.latitude !== null) {
+            locationToSave.latitude = locationData.latitude;
+          }
+          if (locationData.longitude !== null) {
+            locationToSave.longitude = locationData.longitude;
           }
           
           console.log('Saving location data:', locationToSave);
@@ -740,6 +844,7 @@ export default function ProfilePage() {
           statusPreference: seekingPreferences.status || undefined,
           relationshipPreference: seekingPreferences.relationshipStatus || undefined,
           locationPreference: seekingPreferences.locationPreference || 'within_city',
+          maxDistanceKm: seekingPreferences.locationPreference === 'define_radius' ? searchRadius : undefined,
           
           // Single preference values
           ethnicityPreference: seekingPreferences.ethnicity || undefined,
@@ -781,7 +886,7 @@ export default function ProfilePage() {
         alert('Profile saved, but there was an issue saving seeking preferences: ' + errorMessage);
       }
       
-      alert('Profile saved successfully!');
+      showSuccessMessage('Profile saved successfully! 🎉');
     } catch (error) {
       console.error('Error saving profile:', error);
       alert('Failed to save profile. Please try again.');
@@ -808,7 +913,52 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      {/* Custom CSS for progress animation */}
+      <style jsx>{`
+        @keyframes progress {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
+      
+      <div className="min-h-screen bg-gray-50">
+        {/* Beautiful Success Notification */}
+      {showSuccessNotification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          <div className={`
+            relative transform transition-all duration-300 ease-in-out
+            ${showSuccessNotification 
+              ? 'translate-y-0 opacity-100 scale-100' 
+              : 'translate-y-8 opacity-0 scale-95'
+            }
+          `}>
+            <div className="bg-white rounded-2xl shadow-2xl border border-green-200 p-6 mx-4 max-w-sm w-full">
+              <div className="flex items-center space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900">Success!</h3>
+                  <p className="text-sm text-gray-600 mt-1">{saveMessage}</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="w-full bg-gray-200 rounded-full h-1">
+                  <div className="bg-green-500 h-1 rounded-full animate-pulse" style={{
+                    animation: 'progress 2s linear forwards'
+                  }}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Navigation Menu */}
       <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -849,13 +999,14 @@ export default function ProfilePage() {
                 </Link>
                 <Link
                   href="/connectionrequests"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition relative ${
                     activeTab === "requests"
                       ? "bg-blue-100 text-blue-700"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
                   }`}
                 >
                   Connection Requests
+                  <PendingRequestsIndicator className="absolute -top-1 -right-1" />
                 </Link>
               </div>
             </div>
@@ -924,13 +1075,14 @@ export default function ProfilePage() {
             </Link>
             <Link
               href="/connectionrequests"
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
+              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left relative ${
                 activeTab === "requests"
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
             >
               Connection Requests
+              <PendingRequestsIndicator className="absolute top-1 right-1" />
             </Link>
           </div>
         </div>
@@ -945,12 +1097,7 @@ export default function ProfilePage() {
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-6">Profile Information</h2>
               
-              {/* Success/Error Messages */}
-              {saveMessage && (
-                <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-                  {saveMessage}
-                </div>
-              )}
+              {/* Error Messages */}
               {saveError && (
                 <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
                   {saveError}
@@ -1073,6 +1220,7 @@ export default function ProfilePage() {
                     <option value="">Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
+                    <option value="Non-binary">Non-binary</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -1167,33 +1315,68 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-                  <input
-                    type="text"
-                    value={locationData.city}
-                    onChange={(e) => handleCityChange(e.target.value)}
-                    placeholder="Enter your city"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={locationData.city}
+                      onChange={(e) => handleCityChange(e.target.value)}
+                      placeholder="Enter your city"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={getCurrentLocation}
+                      disabled={isGettingLocation}
+                      className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md text-sm font-medium transition-colors"
+                    >
+                      {isGettingLocation ? 'Getting Location...' : '📍 Use Current Location'}
+                    </button>
+                    {locationError && (
+                      <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md">
+                        {locationError}
+                      </p>
+                    )}
+                    {locationData.latitude && locationData.longitude && (
+                      <div className="text-xs text-gray-500 bg-green-50 p-2 rounded-md">
+                        ✅ Location detected: {locationData.latitude.toFixed(6)}, {locationData.longitude.toFixed(6)}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Ethnicity</label>
-                  <input
-                    type="text"
+                  <select
                     value={profileData.ethnicity}
                     onChange={(e) => handleInputChange('ethnicity', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter your ethnicity"
-                  />
+                  >
+                    <option value="">Select Ethnicity</option>
+                    <option value="Asian">Asian</option>
+                    <option value="African">African</option>
+                    <option value="European">European</option>
+                    <option value="Hispanic">Hispanic</option>
+                    <option value="Middle Eastern">Middle Eastern</option>
+                    <option value="Mixed">Mixed</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Religion</label>
-                  <input
-                    type="text"
+                  <select
                     value={profileData.religion}
                     onChange={(e) => handleInputChange('religion', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter your religion"
-                  />
+                  >
+                    <option value="">Select Religion</option>
+                    <option value="Christianity">Christianity</option>
+                    <option value="Islam">Islam</option>
+                    <option value="Hinduism">Hinduism</option>
+                    <option value="Buddhism">Buddhism</option>
+                    <option value="Judaism">Judaism</option>
+                    <option value="Atheist">Atheist</option>
+                    <option value="Agnostic">Agnostic</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
               </div>
               
@@ -1503,6 +1686,7 @@ export default function ProfilePage() {
                     <option value="">Any</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
+                    <option value="Non-binary">Non-binary</option>
                     <option value="Other">Other</option>
                   </select>
                   <div className="mt-2">
@@ -1602,6 +1786,32 @@ export default function ProfilePage() {
                     <option value="within_region">Within region</option>
                     <option value="define_radius">Define radius</option>
                   </select>
+                  
+                  {/* Radius input - only show when "Define radius" is selected */}
+                  {seekingPreferences.locationPreference === 'define_radius' && (
+                    <div className="mt-3 p-3 bg-blue-50 rounded-md">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Search Radius: {searchRadius} km
+                      </label>
+                      <input
+                        type="range"
+                        min="5"
+                        max="200"
+                        value={searchRadius}
+                        onChange={(e) => setSearchRadius(parseInt(e.target.value))}
+                        className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>5 km</span>
+                        <span>100 km</span>
+                        <span>200 km</span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">
+                        💡 Tip: Enable location services above to get accurate proximity-based recommendations
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
                     <input
@@ -2237,6 +2447,7 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
