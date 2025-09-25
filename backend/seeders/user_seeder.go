@@ -6,10 +6,26 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"runtime"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+// SeedUsersFast uses goroutines for faster seeding
+func SeedUsersFast(userCount int) error {
+	fmt.Println("Starting optimized user seeding...")
+	start := time.Now()
+
+	if err := SeedUsers(userCount); err != nil {
+		return err
+	}
+
+	elapsed := time.Since(start)
+	fmt.Printf("Optimized seeding completed in %v\n", elapsed)
+	return nil
+}
 
 // SampleData contains arrays of sample data for generating users
 var (
@@ -201,47 +217,127 @@ func GenerateRandomUser(index int) (*models.User, *models.Profile, *models.Locat
 }
 
 // SeedUsers creates the specified number of sample users
-func SeedUsers(count int) error {
-	log.Printf("Starting to seed %d users...", count)
-
-	// Note: Reference data should be seeded via Prisma (npm run db:seed)
-	// This function assumes reference tables are already populated
-
-	for i := 0; i < count; i++ {
-		user, profile, location := GenerateRandomUser(i)
-
-		// Create user first
-		if err := db.DB.Create(user).Error; err != nil {
-			log.Printf("Error creating user %d: %v", i+1, err)
-			continue
-		}
-
-		// Set foreign keys
-		profile.UserID = user.ID
-		location.UserID = user.ID
-
-		// Create profile
-		if err := db.DB.Create(profile).Error; err != nil {
-			log.Printf("Error creating profile for user %d: %v", i+1, err)
-		}
-
-		// Create location
-		if err := db.DB.Create(location).Error; err != nil {
-			log.Printf("Error creating location for user %d: %v", i+1, err)
-		}
-
-		// Create user preferences and relationships
-		if err := SeedUserRelationships(user.ID); err != nil {
-			log.Printf("Error creating relationships for user %d: %v", i+1, err)
-		}
-
-		if (i+1)%10 == 0 {
-			log.Printf("Created %d/%d users", i+1, count)
-		}
+func SeedUsers(userCount int) error {
+	var count int64
+	db.DB.Model(&models.User{}).Count(&count)
+	if count > 0 {
+		fmt.Println("Users already exist, skipping seeding")
+		return nil
 	}
 
-	log.Printf("Successfully seeded %d users!", count)
+	fmt.Printf("Seeding %d users...\n", userCount)
+
+	// Use 10 workers or the number of CPUs, whichever is smaller
+	workerCount := 10
+	if runtime.NumCPU() < workerCount {
+		workerCount = runtime.NumCPU()
+	}
+
+	// Create channels
+	userChan := make(chan int, userCount)
+	var wg sync.WaitGroup
+
+	// Start workers
+	for w := 0; w < workerCount; w++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			for userIndex := range userChan {
+				createUserWithData(userIndex, userCount)
+			}
+		}(w)
+	}
+
+	// Send work to workers
+	for i := 0; i < userCount; i++ {
+		userChan <- i
+	}
+	close(userChan)
+
+	// Wait for all workers to finish
+	wg.Wait()
+	fmt.Println("Users seeded successfully!")
+
+	// Seed relationships for all users concurrently
+	fmt.Println("Seeding user relationships...")
+	seedAllUserRelationships()
+	fmt.Println("User relationships seeded successfully!")
+
 	return nil
+}
+
+func seedAllUserRelationships() {
+	// Get all user IDs
+	var userIDs []uint
+	db.DB.Model(&models.User{}).Pluck("id", &userIDs)
+
+	// Use workers to process relationships concurrently
+	workerCount := 20 // More workers for relationship processing
+	if runtime.NumCPU() < workerCount {
+		workerCount = runtime.NumCPU()
+	}
+
+	userChan := make(chan uint, len(userIDs))
+	var wg sync.WaitGroup
+
+	// Start workers
+	for w := 0; w < workerCount; w++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			for userID := range userChan {
+				if err := SeedUserRelationshipsConcurrent(userID); err != nil {
+					log.Printf("Failed to seed relationships for user %d: %v", userID, err)
+				}
+			}
+		}(w)
+	}
+
+	// Send work to workers
+	for _, userID := range userIDs {
+		userChan <- userID
+	}
+	close(userChan)
+
+	// Wait for all workers to finish
+	wg.Wait()
+}
+
+func createUserWithData(userIndex, totalCount int) {
+	user, profile, location := GenerateRandomUser(userIndex)
+
+	// Create user first
+	if err := db.DB.Create(user).Error; err != nil {
+		log.Printf("Failed to create user %d: %v", userIndex, err)
+		return
+	}
+
+	// Update profile and location with the actual user ID from database
+	profile.UserID = user.ID
+	location.UserID = user.ID
+
+	// Create profile and location concurrently
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Create profile in goroutine
+	go func() {
+		defer wg.Done()
+		if err := db.DB.Create(profile).Error; err != nil {
+			log.Printf("Failed to create profile for user %d: %v", user.ID, err)
+		}
+	}()
+
+	// Create location in goroutine
+	go func() {
+		defer wg.Done()
+		if err := db.DB.Create(location).Error; err != nil {
+			log.Printf("Failed to create location for user %d: %v", user.ID, err)
+		}
+	}()
+
+	wg.Wait()
+	fmt.Printf("Created user %d/%d\n", userIndex+1, totalCount)
 }
 
 // SeedUserRelationships creates realistic relationships for a user
@@ -394,4 +490,220 @@ func SeedUserRelationships(userID uint) error {
 	}
 
 	return nil
+}
+
+// ReferenceData holds cached reference data for efficient seeding
+type ReferenceData struct {
+	Hobbies         []models.Hobby
+	Interests       []models.Interest
+	MusicGenres     []models.MusicGenre
+	MovieGenres     []models.MovieGenre
+	FoodPreferences []models.FoodPreference
+	TravelTypes     []models.TravelType
+	Languages       []models.Language
+}
+
+// Cache reference data once
+var refData *ReferenceData
+var refDataOnce sync.Once
+
+func getReferenceData() *ReferenceData {
+	refDataOnce.Do(func() {
+		refData = &ReferenceData{}
+		db.DB.Find(&refData.Hobbies)
+		db.DB.Find(&refData.Interests)
+		db.DB.Find(&refData.MusicGenres)
+		db.DB.Find(&refData.MovieGenres)
+		db.DB.Find(&refData.FoodPreferences)
+		db.DB.Find(&refData.TravelTypes)
+		db.DB.Find(&refData.Languages)
+	})
+	return refData
+}
+
+// SeedUserRelationshipsConcurrent optimizes relationship seeding with goroutines
+func SeedUserRelationshipsConcurrent(userID uint) error {
+	data := getReferenceData()
+
+	// Create all relationships concurrently
+	var wg sync.WaitGroup
+	wg.Add(7)
+
+	// Seed user hobbies (2-5 hobbies per user)
+	go func() {
+		defer wg.Done()
+		seedUserHobbies(userID, data.Hobbies)
+	}()
+
+	// Seed user interests (1-4 interests per user)
+	go func() {
+		defer wg.Done()
+		seedUserInterests(userID, data.Interests)
+	}()
+
+	// Seed user music preferences (1-3 genres per user)
+	go func() {
+		defer wg.Done()
+		seedUserMusic(userID, data.MusicGenres)
+	}()
+
+	// Seed user movie preferences (1-3 genres per user)
+	go func() {
+		defer wg.Done()
+		seedUserMovies(userID, data.MovieGenres)
+	}()
+
+	// Seed user food preferences (0-2 preferences per user)
+	go func() {
+		defer wg.Done()
+		seedUserFood(userID, data.FoodPreferences)
+	}()
+
+	// Seed user travel preferences (1-3 types per user)
+	go func() {
+		defer wg.Done()
+		seedUserTravel(userID, data.TravelTypes)
+	}()
+
+	// Seed user languages (1-3 languages per user)
+	go func() {
+		defer wg.Done()
+		seedUserLanguages(userID, data.Languages)
+	}()
+
+	wg.Wait()
+	return nil
+}
+
+func seedUserHobbies(userID uint, hobbies []models.Hobby) {
+	numHobbies := 2 + rand.Intn(4) // 2-5 hobbies
+	selectedHobbies := make(map[uint]bool)
+
+	for i := 0; i < numHobbies && i < len(hobbies); i++ {
+		hobbyIndex := rand.Intn(len(hobbies))
+		hobbyID := hobbies[hobbyIndex].ID
+
+		if !selectedHobbies[hobbyID] {
+			userHobby := models.UserHobby{
+				UserID:  userID,
+				HobbyID: hobbyID,
+			}
+			db.DB.FirstOrCreate(&userHobby, userHobby)
+			selectedHobbies[hobbyID] = true
+		}
+	}
+}
+
+func seedUserInterests(userID uint, interests []models.Interest) {
+	numInterests := 1 + rand.Intn(4) // 1-4 interests
+	selectedInterests := make(map[uint]bool)
+
+	for i := 0; i < numInterests && i < len(interests); i++ {
+		interestIndex := rand.Intn(len(interests))
+		interestID := interests[interestIndex].ID
+
+		if !selectedInterests[interestID] {
+			userInterest := models.UserInterest{
+				UserID:     userID,
+				InterestID: interestID,
+			}
+			db.DB.FirstOrCreate(&userInterest, userInterest)
+			selectedInterests[interestID] = true
+		}
+	}
+}
+
+func seedUserMusic(userID uint, musicGenres []models.MusicGenre) {
+	numMusic := 1 + rand.Intn(3) // 1-3 music genres
+	selectedMusic := make(map[uint]bool)
+
+	for i := 0; i < numMusic && i < len(musicGenres); i++ {
+		musicIndex := rand.Intn(len(musicGenres))
+		musicID := musicGenres[musicIndex].ID
+
+		if !selectedMusic[musicID] {
+			userMusic := models.UserMusic{
+				UserID:       userID,
+				MusicGenreID: musicID,
+			}
+			db.DB.FirstOrCreate(&userMusic, userMusic)
+			selectedMusic[musicID] = true
+		}
+	}
+}
+
+func seedUserMovies(userID uint, movieGenres []models.MovieGenre) {
+	numMovies := 1 + rand.Intn(3) // 1-3 movie genres
+	selectedMovies := make(map[uint]bool)
+
+	for i := 0; i < numMovies && i < len(movieGenres); i++ {
+		movieIndex := rand.Intn(len(movieGenres))
+		movieID := movieGenres[movieIndex].ID
+
+		if !selectedMovies[movieID] {
+			userMovie := models.UserMovie{
+				UserID:       userID,
+				MovieGenreID: movieID,
+			}
+			db.DB.FirstOrCreate(&userMovie, userMovie)
+			selectedMovies[movieID] = true
+		}
+	}
+}
+
+func seedUserFood(userID uint, foodPreferences []models.FoodPreference) {
+	numFood := rand.Intn(3) // 0-2 food preferences
+	selectedFood := make(map[uint]bool)
+
+	for i := 0; i < numFood && i < len(foodPreferences); i++ {
+		foodIndex := rand.Intn(len(foodPreferences))
+		foodID := foodPreferences[foodIndex].ID
+
+		if !selectedFood[foodID] {
+			userFood := models.UserFood{
+				UserID:           userID,
+				FoodPreferenceID: foodID,
+			}
+			db.DB.FirstOrCreate(&userFood, userFood)
+			selectedFood[foodID] = true
+		}
+	}
+}
+
+func seedUserTravel(userID uint, travelTypes []models.TravelType) {
+	numTravel := 1 + rand.Intn(3) // 1-3 travel types
+	selectedTravel := make(map[uint]bool)
+
+	for i := 0; i < numTravel && i < len(travelTypes); i++ {
+		travelIndex := rand.Intn(len(travelTypes))
+		travelID := travelTypes[travelIndex].ID
+
+		if !selectedTravel[travelID] {
+			userTravel := models.UserTravel{
+				UserID:       userID,
+				TravelTypeID: travelID,
+			}
+			db.DB.FirstOrCreate(&userTravel, userTravel)
+			selectedTravel[travelID] = true
+		}
+	}
+}
+
+func seedUserLanguages(userID uint, languages []models.Language) {
+	numLanguages := 1 + rand.Intn(3) // 1-3 languages
+	selectedLanguages := make(map[uint]bool)
+
+	for i := 0; i < numLanguages && i < len(languages); i++ {
+		languageIndex := rand.Intn(len(languages))
+		languageID := languages[languageIndex].ID
+
+		if !selectedLanguages[languageID] {
+			userLanguage := models.UserLanguage{
+				UserID:     userID,
+				LanguageID: languageID,
+			}
+			db.DB.FirstOrCreate(&userLanguage, userLanguage)
+			selectedLanguages[languageID] = true
+		}
+	}
 }
