@@ -105,6 +105,10 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                       width={160}
                       height={160}
                       className="rounded-full border-4 border-white shadow"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = "/sitefiles/default-profile-picture.png";
+                      }}
                     />
                     <h4 className="mt-4 text-xl font-semibold text-gray-900">
                       {(profile.firstName || "").trim()} {(profile.lastName || "").trim()}

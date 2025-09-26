@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { authApi, chatApi } from "../lib/api";
+import { useDataMode } from "../context/DataModeContext";
 
 interface Message {
   id: number;
@@ -44,8 +45,8 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   const [isSending, setIsSending] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const currentUser = authApi.getCurrentUser();
+  const { mode } = useDataMode();
 
   // Load chats when popup opens
   useEffect(() => {
@@ -64,41 +65,46 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   // Load user's chats
   const loadChats = async () => {
     try {
-      // TODO: Replace with real API call
-      const mockChats: Chat[] = [
-        {
-          id: 1,
-          connectionId: 1,
-          unreadCount: 2,
-          lastMessage: {
-            content: "Hey! How's your day going?",
-            createdAt: "2024-01-15T14:45:00Z"
+      if (mode === "mock") {
+        const mockChats: Chat[] = [
+          {
+            id: 1,
+            connectionId: 1,
+            unreadCount: 2,
+            lastMessage: {
+              content: "Hey! How's your day going?",
+              createdAt: "2024-01-15T14:45:00Z"
+            },
+            otherUser: {
+              id: 2,
+              name: "Sarah Johnson",
+              profilePicture: "👤",
+              isOnline: true
+            }
           },
-          otherUser: {
+          {
             id: 2,
-            name: "Sarah Johnson",
-            profilePicture: "👤",
-            isOnline: true
+            connectionId: 2,
+            unreadCount: 0,
+            lastMessage: {
+              content: "Thanks for the recommendation!",
+              createdAt: "2024-01-14T16:20:00Z"
+            },
+            otherUser: {
+              id: 3,
+              name: "Mike Chen",
+              profilePicture: "👤",
+              isOnline: false,
+              lastSeen: "2024-01-14T18:30:00Z"
+            }
           }
-        },
-        {
-          id: 2,
-          connectionId: 2,
-          unreadCount: 0,
-          lastMessage: {
-            content: "Thanks for the recommendation!",
-            createdAt: "2024-01-14T16:20:00Z"
-          },
-          otherUser: {
-            id: 3,
-            name: "Mike Chen",
-            profilePicture: "👤",
-            isOnline: false,
-            lastSeen: "2024-01-14T18:30:00Z"
-          }
-        }
-      ];
-      setChats(mockChats);
+        ];
+        setChats(mockChats);
+      } else {
+        // Real API call
+        const data = await chatApi.getAllChats();
+        setChats(data);
+      }
     } catch (error) {
       console.error('Error loading chats:', error);
     }
@@ -107,37 +113,42 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   // Load messages for a specific chat
   const loadChatMessages = async (chatId: number) => {
     try {
-      // TODO: Replace with real API call
-      const mockMessages: Message[] = [
-        {
-          id: 1,
-          chatId: chatId,
-          senderId: 2,
-          content: "Hi there! Nice to meet you!",
-          isRead: true,
-          createdAt: "2024-01-15T10:30:00Z",
-          senderName: "Sarah Johnson"
-        },
-        {
-          id: 2,
-          chatId: chatId,
-          senderId: currentUser?.id || 1,
-          content: "Hey! Nice to meet you too. How are you doing?",
-          isRead: true,
-          createdAt: "2024-01-15T10:32:00Z",
-          senderName: "You"
-        },
-        {
-          id: 3,
-          chatId: chatId,
-          senderId: 2,
-          content: "I'm doing great! Just got back from a hiking trip.",
-          isRead: true,
-          createdAt: "2024-01-15T10:35:00Z",
-          senderName: "Sarah Johnson"
-        }
-      ];
-      setMessages(mockMessages);
+      if (mode === "mock") {
+        const mockMessages: Message[] = [
+          {
+            id: 1,
+            chatId: chatId,
+            senderId: 2,
+            content: "Hi there! Nice to meet you!",
+            isRead: true,
+            createdAt: "2024-01-15T10:30:00Z",
+            senderName: "Sarah Johnson"
+          },
+          {
+            id: 2,
+            chatId: chatId,
+            senderId: currentUser?.id || 1,
+            content: "Hey! Nice to meet you too. How are you doing?",
+            isRead: true,
+            createdAt: "2024-01-15T10:32:00Z",
+            senderName: "You"
+          },
+          {
+            id: 3,
+            chatId: chatId,
+            senderId: 2,
+            content: "I'm doing great! Just got back from a hiking trip.",
+            isRead: true,
+            createdAt: "2024-01-15T10:35:00Z",
+            senderName: "Sarah Johnson"
+          }
+        ];
+        setMessages(mockMessages);
+      } else {
+        // Real API call
+        const data = await chatApi.getChatMessages(chatId.toString());
+        setMessages(data);
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
     }
@@ -184,19 +195,25 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
     try {
       setIsSending(true);
       
-      // TODO: Replace with real API call
-      const mockMessage: Message = {
-        id: Date.now(),
-        chatId: activeChat,
-        senderId: currentUser?.id || 1,
-        content: newMessage,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        senderName: "You"
-      };
-      
-      setMessages(prev => [...prev, mockMessage]);
-      setNewMessage("");
+      if (mode === "mock") {
+        const mockMessage: Message = {
+          id: Date.now(),
+          chatId: activeChat,
+          senderId: currentUser?.id || 1,
+          content: newMessage,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          senderName: "You"
+        };
+        
+        setMessages(prev => [...prev, mockMessage]);
+        setNewMessage("");
+      } else {
+        // Real API call
+        const sentMessage = await chatApi.sendMessage(activeChat.toString(), newMessage);
+        setMessages(prev => [...prev, sentMessage]);
+        setNewMessage("");
+      }
       
     } catch (error) {
       console.error('Error sending message:', error);

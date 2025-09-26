@@ -8,6 +8,21 @@ import ProfileModal from "../../components/ProfileModal";
 import DataModeToggle from "../../components/DataModeToggle";
 import { useDataMode } from "../../context/DataModeContext";
 
+type Profile = {
+  firstName?: string;
+  lastName?: string;
+  aboutMe?: string;
+  gender?: string;
+  status?: string;
+  relationshipStatus?: string;
+  languages?: string[];
+  hobbies?: string[];
+  interests?: string[];
+  city?: string;
+  country?: string;
+  profilePictureURL?: string;
+};
+
 interface Recommendation {
   id: number;
   score: number;
@@ -51,7 +66,7 @@ export default function FrontPage() {
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [selectedProfileInitial, setSelectedProfileInitial] = useState<any | null>(null);
+  const [selectedProfileInitial, setSelectedProfileInitial] = useState<Profile | null>(null);
 
   // Load user profile data
   const loadUserProfile = useCallback(async () => {

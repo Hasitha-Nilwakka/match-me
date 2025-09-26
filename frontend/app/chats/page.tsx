@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, chatApi } from "../../lib/api";
+import { useDataMode } from "../../context/DataModeContext";
 
 interface ChatUser {
   id: number;
@@ -30,10 +31,10 @@ interface Chat {
 
 export default function ChatsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("chats");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [chats, setChats] = useState<Chat[]>([]);
+  const { mode } = useDataMode();
 
   // Check authentication on page load
   useEffect(() => {
@@ -49,51 +50,57 @@ export default function ChatsPage() {
   const loadChats = async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with real API call to GET /chats
-      // Mock data for now
-      const mockChats: Chat[] = [
-        {
-          id: 1,
-          connectionId: 1,
-          createdAt: "2024-01-15T10:30:00Z",
-          updatedAt: "2024-01-15T14:45:00Z",
-          unreadCount: 2,
-          lastMessage: {
-            id: 5,
-            content: "Hey! How's your day going?",
-            senderId: 2,
-            createdAt: "2024-01-15T14:45:00Z"
-          },
-          otherUser: {
-            id: 2,
-            name: "Sarah Johnson",
-            profilePicture: "👤",
-            isOnline: true
-          }
-        },
-        {
-          id: 2,
-          connectionId: 2,
-          createdAt: "2024-01-14T09:15:00Z",
-          updatedAt: "2024-01-14T16:20:00Z",
-          unreadCount: 0,
-          lastMessage: {
-            id: 8,
-            content: "Thanks for the recommendation!",
-            senderId: 1,
-            createdAt: "2024-01-14T16:20:00Z"
-          },
-          otherUser: {
-            id: 3,
-            name: "Mike Chen",
-            profilePicture: "👤",
-            isOnline: false,
-            lastSeen: "2024-01-14T18:30:00Z"
-          }
-        }
-      ];
       
-      setChats(mockChats);
+      if (mode === "mock") {
+        // Mock data for now
+        const mockChats: Chat[] = [
+          {
+            id: 1,
+            connectionId: 1,
+            createdAt: "2024-01-15T10:30:00Z",
+            updatedAt: "2024-01-15T14:45:00Z",
+            unreadCount: 2,
+            lastMessage: {
+              id: 5,
+              content: "Hey! How's your day going?",
+              senderId: 2,
+              createdAt: "2024-01-15T14:45:00Z"
+            },
+            otherUser: {
+              id: 2,
+              name: "Sarah Johnson",
+              profilePicture: "👤",
+              isOnline: true
+            }
+          },
+          {
+            id: 2,
+            connectionId: 2,
+            createdAt: "2024-01-14T09:15:00Z",
+            updatedAt: "2024-01-14T16:20:00Z",
+            unreadCount: 0,
+            lastMessage: {
+              id: 8,
+              content: "Thanks for the recommendation!",
+              senderId: 1,
+              createdAt: "2024-01-14T16:20:00Z"
+            },
+            otherUser: {
+              id: 3,
+              name: "Mike Chen",
+              profilePicture: "👤",
+              isOnline: false,
+              lastSeen: "2024-01-14T18:30:00Z"
+            }
+          }
+        ];
+        
+        setChats(mockChats);
+      } else {
+        // Real API call to GET /chats
+        const data = await chatApi.getAllChats();
+        setChats(data);
+      }
     } catch (error) {
       console.error('Error loading chats:', error);
     } finally {
@@ -106,9 +113,6 @@ export default function ChatsPage() {
     router.push('/');
   };
 
-  const handleNavigation = (tab: string) => {
-    setActiveTab(tab);
-  };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -210,12 +214,9 @@ export default function ChatsPage() {
                 >
                   Requests
                 </Link>
-                <button
-                  onClick={() => handleNavigation("chats")}
-                  className="px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700"
-                >
+                <span className="px-3 py-2 rounded-md text-sm font-medium bg-blue-100 text-blue-700">
                   Chats
-                </button>
+                </span>
               </div>
             </div>
 
