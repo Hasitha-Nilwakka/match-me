@@ -51,6 +51,7 @@ export default function FrontPage() {
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedProfileInitial, setSelectedProfileInitial] = useState<any | null>(null);
 
   // Load user profile data
   const loadUserProfile = useCallback(async () => {
@@ -104,7 +105,7 @@ export default function FrontPage() {
   const loadRecommendations = async () => {
     try {
       setIsLoadingRecommendations(true);
-      let recData: any;
+      let recData: { recommendations: { id: number; score: number }[] };
       if (mode === "mock") {
         // simple mock set
         recData = {
@@ -259,9 +260,10 @@ export default function FrontPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Profile Modal */}
       <ProfileModal
-        userId={selectedUserId}
+        userId={mode === "real" ? selectedUserId : null}
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
+        initialProfile={mode === "mock" ? selectedProfileInitial : null}
       />
       {/* Top Navigation Menu */}
       <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
@@ -635,7 +637,21 @@ export default function FrontPage() {
                 <button
                   onClick={() => {
                     const currentRec = recommendations[currentRecommendationIndex];
-                    if (currentRec) {
+                    if (!currentRec) return;
+                    if (mode === "mock") {
+                      setSelectedProfileInitial({
+                        firstName: currentRec.profile?.firstName,
+                        lastName: currentRec.profile?.lastName,
+                        aboutMe: currentRec.profile?.aboutMe,
+                        gender: currentRec.profile?.gender,
+                        status: currentRec.profile?.status,
+                        languages: currentRec.bio?.languages ?? [],
+                        hobbies: currentRec.bio?.hobbies ?? [],
+                        interests: currentRec.bio?.interests ?? [],
+                        profilePictureURL: "/sitefiles/default-profile-picture.png",
+                      });
+                      setIsProfileOpen(true);
+                    } else {
                       setSelectedUserId(currentRec.id);
                       setIsProfileOpen(true);
                     }
