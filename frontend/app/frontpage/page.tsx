@@ -3,7 +3,7 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, profileApi, recommendationsApi } from "../../lib/api";
+import { authApi, profileApi, recommendationsApi, getApiUrl } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
 import DataModeToggle from "../../components/DataModeToggle";
 import { useDataMode } from "../../context/DataModeContext";
@@ -127,8 +127,10 @@ export default function FrontPage() {
   const loadRecommendations = async () => {
     try {
       setIsLoadingRecommendations(true);
+      console.log('Loading recommendations in mode:', mode);
       let recData: { recommendations: { id: number; score: number }[] };
       if (mode === "mock") {
+        console.log('Using mock recommendations data');
         // simple mock set
         recData = {
           recommendations: [
@@ -137,36 +139,35 @@ export default function FrontPage() {
           ],
         };
       } else {
+        console.log('Fetching real recommendations from API');
         recData = await recommendationsApi.getRecommendations();
+        console.log('Real recommendations data:', recData);
       }
-      
-      // Get API base URL
-      const getAPIBaseURL = () => {
-        return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      };
       
       // Get detailed user info for each recommendation
       const detailedRecs = await Promise.all(
         recData.recommendations.map(async (rec: {id: number; score: number}) => {
           try {
-            const baseUrl = getAPIBaseURL();
-            const [userInfo, userProfile, userBio] = mode === "mock"
-              ? [
-                  { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true },
-                  { firstName: "Demo", lastName: `User ${rec.id}`, aboutMe: "Mock profile", gender: "N/A", status: "mock" },
-                  { interests: ["music"], hobbies: ["hiking"], musicGenres: ["rock"], movieGenres: ["drama"], foodPreferences: ["vegan"], travelTypes: ["roadtrip"], languages: ["English"] }
-                ]
-              : await Promise.all([
-                  fetch(`${baseUrl}/users/${rec.id}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                  }).then(r => r.json()),
-                  fetch(`${baseUrl}/users/${rec.id}/profile`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                  }).then(r => r.json()),
-                  fetch(`${baseUrl}/users/${rec.id}/bio`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                  }).then(r => r.json())
-                ]);
+            let userInfo, userProfile, userBio;
+            
+            if (mode === "mock") {
+              userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
+              userProfile = { firstName: "Demo", lastName: `User ${rec.id}`, aboutMe: "Mock profile", gender: "N/A", status: "mock" };
+              userBio = { interests: ["music"], hobbies: ["hiking"], musicGenres: ["rock"], movieGenres: ["drama"], foodPreferences: ["vegan"], travelTypes: ["roadtrip"], languages: ["English"] };
+            } else {
+              console.log(`Fetching real user details for user ${rec.id}`);
+              [userInfo, userProfile, userBio] = await Promise.all([
+                fetch(`${getApiUrl()}/users/${rec.id}`, {
+                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }).then(r => r.json()),
+                fetch(`${getApiUrl()}/users/${rec.id}/profile`, {
+                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }).then(r => r.json()),
+                fetch(`${getApiUrl()}/users/${rec.id}/bio`, {
+                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                }).then(r => r.json())
+              ]);
+            }
             
             return {
               ...rec,
