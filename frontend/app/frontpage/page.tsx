@@ -131,11 +131,11 @@ export default function FrontPage() {
       let recData: { recommendations: { id: number; score: number }[] };
       if (mode === "mock") {
         console.log('Using mock recommendations data');
-        // simple mock set
+        // simple mock set - using high IDs to avoid conflicts with real users
         recData = {
           recommendations: [
-            { id: 101, score: 92 },
-            { id: 102, score: 88 },
+            { id: 99991, score: 92 },
+            { id: 99992, score: 88 },
           ],
         };
       } else {
@@ -152,7 +152,7 @@ export default function FrontPage() {
             
             if (mode === "mock") {
               userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
-              userProfile = { firstName: "Demo", lastName: `User ${rec.id}`, aboutMe: "Mock profile", gender: "N/A", status: "mock" };
+              userProfile = { firstName: "Mock", lastName: `User ${rec.id}`, aboutMe: "This is a mock profile for testing purposes", gender: "N/A", status: "mock" };
               userBio = { interests: ["music"], hobbies: ["hiking"], musicGenres: ["rock"], movieGenres: ["drama"], foodPreferences: ["vegan"], travelTypes: ["roadtrip"], languages: ["English"] };
             } else {
               console.log(`Fetching real user details for user ${rec.id}`);
