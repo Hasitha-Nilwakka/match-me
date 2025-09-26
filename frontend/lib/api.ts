@@ -37,6 +37,7 @@ export const API_ENDPOINTS = {
   },
   CHATS: {
     GET_ALL: '/chats',
+    CREATE: '/chats',
     GET_MESSAGES: (chatId: string) => `/chats/${chatId}/messages`,
     SEND_MESSAGE: (chatId: string) => `/chats/${chatId}/messages`,
     MARK_READ: (chatId: string) => `/chats/${chatId}/read`,
@@ -175,6 +176,18 @@ export const chatApi = {
     const response = await authenticatedApiRequest(API_ENDPOINTS.CHATS.GET_ALL);
     if (!response.ok) {
       throw new Error('Failed to fetch chats');
+    }
+    return response.json();
+  },
+
+  // Create a new chat with a user
+  createChat: async (userId: number) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CHATS.CREATE, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to create chat');
     }
     return response.json();
   },

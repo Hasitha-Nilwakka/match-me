@@ -3,7 +3,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, connectionsApi } from "../../lib/api";
+import { authApi, connectionsApi, chatApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
 import { useDataMode } from "../../context/DataModeContext";
 
@@ -87,6 +87,7 @@ export default function ConnectionListPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [startingChatId, setStartingChatId] = useState<number | null>(null);
   const { mode } = useDataMode();
 
   // Check authentication on page load
@@ -146,10 +147,30 @@ export default function ConnectionListPage() {
     setActiveTab(tab);
   };
 
-  const handleStartChat = (connectionId: number) => {
-    // TODO: Implement start chat functionality
-    console.log(`Starting chat with connection ${connectionId}`);
-    // This would typically navigate to a chat page or open a chat modal
+  const handleStartChat = async (connectionId: number) => {
+    try {
+      setStartingChatId(connectionId);
+      
+      if (mode === "mock") {
+        // For mock mode, navigate directly to chats page
+        // The chat page will handle mock data
+        router.push('/chats');
+      } else {
+        // For real mode, create a chat and navigate to it
+        const response = await chatApi.createChat(connectionId);
+        if (response.success && response.data && response.data.chat) {
+          // Navigate to the chat page - it will automatically select the new chat
+          router.push('/chats');
+        } else {
+          alert('Failed to start chat. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      alert('Failed to start chat. Please try again.');
+    } finally {
+      setStartingChatId(null);
+    }
   };
 
   const handleRemoveConnection = (connectionId: number) => {
@@ -497,12 +518,22 @@ export default function ConnectionListPage() {
                         
                         <button
                           onClick={() => handleStartChat(connection.id)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
+                          disabled={startingChatId === connection.id}
+                          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                          <span>Start Chat</span>
+                          {startingChatId === connection.id ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              <span>Starting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                              </svg>
+                              <span>Start Chat</span>
+                            </>
+                          )}
                         </button>
                         
                         <button

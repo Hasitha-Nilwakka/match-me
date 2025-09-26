@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, chatApi } from "../../lib/api";
@@ -36,18 +36,8 @@ export default function ChatsPage() {
   const [chats, setChats] = useState<Chat[]>([]);
   const { mode } = useDataMode();
 
-  // Check authentication on page load
-  useEffect(() => {
-    if (!authApi.isAuthenticated()) {
-      router.push('/');
-    } else {
-      setIsAuthenticated(true);
-      loadChats();
-    }
-  }, [router]);
-
   // Load user's chats
-  const loadChats = async () => {
+  const loadChats = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -98,15 +88,29 @@ export default function ChatsPage() {
         setChats(mockChats);
       } else {
         // Real API call to GET /chats
-        const data = await chatApi.getAllChats();
-        setChats(data);
+        const response = await chatApi.getAllChats();
+        if (response.success && response.data && response.data.chats) {
+          setChats(response.data.chats);
+        } else {
+          setChats([]);
+        }
       }
     } catch (error) {
       console.error('Error loading chats:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [mode]);
+
+  // Check authentication on page load
+  useEffect(() => {
+    if (!authApi.isAuthenticated()) {
+      router.push('/');
+    } else {
+      setIsAuthenticated(true);
+      loadChats();
+    }
+  }, [router, loadChats]);
 
   const handleLogout = () => {
     authApi.logout();
@@ -264,7 +268,7 @@ export default function ChatsPage() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm border divide-y">
-            {chats.map((chat) => (
+            {Array.isArray(chats) ? chats.map((chat) => (
               <div
                 key={chat.id}
                 onClick={() => handleChatClick(chat.id)}
@@ -336,7 +340,11 @@ export default function ChatsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="p-8 text-center text-gray-500">
+                <p>Unable to load chats. Please try refreshing the page.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
