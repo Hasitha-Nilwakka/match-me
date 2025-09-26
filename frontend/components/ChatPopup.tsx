@@ -48,12 +48,22 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   const currentUser = authApi.getCurrentUser();
   const { mode } = useDataMode();
 
-  // Load chats when popup opens
+  // Debug mode changes for chat popup
   useEffect(() => {
-    if (isOpen && chats.length === 0) {
+    // eslint-disable-next-line no-console
+    console.log('[ChatPopup] Data mode is', mode);
+  }, [mode]);
+
+  // Load/reload chats when popup opens or data mode changes
+  useEffect(() => {
+    if (isOpen) {
+      // Reset state when switching modes to avoid stale mock/live data
+      setActiveChat(null);
+      setMessages([]);
+      setChats([]);
       loadChats();
     }
-  }, [isOpen]);
+  }, [isOpen, mode]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -65,7 +75,11 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   // Load user's chats
   const loadChats = async () => {
     try {
+      // eslint-disable-next-line no-console
+      console.log('[ChatPopup] loadChats in mode:', mode);
       if (mode === "mock") {
+        // eslint-disable-next-line no-console
+        console.log('[ChatPopup] Using MOCK chats');
         const mockChats: Chat[] = [
           {
             id: 1,
@@ -102,11 +116,20 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
         setChats(mockChats);
       } else {
         // Real API call
+        // eslint-disable-next-line no-console
+        console.log('[ChatPopup] Fetching REAL chats via API');
         const data = await chatApi.getAllChats();
-        setChats(data);
+        setChats(Array.isArray(data) ? data : []);
       }
     } catch (error) {
-      console.error('Error loading chats:', error);
+      console.error('[ChatPopup] Error loading chats:', error);
+      // In live mode, do not fallback to mock data
+      if (mode === "mock") {
+        const mockChats: Chat[] = [];
+        setChats(mockChats);
+      } else {
+        setChats([]);
+      }
     }
   };
 
@@ -151,6 +174,11 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
       }
     } catch (error) {
       console.error('Error loading messages:', error);
+      if (mode === "mock") {
+        setMessages([]);
+      } else {
+        setMessages([]);
+      }
     }
   };
 
@@ -245,11 +273,14 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
     }
   };
 
+  // Normalize chats to an array to avoid runtime errors
+  const chatsArray: Chat[] = Array.isArray(chats) ? chats : [];
+
   // Get total unread count
-  const totalUnreadCount = chats.reduce((total, chat) => total + chat.unreadCount, 0);
+  const totalUnreadCount = chatsArray.reduce((total, chat) => total + chat.unreadCount, 0);
 
   // Get current chat user
-  const currentChatUser = activeChat ? chats.find(chat => chat.id === activeChat)?.otherUser : null;
+  const currentChatUser = activeChat ? chatsArray.find(chat => chat.id === activeChat)?.otherUser : null;
 
   if (!isOpen) return null;
 
@@ -402,7 +433,7 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
                   </div>
                 ) : (
                   <div className="divide-y">
-                    {chats.map((chat) => (
+                    {chatsArray.map((chat) => (
                       <div
                         key={chat.id}
                         onClick={() => openChat(chat.id)}

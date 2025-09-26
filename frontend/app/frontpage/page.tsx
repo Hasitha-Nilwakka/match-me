@@ -52,6 +52,12 @@ interface Recommendation {
 
 export default function FrontPage() {
   const { mode } = useDataMode();
+  
+  // Debug: Log mode changes
+  useEffect(() => {
+    console.log('🔄 MODE CHANGED TO:', mode);
+    console.log('🔄 localStorage value:', localStorage.getItem('MM_DATA_MODE'));
+  }, [mode]);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("frontpage");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -128,9 +134,10 @@ export default function FrontPage() {
     try {
       setIsLoadingRecommendations(true);
       console.log('Loading recommendations in mode:', mode);
+      console.log('Mode type:', typeof mode, 'Mode value:', mode);
       let recData: { recommendations: { id: number; score: number }[] };
       if (mode === "mock") {
-        console.log('Using mock recommendations data');
+        console.log('✅ TAKING MOCK BRANCH - Using mock recommendations data');
         // simple mock set - using high IDs to avoid conflicts with real users
         recData = {
           recommendations: [
@@ -138,13 +145,21 @@ export default function FrontPage() {
             { id: 99992, score: 88 },
           ],
         };
+        console.log('Mock recData:', recData);
       } else {
-        console.log('Fetching real recommendations from API');
+        console.log('✅ TAKING REAL BRANCH - Fetching real recommendations from API');
         recData = await recommendationsApi.getRecommendations();
         console.log('Real recommendations data:', recData);
-      console.log('Number of real recommendations:', recData.recommendations?.length || 0);
-      console.log('Real recommendation IDs:', recData.recommendations?.map((r: {id: number; score: number}) => r.id) || []);
-    }
+        console.log('Number of real recommendations:', recData.recommendations?.length || 0);
+        console.log('Real recommendation IDs:', recData.recommendations?.map((r: {id: number; score: number}) => r.id) || []);
+        
+        // Check if real API is returning mock IDs (this would be a backend issue)
+        const mockIds = [99991, 99992];
+        const hasMockIds = recData.recommendations?.some((r: {id: number; score: number}) => mockIds.includes(r.id));
+        if (hasMockIds) {
+          console.error('🚨 BACKEND ISSUE: Real API is returning mock IDs!', recData.recommendations);
+        }
+      }
     
     // Check if we have any recommendations to process
     if (!recData.recommendations || recData.recommendations.length === 0) {
@@ -161,10 +176,12 @@ export default function FrontPage() {
             let userInfo, userProfile, userBio;
             
             if (mode === "mock") {
+              console.log(`🔵 MOCK USER DETAILS for user ${rec.id}`);
               userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
               userProfile = { firstName: "Mock", lastName: `User ${rec.id}`, aboutMe: "This is a mock profile for testing purposes", gender: "N/A", status: "mock" };
               userBio = { interests: ["music"], hobbies: ["hiking"], musicGenres: ["rock"], movieGenres: ["drama"], foodPreferences: ["vegan"], travelTypes: ["roadtrip"], languages: ["English"] };
             } else {
+              console.log(`🔴 REAL USER DETAILS for user ${rec.id}`);
               console.log(`Fetching real user details for user ${rec.id}`);
               try {
                 [userInfo, userProfile, userBio] = await Promise.all([

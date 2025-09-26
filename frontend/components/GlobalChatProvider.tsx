@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { authApi } from "../lib/api";
+import { authApi, chatApi } from "../lib/api";
 import ChatPopup from "./ChatPopup";
+import { useDataMode } from "../context/DataModeContext";
 
 interface ChatToggleButtonProps {
   unreadCount: number;
@@ -39,6 +40,7 @@ export default function GlobalChatProvider({ children }: GlobalChatProviderProps
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { mode } = useDataMode();
 
   // Check authentication on mount and path changes
   useEffect(() => {
@@ -52,16 +54,23 @@ export default function GlobalChatProvider({ children }: GlobalChatProviderProps
     };
 
     checkAuth();
-  }, [pathname]);
+  }, [pathname, mode]);
 
   // Load unread message count
   const loadUnreadCount = async () => {
     try {
-      // TODO: Replace with real API call to get total unread count
-      // For now, set a mock count
-      setUnreadCount(2);
+      if (mode === "mock") {
+        setUnreadCount(0);
+        return;
+      }
+      const chats = await chatApi.getAllChats();
+      const total = Array.isArray(chats)
+        ? chats.reduce((sum: number, c: { unreadCount?: number }) => sum + (c?.unreadCount || 0), 0)
+        : 0;
+      setUnreadCount(total);
     } catch (error) {
       console.error('Error loading unread count:', error);
+      setUnreadCount(0);
     }
   };
 

@@ -113,7 +113,8 @@ export default function ConnectionRequestsPage() {
         setRequests(mockConnectionRequests);
       } else {
         // Real API call
-        const data = await connectionsApi.getConnectionRequests();
+        const payload = await connectionsApi.getConnectionRequests();
+        const data = Array.isArray(payload) ? payload : (payload?.connections ?? []);
         // Transform backend data to match frontend interface
         const transformedRequests: Request[] = data.map((req: { id: number; requesterName?: string; requester?: { profile?: { city?: string; country?: string; profilePictureURL?: string } }; createdAt: string; message?: string }) => ({
           id: req.id,
@@ -131,8 +132,12 @@ export default function ConnectionRequestsPage() {
       }
     } catch (error) {
       console.error('Error loading connection requests:', error);
-      // Fallback to mock data on error
-      setRequests(mockConnectionRequests);
+      // Only fallback to mock data if in mock mode, otherwise show empty list
+      if (mode === "mock") {
+        setRequests(mockConnectionRequests);
+      } else {
+        setRequests([]);
+      }
     } finally {
       setIsLoading(false);
     }

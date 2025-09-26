@@ -126,8 +126,12 @@ export default function ConnectionListPage() {
       }
     } catch (error) {
       console.error('Error loading connections:', error);
-      // Fallback to mock data on error
-      setConnections(mockConnections);
+      // Only fallback to mock data if in mock mode, otherwise show empty list
+      if (mode === "mock") {
+        setConnections(mockConnections);
+      } else {
+        setConnections([]);
+      }
     } finally {
       setIsLoading(false);
     }
