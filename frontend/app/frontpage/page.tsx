@@ -3,8 +3,25 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, profileApi, recommendationsApi } from "../../lib/api";
-import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
+import { authApi, profileApi, recommendationsApi, getApiUrl } from "../../lib/api";
+import ProfileModal from "../../components/ProfileModal";
+import DataModeToggle from "../../components/DataModeToggle";
+import { useDataMode } from "../../context/DataModeContext";
+
+type Profile = {
+  firstName?: string;
+  lastName?: string;
+  aboutMe?: string;
+  gender?: string;
+  status?: string;
+  relationshipStatus?: string;
+  languages?: string[];
+  hobbies?: string[];
+  interests?: string[];
+  city?: string;
+  country?: string;
+  profilePictureURL?: string;
+};
 
 interface Recommendation {
   id: number;
@@ -34,52 +51,60 @@ interface Recommendation {
 }
 
 export default function FrontPage() {
+  const { mode } = useDataMode();
+  
+  // Debug: Log mode changes
+  useEffect(() => {
+    console.log('🔄 MODE CHANGED TO:', mode);
+    console.log('🔄 localStorage value:', localStorage.getItem('MM_DATA_MODE'));
+  }, [mode]);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("frontpage");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
+    firstName: '',
+    lastName: '',
+    email: '',
   });
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [currentRecommendationIndex, setCurrentRecommendationIndex] =
-    useState(0);
-  const [isLoadingRecommendations, setIsLoadingRecommendations] =
-    useState(false);
+  const [currentRecommendationIndex, setCurrentRecommendationIndex] = useState(0);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedProfileInitial, setSelectedProfileInitial] = useState<Profile | null>(null);
 
   // Load user profile data
   const loadUserProfile = useCallback(async () => {
     try {
       const currentUser = authApi.getCurrentUser();
       if (currentUser) {
-        setUserProfile((prev) => ({
+        setUserProfile(prev => ({
           ...prev,
-          email: currentUser.email,
+          email: currentUser.email
         }));
       }
-
+      
       // Try to load profile data
       try {
         const profile = await profileApi.getMyProfile();
-        setUserProfile((prev) => ({
+        setUserProfile(prev => ({
           ...prev,
-          firstName: profile.firstName || "",
-          lastName: profile.lastName || "",
+          firstName: profile.firstName || '',
+          lastName: profile.lastName || '',
         }));
-
+        
         // Only load recommendations if profile is complete
         if (profile.firstName && profile.firstName.trim()) {
           loadRecommendations();
         } else {
-          console.log("Profile incomplete, skipping recommendations");
+          console.log('Profile incomplete, skipping recommendations');
         }
       } catch {
-        console.log("No profile data found yet");
+        console.log('No profile data found yet');
       }
     } catch (error) {
-      console.error("Error loading user profile:", error);
+      console.error('Error loading user profile:', error);
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +113,7 @@ export default function FrontPage() {
   // Check authentication on page load
   useEffect(() => {
     if (!authApi.isAuthenticated()) {
-      router.push("/");
+      router.push('/');
     } else {
       setIsAuthenticated(true);
       loadUserProfile();
@@ -97,106 +122,114 @@ export default function FrontPage() {
     }
   }, [router, loadUserProfile]);
 
+  // Reload recommendations when data mode changes
+  useEffect(() => {
+    if (isAuthenticated && userProfile) {
+      loadRecommendations();
+    }
+  }, [mode, isAuthenticated, userProfile]);
+
   // Load recommendations
   const loadRecommendations = async () => {
     try {
       setIsLoadingRecommendations(true);
-      const recData = await recommendationsApi.getRecommendations();
-
-      console.log("Recommendations response:", recData);
-
-      // Check if we have valid recommendations data
-      if (
-        !recData ||
-        recData.recommendations === null ||
-        recData.recommendations === undefined ||
-        !Array.isArray(recData.recommendations)
-      ) {
-        console.warn("No recommendations data or invalid format:", recData);
-        setRecommendations([]);
-        setIsLoadingRecommendations(false);
-        return;
+      console.log('Loading recommendations in mode:', mode);
+      console.log('Mode type:', typeof mode, 'Mode value:', mode);
+      let recData: { recommendations: { id: number; score: number }[] };
+      if (mode === "mock") {
+        console.log('✅ TAKING MOCK BRANCH - Using mock recommendations data');
+        // simple mock set - using high IDs to avoid conflicts with real users
+        recData = {
+          recommendations: [
+            { id: 99991, score: 92 },
+            { id: 99992, score: 88 },
+          ],
+        };
+        console.log('Mock recData:', recData);
+      } else {
+        console.log('✅ TAKING REAL BRANCH - Fetching real recommendations from API');
+        recData = await recommendationsApi.getRecommendations();
+        console.log('Real recommendations data:', recData);
+        console.log('Number of real recommendations:', recData.recommendations?.length || 0);
+        console.log('Real recommendation IDs:', recData.recommendations?.map((r: {id: number; score: number}) => r.id) || []);
+        
+        // Check if real API is returning mock IDs (this would be a backend issue)
+        const mockIds = [99991, 99992];
+        const hasMockIds = recData.recommendations?.some((r: {id: number; score: number}) => mockIds.includes(r.id));
+        if (hasMockIds) {
+          console.error('🚨 BACKEND ISSUE: Real API is returning mock IDs!', recData.recommendations);
+        }
       }
-
-      // Check if recommendations array is empty
-      if (recData.recommendations.length === 0) {
-        console.log("No recommendations available");
-        setRecommendations([]);
-        return;
-      }
-
-      // Get API base URL
-      const getAPIBaseURL = () => {
-        return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      };
-
-      // Get detailed user info for each recommendation
-      // Double-check recommendations array is valid before mapping
-      if (
-        !Array.isArray(recData.recommendations) ||
-        recData.recommendations.length === 0
-      ) {
-        console.warn(
-          "Invalid recommendations array before mapping:",
-          recData.recommendations
-        );
-        setRecommendations([]);
-        setIsLoadingRecommendations(false);
-        return;
-      }
-
-      const detailedRecs = await Promise.all(
-        recData.recommendations.map(
-          async (rec: { id: number; score: number }) => {
-            try {
-              const baseUrl = getAPIBaseURL();
-              const [userInfo, userProfile, userBio] = await Promise.all([
-                fetch(`${baseUrl}/users/${rec.id}`, {
-                  headers: {
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
-                  },
-                }).then((r) => r.json()),
-                fetch(`${baseUrl}/users/${rec.id}/profile`, {
-                  headers: {
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
-                  },
-                }).then((r) => r.json()),
-                fetch(`${baseUrl}/users/${rec.id}/bio`, {
-                  headers: {
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
-                  },
-                }).then((r) => r.json()),
-              ]);
-
-              return {
-                ...rec,
-                userInfo,
-                profile: userProfile,
-                bio: userBio,
-              };
-            } catch (error) {
-              console.error(`Error loading details for user ${rec.id}:`, error);
-              return rec;
+    
+    // Check if we have any recommendations to process
+    if (!recData.recommendations || recData.recommendations.length === 0) {
+      console.log('No recommendations found, setting empty array');
+      setRecommendations([]);
+      setCurrentRecommendationIndex(0);
+      return;
+    }
+    
+    // Get detailed user info for each recommendation
+    const detailedRecs = await Promise.all(
+      recData.recommendations.map(async (rec: {id: number; score: number}) => {
+          try {
+            let userInfo, userProfile, userBio;
+            
+            if (mode === "mock") {
+              console.log(`🔵 MOCK USER DETAILS for user ${rec.id}`);
+              userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
+              userProfile = { firstName: "Mock", lastName: `User ${rec.id}`, aboutMe: "This is a mock profile for testing purposes", gender: "N/A", status: "mock" };
+              userBio = { interests: ["music"], hobbies: ["hiking"], musicGenres: ["rock"], movieGenres: ["drama"], foodPreferences: ["vegan"], travelTypes: ["roadtrip"], languages: ["English"] };
+            } else {
+              console.log(`🔴 REAL USER DETAILS for user ${rec.id}`);
+              console.log(`Fetching real user details for user ${rec.id}`);
+              try {
+                [userInfo, userProfile, userBio] = await Promise.all([
+                  fetch(`${getApiUrl()}/users/${rec.id}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  }).then(r => r.json()),
+                  fetch(`${getApiUrl()}/users/${rec.id}/profile`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  }).then(r => r.json()),
+                  fetch(`${getApiUrl()}/users/${rec.id}/bio`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  }).then(r => r.json())
+                ]);
+                console.log(`Successfully fetched details for user ${rec.id}:`, { userInfo, userProfile, userBio });
+              } catch (fetchError) {
+                console.error(`Failed to fetch details for user ${rec.id}:`, fetchError);
+                // Fallback to mock data if real fetch fails
+                userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
+                userProfile = { firstName: "Error", lastName: `User ${rec.id}`, aboutMe: "Failed to load profile", gender: "N/A", status: "error" };
+                userBio = { interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] };
+              }
             }
+            
+            return {
+              ...rec,
+              userInfo,
+              profile: userProfile,
+              bio: userBio
+            };
+          } catch (error) {
+            console.error(`Error loading details for user ${rec.id}:`, error);
+            return rec;
           }
-        )
+        })
       );
-
+      
       setRecommendations(detailedRecs);
       setCurrentRecommendationIndex(0);
     } catch (error) {
-      console.error("Error loading recommendations:", error);
+      console.error('Error loading recommendations:', error);
       // Don't show error to user if profile is incomplete - this is expected
       if (error instanceof Error) {
-        if (error.message.includes("Profile must be completed")) {
-          console.log("Profile incomplete, skipping recommendations");
-        } else if (error.message.includes("401")) {
-          console.log("Authentication error - user may need to log in again");
+        if (error.message.includes('Profile must be completed')) {
+          console.log('Profile incomplete, skipping recommendations');
+        } else if (error.message.includes('401')) {
+          console.log('Authentication error - user may need to log in again');
         } else {
-          console.error(
-            "Unexpected error loading recommendations:",
-            error.message
-          );
+          console.error('Unexpected error loading recommendations:', error.message);
         }
       }
       // Keep empty array if loading fails
@@ -212,13 +245,13 @@ export default function FrontPage() {
 
     try {
       await recommendationsApi.likeRecommendation(currentRec.id.toString());
-      console.log("Liked user:", currentRec.id);
-
+      console.log('Liked user:', currentRec.id);
+      
       // Move to next recommendation
       handleNext();
     } catch (error) {
-      console.error("Error liking recommendation:", error);
-      alert("Failed to send connection request. Please try again.");
+      console.error('Error liking recommendation:', error);
+      alert('Failed to send connection request. Please try again.');
     }
   };
 
@@ -229,20 +262,20 @@ export default function FrontPage() {
 
     try {
       await recommendationsApi.dismissRecommendation(currentRec.id.toString());
-      console.log("Dismissed user:", currentRec.id);
-
+      console.log('Dismissed user:', currentRec.id);
+      
       // Move to next recommendation
       handleNext();
     } catch (error) {
-      console.error("Error dismissing recommendation:", error);
-      alert("Failed to dismiss recommendation. Please try again.");
+      console.error('Error dismissing recommendation:', error);
+      alert('Failed to dismiss recommendation. Please try again.');
     }
   };
 
   // Navigate to next recommendation
   const handleNext = () => {
     if (currentRecommendationIndex < recommendations.length - 1) {
-      setCurrentRecommendationIndex((prev) => prev + 1);
+      setCurrentRecommendationIndex(prev => prev + 1);
     } else {
       // Load more recommendations or show end message
       loadRecommendations();
@@ -252,13 +285,13 @@ export default function FrontPage() {
   // Navigate to previous recommendation
   const handlePrevious = () => {
     if (currentRecommendationIndex > 0) {
-      setCurrentRecommendationIndex((prev) => prev - 1);
+      setCurrentRecommendationIndex(prev => prev - 1);
     }
   };
 
   const handleLogout = () => {
     authApi.logout();
-    router.push("/");
+    router.push('/');
   };
 
   const handleNavigation = (tab: string) => {
@@ -284,6 +317,13 @@ export default function FrontPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Profile Modal */}
+      <ProfileModal
+        userId={mode === "real" ? selectedUserId : null}
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        initialProfile={mode === "mock" ? selectedProfileInitial : null}
+      />
       {/* Top Navigation Menu */}
       <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -334,30 +374,20 @@ export default function FrontPage() {
                 </Link>
                 <Link
                   href="/connectionrequests"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition relative ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
                     activeTab === "requests"
                       ? "bg-blue-100 text-blue-700"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
                   }`}
                 >
                   Connection Requests
-                  <PendingRequestsIndicator className="absolute -top-1 -right-1" />
-                </Link>
-                <Link
-                  href="/chats"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "chats"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Chats
                 </Link>
               </div>
             </div>
 
-            {/* Logout Button */}
-            <div className="flex items-center">
+            {/* Data Mode Toggle + Logout */}
+            <div className="flex items-center gap-4">
+              <DataModeToggle />
               <button
                 onClick={handleLogout}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition"
@@ -430,24 +460,13 @@ export default function FrontPage() {
             </Link>
             <Link
               href="/connectionrequests"
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left relative ${
+              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
                 activeTab === "requests"
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
             >
               Connection Requests
-              <PendingRequestsIndicator className="absolute top-1 right-1" />
-            </Link>
-            <Link
-              href="/chats"
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "chats"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              Chats
             </Link>
           </div>
         </div>
@@ -456,6 +475,7 @@ export default function FrontPage() {
       {/* Main Content Area - Recommendations Focus */}
       <main className="max-w-6xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
+          
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-800 mb-2">
@@ -467,89 +487,79 @@ export default function FrontPage() {
             {isLoadingRecommendations && (
               <div className="flex items-center justify-center mt-4">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
-                <span className="text-gray-600">
-                  Loading recommendations...
-                </span>
+                <span className="text-gray-600">Loading recommendations...</span>
               </div>
             )}
           </div>
 
-          {/* Recommendation Card */}
+          {/* Recommendation Card / Empty State */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-2xl mx-auto w-full">
-            {/* Profile Picture Section */}
+            
+            {/* Profile Picture Section (hidden when no recs) */}
             <div className="relative">
-              <div className="h-64 sm:h-80 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                <Image
-                  src="/sitefiles/default-profile-picture.png"
-                  alt="Recommendation Profile"
-                  width={200}
-                  height={200}
-                  className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-8 border-white shadow-2xl object-cover"
-                />
-              </div>
-
-              {/* Online Status */}
-              <div className="absolute top-6 right-6">
-                <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                  <div className="w-2 h-2 bg-white rounded-full mr-2"></div>
-                  Online
+              {recommendations.length > 0 ? (
+                <div className="h-64 sm:h-80 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                  <Image
+                    src="/sitefiles/default-profile-picture.png"
+                    alt="Recommendation Profile"
+                    width={200}
+                    height={200}
+                    className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-8 border-white shadow-2xl object-cover"
+                  />
                 </div>
-              </div>
+              ) : (
+                <div className="h-40 sm:h-48 bg-gray-50 flex items-center justify-center">
+                  <div className="text-center px-6">
+                    <div className="text-gray-500 mb-2">No recommendations right now</div>
+                    <div className="text-sm text-gray-500">Try updating your profile, preferences, or check back later.</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Online Status */}
+              {recommendations.length > 0 && (
+                <div className="absolute top-6 right-6">
+                  <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                    <div className="w-2 h-2 bg-white rounded-full mr-2"></div>
+                    Online
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Profile Info */}
             <div className="p-4 sm:p-8">
               <div className="text-center mb-6">
-                {recommendations.length > 0 &&
-                recommendations[currentRecommendationIndex] ? (
+                {recommendations.length > 0 && recommendations[currentRecommendationIndex] ? (
                   <>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                      {
-                        recommendations[currentRecommendationIndex].profile
-                          ?.firstName
-                      }{" "}
-                      {
-                        recommendations[currentRecommendationIndex].profile
-                          ?.lastName
-                      }
+                      {recommendations[currentRecommendationIndex].profile?.firstName} {recommendations[currentRecommendationIndex].profile?.lastName}
                     </h2>
                     <p className="text-gray-600 mb-1">
-                      {recommendations[currentRecommendationIndex].profile
-                        ?.aboutMe || "No bio available"}
+                      {recommendations[currentRecommendationIndex].profile?.aboutMe || 'No bio available'}
                     </p>
                     <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">
-                      {recommendations[currentRecommendationIndex].profile
-                        ?.gender && (
-                        <span>
-                          {
-                            recommendations[currentRecommendationIndex].profile
-                              .gender
-                          }
-                        </span>
+                      {recommendations[currentRecommendationIndex].profile?.gender && (
+                        <span>{recommendations[currentRecommendationIndex].profile.gender}</span>
                       )}
-                      {recommendations[currentRecommendationIndex].profile
-                        ?.status && (
-                        <span>
-                          •{" "}
-                          {
-                            recommendations[currentRecommendationIndex].profile
-                              .status
-                          }
-                        </span>
+                      {recommendations[currentRecommendationIndex].profile?.status && (
+                        <span>• {recommendations[currentRecommendationIndex].profile.status}</span>
                       )}
                     </div>
                   </>
                 ) : (
                   <>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                      {userProfile.firstName && userProfile.lastName
-                        ? `Welcome ${userProfile.firstName}!`
-                        : "Welcome to Match-Me!"}
+                      {userProfile.firstName && userProfile.lastName 
+                        ? `Welcome ${userProfile.firstName}!` 
+                        : 'Welcome to Match-Me!'
+                      }
                     </h2>
                     <p className="text-gray-600 mb-1">
                       {recommendations.length === 0 && !isLoadingRecommendations
-                        ? "No recommendations available. Complete your profile to get matches!"
-                        : "Complete your profile to see recommendations"}
+                        ? 'No recommendations available. Complete your profile to get matches!'
+                        : 'Complete your profile to see recommendations'
+                      }
                     </p>
                     <p className="text-gray-500 text-sm">{userProfile.email}</p>
                   </>
@@ -559,282 +569,186 @@ export default function FrontPage() {
               {/* Top 5 Match Criteria */}
               {(() => {
                 const currentRec = recommendations[currentRecommendationIndex];
-                if (
-                  !currentRec ||
-                  currentRecommendationIndex >= recommendations.length
-                )
-                  return null;
-
+                if (!currentRec || currentRecommendationIndex >= recommendations.length) return null;
+                
                 return (
                   <div className="mb-8">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">
-                      Why you might match:
-                    </h3>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Why you might match:</h3>
                     <div className="space-y-3">
-                      {/* Overall Match Score */}
-                      <div className="flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-3 border-2 border-green-200">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center mr-3">
-                            <svg
-                              className="w-4 h-4 text-white"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          </div>
-                          <span className="text-gray-800 font-medium">
-                            Overall Match Score
-                          </span>
+                    {/* Overall Match Score */}
+                    <div className="flex items-center justify-between bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-3 border-2 border-green-200">
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center mr-3">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
                         </div>
-                        <span className="text-green-600 font-bold text-lg">
-                          {Math.round(currentRec.score || 85)}%
-                        </span>
+                        <span className="text-gray-800 font-medium">Overall Match Score</span>
                       </div>
-
-                      {/* Shared Interests */}
-                      {currentRec.bio?.interests &&
-                        currentRec.bio.interests.length > 0 && (
-                          <div className="flex items-center justify-between bg-blue-50 rounded-lg p-3">
-                            <div className="flex items-center">
-                              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                                <svg
-                                  className="w-4 h-4 text-white"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M5 13l4 4L19 7"
-                                  />
-                                </svg>
-                              </div>
-                              <span className="text-gray-800 font-medium">
-                                Shared Interest:{" "}
-                                {currentRec.bio?.interests?.[0]}
-                              </span>
-                            </div>
-                            <span className="text-blue-600 font-semibold">
-                              95%
-                            </span>
-                          </div>
-                        )}
-
-                      {/* Shared Hobbies */}
-                      {currentRec.bio?.hobbies &&
-                        currentRec.bio.hobbies.length > 0 && (
-                          <div className="flex items-center justify-between bg-purple-50 rounded-lg p-3">
-                            <div className="flex items-center">
-                              <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-3">
-                                <svg
-                                  className="w-4 h-4 text-white"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M5 13l4 4L19 7"
-                                  />
-                                </svg>
-                              </div>
-                              <span className="text-gray-800 font-medium">
-                                Shared Hobby: {currentRec.bio?.hobbies?.[0]}
-                              </span>
-                            </div>
-                            <span className="text-purple-600 font-semibold">
-                              88%
-                            </span>
-                          </div>
-                        )}
-
-                      {/* Music Compatibility */}
-                      {currentRec.bio?.musicGenres &&
-                        currentRec.bio.musicGenres.length > 0 && (
-                          <div className="flex items-center justify-between bg-orange-50 rounded-lg p-3">
-                            <div className="flex items-center">
-                              <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
-                                <svg
-                                  className="w-4 h-4 text-white"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M5 13l4 4L19 7"
-                                  />
-                                </svg>
-                              </div>
-                              <span className="text-gray-800 font-medium">
-                                Music: {currentRec.bio?.musicGenres?.[0]}
-                              </span>
-                            </div>
-                            <span className="text-orange-600 font-semibold">
-                              82%
-                            </span>
-                          </div>
-                        )}
-
-                      {/* Location Compatibility */}
-                      <div className="flex items-center justify-between bg-pink-50 rounded-lg p-3">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center mr-3">
-                            <svg
-                              className="w-4 h-4 text-white"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          </div>
-                          <span className="text-gray-800 font-medium">
-                            Location Compatibility
-                          </span>
-                        </div>
-                        <span className="text-pink-600 font-semibold">90%</span>
-                      </div>
+                      <span className="text-green-600 font-bold text-lg">
+                        {Math.round(currentRec.score || 85)}%
+                      </span>
                     </div>
+
+                    {/* Shared Interests */}
+                    {currentRec.bio?.interests && currentRec.bio.interests.length > 0 && (
+                      <div className="flex items-center justify-between bg-blue-50 rounded-lg p-3">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <span className="text-gray-800 font-medium">
+                            Shared Interest: {currentRec.bio?.interests?.[0]}
+                          </span>
+                        </div>
+                        <span className="text-blue-600 font-semibold">95%</span>
+                      </div>
+                    )}
+
+                    {/* Shared Hobbies */}
+                    {currentRec.bio?.hobbies && currentRec.bio.hobbies.length > 0 && (
+                      <div className="flex items-center justify-between bg-purple-50 rounded-lg p-3">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <span className="text-gray-800 font-medium">
+                            Shared Hobby: {currentRec.bio?.hobbies?.[0]}
+                          </span>
+                        </div>
+                        <span className="text-purple-600 font-semibold">88%</span>
+                      </div>
+                    )}
+
+                    {/* Music Compatibility */}
+                    {currentRec.bio?.musicGenres && currentRec.bio.musicGenres.length > 0 && (
+                      <div className="flex items-center justify-between bg-orange-50 rounded-lg p-3">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                          <span className="text-gray-800 font-medium">
+                            Music: {currentRec.bio?.musicGenres?.[0]}
+                          </span>
+                        </div>
+                        <span className="text-orange-600 font-semibold">82%</span>
+                      </div>
+                    )}
+
+                    {/* Location Compatibility */}
+                    <div className="flex items-center justify-between bg-pink-50 rounded-lg p-3">
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center mr-3">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <span className="text-gray-800 font-medium">Location Compatibility</span>
+                      </div>
+                      <span className="text-pink-600 font-semibold">90%</span>
+                    </div>
+                  </div>
                   </div>
                 );
               })()}
 
-              {/* Action Buttons */}
-              <div className="flex space-x-4 mb-6">
-                <button
-                  onClick={handleLike}
-                  disabled={recommendations.length === 0}
-                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
-                >
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+              {/* Action Buttons or Empty Actions */}
+              {recommendations.length > 0 ? (
+                <div className="flex space-x-4 mb-6">
+                  <button 
+                    onClick={handleLike}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
-                  Connect
-                </button>
-                <button
-                  onClick={handleDismiss}
-                  disabled={recommendations.length === 0}
-                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
-                >
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                    Connect
+                  </button>
+                  <button 
+                    onClick={handleDismiss}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                  Dismiss
-                </button>
-              </div>
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Dismiss
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                  <Link href="/profile" className="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition">
+                    Complete Your Profile
+                  </Link>
+                  <button onClick={loadRecommendations} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-semibold transition">
+                    Refresh Recommendations
+                  </button>
+                </div>
+              )}
 
               {/* View Profile Button */}
-              <button
-                onClick={() => {
-                  const currentRec =
-                    recommendations[currentRecommendationIndex];
-                  if (currentRec) {
-                    // TODO: Navigate to user profile page when implemented
-                    // router.push(`/users/${currentRec.id}`);
-                    console.log(`Would view profile for user ${currentRec.id}`);
-                    alert(
-                      `Profile viewing for user ${currentRec.id} will be implemented soon!`
-                    );
-                  }
-                }}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition mb-6"
-              >
-                View Full Profile
-              </button>
+              {recommendations.length > 0 && (
+                <button
+                  onClick={() => {
+                    const currentRec = recommendations[currentRecommendationIndex];
+                    if (!currentRec) return;
+                    if (mode === "mock") {
+                      setSelectedProfileInitial({
+                        firstName: currentRec.profile?.firstName,
+                        lastName: currentRec.profile?.lastName,
+                        aboutMe: currentRec.profile?.aboutMe,
+                        gender: currentRec.profile?.gender,
+                        status: currentRec.profile?.status,
+                        languages: currentRec.bio?.languages ?? [],
+                        hobbies: currentRec.bio?.hobbies ?? [],
+                        interests: currentRec.bio?.interests ?? [],
+                        profilePictureURL: "/sitefiles/default-profile-picture.png",
+                      });
+                      setIsProfileOpen(true);
+                    } else {
+                      setSelectedUserId(currentRec.id);
+                      setIsProfileOpen(true);
+                    }
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition mb-6"
+                >
+                  View Full Profile
+                </button>
+              )}
 
               {/* Navigation Controls */}
               <div className="flex justify-between items-center">
-                <button
+                <button 
                   onClick={handlePrevious}
                   disabled={currentRecommendationIndex === 0}
                   className="flex items-center text-gray-600 hover:text-gray-800 disabled:text-gray-400 transition"
                 >
-                  <svg
-                    className="w-6 h-6 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15 19l-7-7 7-7"
-                    />
+                  <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                   </svg>
                   Previous
                 </button>
-
+                
                 <div className="text-center">
                   <div className="text-sm text-gray-500">Recommendation</div>
                   <div className="font-semibold text-gray-800">
-                    {recommendations.length > 0
-                      ? `${currentRecommendationIndex + 1} of ${
-                          recommendations.length
-                        }`
-                      : "0 of 0"}
+                    {recommendations.length > 0 ? `${currentRecommendationIndex + 1} of ${recommendations.length}` : '0 of 0'}
                   </div>
                 </div>
-
-                <button
+                
+                <button 
                   onClick={handleNext}
-                  disabled={
-                    currentRecommendationIndex >= recommendations.length - 1
-                  }
+                  disabled={currentRecommendationIndex >= recommendations.length - 1}
                   className="flex items-center text-gray-600 hover:text-gray-800 disabled:text-gray-400 transition"
                 >
                   Next
-                  <svg
-                    className="w-6 h-6 ml-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M9 5l7 7-7 7"
-                    />
+                  <svg className="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               </div>
@@ -842,6 +756,7 @@ export default function FrontPage() {
           </div>
         </div>
       </main>
+
     </div>
   );
 }

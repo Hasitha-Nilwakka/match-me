@@ -1,9 +1,9 @@
 "use client";
-import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { authApi, chatApi } from "../../../lib/api";
+import { useDataMode } from "../../../context/DataModeContext";
 
 interface Message {
   id: number;
@@ -23,6 +23,21 @@ interface ChatUser {
   lastSeen?: string;
 }
 
+interface Chat {
+  id: number;
+  connectionId: number;
+  createdAt: string;
+  updatedAt: string;
+  unreadCount: number;
+  lastMessage?: {
+    id: number;
+    content: string;
+    senderId: number;
+    createdAt: string;
+  };
+  otherUser: ChatUser;
+}
+
 export default function ChatPage() {
   const router = useRouter();
   const params = useParams();
@@ -33,10 +48,10 @@ export default function ChatPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [otherUser, setOtherUser] = useState<ChatUser | null>(null);
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const currentUser = authApi.getCurrentUser();
+  const { mode } = useDataMode();
 
   // Format time display
   const formatTime = (dateString: string) => {
@@ -85,69 +100,82 @@ export default function ChatPage() {
     try {
       setIsLoading(true);
       
-      // TODO: Replace with real API calls
-      // GET /chats/:chatId/messages
-      // Mock data for now
-      const mockMessages: Message[] = [
-        {
-          id: 1,
-          chatId: parseInt(chatId),
-          senderId: 2,
-          content: "Hi there! Nice to meet you!",
-          isRead: true,
-          createdAt: "2024-01-15T10:30:00Z",
-          senderName: "Sarah Johnson"
-        },
-        {
+      if (mode === "mock") {
+        // Mock data for now
+        const mockMessages: Message[] = [
+          {
+            id: 1,
+            chatId: parseInt(chatId),
+            senderId: 2,
+            content: "Hi there! Nice to meet you!",
+            isRead: true,
+            createdAt: "2024-01-15T10:30:00Z",
+            senderName: "Sarah Johnson"
+          },
+          {
+            id: 2,
+            chatId: parseInt(chatId),
+            senderId: currentUser?.id || 1,
+            content: "Hey! Nice to meet you too. How are you doing?",
+            isRead: true,
+            createdAt: "2024-01-15T10:32:00Z",
+            senderName: "You"
+          },
+          {
+            id: 3,
+            chatId: parseInt(chatId),
+            senderId: 2,
+            content: "I'm doing great! Just got back from a hiking trip. Do you enjoy outdoor activities?",
+            isRead: true,
+            createdAt: "2024-01-15T10:35:00Z",
+            senderName: "Sarah Johnson"
+          },
+          {
+            id: 4,
+            chatId: parseInt(chatId),
+            senderId: currentUser?.id || 1,
+            content: "That sounds amazing! I love hiking too. Where did you go?",
+            isRead: true,
+            createdAt: "2024-01-15T10:40:00Z",
+            senderName: "You"
+          },
+          {
+            id: 5,
+            chatId: parseInt(chatId),
+            senderId: 2,
+            content: "Hey! How's your day going?",
+            isRead: false,
+            createdAt: "2024-01-15T14:45:00Z",
+            senderName: "Sarah Johnson"
+          }
+        ];
+
+        const mockOtherUser: ChatUser = {
           id: 2,
-          chatId: parseInt(chatId),
-          senderId: currentUser?.id || 1,
-          content: "Hey! Nice to meet you too. How are you doing?",
-          isRead: true,
-          createdAt: "2024-01-15T10:32:00Z",
-          senderName: "You"
-        },
-        {
-          id: 3,
-          chatId: parseInt(chatId),
-          senderId: 2,
-          content: "I'm doing great! Just got back from a hiking trip. Do you enjoy outdoor activities?",
-          isRead: true,
-          createdAt: "2024-01-15T10:35:00Z",
-          senderName: "Sarah Johnson"
-        },
-        {
-          id: 4,
-          chatId: parseInt(chatId),
-          senderId: currentUser?.id || 1,
-          content: "That sounds amazing! I love hiking too. Where did you go?",
-          isRead: true,
-          createdAt: "2024-01-15T10:40:00Z",
-          senderName: "You"
-        },
-        {
-          id: 5,
-          chatId: parseInt(chatId),
-          senderId: 2,
-          content: "Hey! How's your day going?",
-          isRead: false,
-          createdAt: "2024-01-15T14:45:00Z",
-          senderName: "Sarah Johnson"
+          name: "Sarah Johnson",
+          profilePicture: "👤",
+          isOnline: true
+        };
+
+        setMessages(mockMessages);
+        setOtherUser(mockOtherUser);
+      } else {
+        // Real API calls
+        const [messagesData, chatData] = await Promise.all([
+          chatApi.getChatMessages(chatId),
+          chatApi.getAllChats() // Get chat info to find other user
+        ]);
+        
+        setMessages(messagesData);
+        // Extract other user from chat data
+        const chat = chatData.find((c: Chat) => c.id === parseInt(chatId));
+        if (chat) {
+          setOtherUser(chat.otherUser);
         }
-      ];
-
-      const mockOtherUser: ChatUser = {
-        id: 2,
-        name: "Sarah Johnson",
-        profilePicture: "👤",
-        isOnline: true
-      };
-
-      setMessages(mockMessages);
-      setOtherUser(mockOtherUser);
-      
-      // Mark messages as read
-      // TODO: Call PUT /chats/:chatId/read
+        
+        // Mark messages as read
+        await chatApi.markAsRead(chatId);
+      }
       
     } catch (error) {
       console.error('Error loading chat data:', error);
@@ -198,23 +226,26 @@ export default function ChatPage() {
     try {
       setIsSending(true);
       
-      // TODO: Replace with real API call
-      // POST /chats/:chatId/messages
-      console.log('Sending message:', newMessage);
-      
-      // Mock message sending
-      const mockMessage: Message = {
-        id: Date.now(),
-        chatId: parseInt(chatId),
-        senderId: currentUser?.id || 1,
-        content: newMessage,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-        senderName: "You"
-      };
-      
-      setMessages(prev => [...prev, mockMessage]);
-      setNewMessage("");
+      if (mode === "mock") {
+        // Mock message sending
+        const mockMessage: Message = {
+          id: Date.now(),
+          chatId: parseInt(chatId),
+          senderId: currentUser?.id || 1,
+          content: newMessage,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+          senderName: "You"
+        };
+        
+        setMessages(prev => [...prev, mockMessage]);
+        setNewMessage("");
+      } else {
+        // Real API call
+        const sentMessage = await chatApi.sendMessage(chatId, newMessage);
+        setMessages(prev => [...prev, sentMessage]);
+        setNewMessage("");
+      }
       
     } catch (error) {
       console.error('Error sending message:', error);
@@ -293,9 +324,6 @@ export default function ChatPage() {
                   <p className="text-sm text-gray-500">
                     {otherUser.isOnline ? "Online" : `Last seen ${otherUser.lastSeen ? formatTime(otherUser.lastSeen) : "recently"}`}
                   </p>
-                  {isTyping && (
-                    <p className="text-sm text-blue-600">Typing...</p>
-                  )}
                 </div>
               </>
             )}

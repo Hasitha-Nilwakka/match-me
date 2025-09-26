@@ -4,19 +4,84 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, connectionsApi } from "../../lib/api";
-import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
+import ProfileModal from "../../components/ProfileModal";
+import { useDataMode } from "../../context/DataModeContext";
 
-// Interface for connection request data
-interface ConnectionRequest {
+// Mock connection request data
+const mockConnectionRequests = [
+  {
+    id: 1,
+    firstName: "Jessica",
+    lastName: "Martinez",
+    city: "Los Angeles",
+    country: "USA",
+    profilePicture: "/sitefiles/default-profile-picture.png",
+    isOnline: true,
+    lastSeen: "5 minutes ago",
+    requestDate: "2024-01-20",
+    message: "Hi! I saw we have similar interests in photography and travel. Would love to connect!"
+  },
+  {
+    id: 2,
+    firstName: "Alex",
+    lastName: "Thompson",
+    city: "Seattle",
+    country: "USA",
+    profilePicture: "/sitefiles/default-profile-picture.png",
+    isOnline: false,
+    lastSeen: "2 hours ago",
+    requestDate: "2024-01-19",
+    message: "Hey there! We both love hiking and outdoor adventures. Let's connect!"
+  },
+  {
+    id: 3,
+    firstName: "Sophie",
+    lastName: "Anderson",
+    city: "Melbourne",
+    country: "Australia",
+    profilePicture: "/sitefiles/default-profile-picture.png",
+    isOnline: true,
+    lastSeen: "1 minute ago",
+    requestDate: "2024-01-18",
+    message: "Hello! I noticed we share a passion for cooking and music. Would be great to chat!"
+  },
+  {
+    id: 4,
+    firstName: "James",
+    lastName: "Wilson",
+    city: "Vancouver",
+    country: "Canada",
+    profilePicture: "/sitefiles/default-profile-picture.png",
+    isOnline: false,
+    lastSeen: "1 day ago",
+    requestDate: "2024-01-17",
+    message: "Hi! We both enjoy reading and coffee. Let's connect and share book recommendations!"
+  },
+  {
+    id: 5,
+    firstName: "Maria",
+    lastName: "Rodriguez",
+    city: "Madrid",
+    country: "Spain",
+    profilePicture: "/sitefiles/default-profile-picture.png",
+    isOnline: true,
+    lastSeen: "10 minutes ago",
+    requestDate: "2024-01-16",
+    message: "Hola! I love your profile and we have so much in common. Let's be friends!"
+  }
+];
+
+interface Request {
   id: number;
-  userId: number;
   firstName: string;
   lastName: string;
-  city: string;
-  country: string;
+  city?: string;
+  country?: string;
   profilePicture: string;
+  isOnline: boolean;
+  lastSeen?: string;
   requestDate: string;
-  status: string;
+  message?: string;
 }
 
 export default function ConnectionRequestsPage() {
@@ -24,120 +89,99 @@ export default function ConnectionRequestsPage() {
   const [activeTab, setActiveTab] = useState("requests");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
-  const [requests, setRequests] = useState<ConnectionRequest[]>([]);
-
-  // Helper function to get a valid image URL
-  const getValidImageUrl = (url: string | null | undefined): string => {
-    if (!url || url.trim() === "") {
-      return "/sitefiles/default-profile-picture.png";
-    }
-
-    // Check if it contains emojis or non-ASCII characters that would break image URLs
-    const hasInvalidChars = /[^\x00-\x7F]/.test(url);
-    if (hasInvalidChars) {
-      return "/sitefiles/default-profile-picture.png";
-    }
-
-    // If it's an uploads path, construct the full backend URL
-    if (url.startsWith("/uploads/") || url.startsWith("uploads/")) {
-      const cleanPath = url.startsWith("/") ? url : `/${url}`;
-      const backendUrl =
-        process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-      return `${backendUrl}${cleanPath}`;
-    }
-
-    // Check if it's a valid URL format (relative or absolute)
-    try {
-      // Handle relative URLs (starting with /)
-      if (url.startsWith("/")) {
-        return url;
-      }
-      // Handle absolute URLs
-      new URL(url);
-      return url;
-    } catch {
-      return "/sitefiles/default-profile-picture.png";
-    }
-  };
-
-  // Load connection requests from API
-  const loadConnectionRequests = async () => {
-    try {
-      setIsLoadingRequests(true);
-      console.log("Loading connection requests...");
-      const response = await connectionsApi.getConnectionRequests();
-      console.log("Connection requests response:", response);
-
-      if (response.success && response.data && response.data.requests) {
-        setRequests(response.data.requests);
-      } else {
-        console.warn("No requests data or invalid format:", response);
-        setRequests([]);
-      }
-    } catch (error) {
-      console.error("Error loading connection requests:", error);
-      setRequests([]);
-      // Don't show error to user if this is expected (no requests)
-    } finally {
-      setIsLoadingRequests(false);
-    }
-  };
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const { mode } = useDataMode();
 
   // Check authentication on page load
   useEffect(() => {
     if (!authApi.isAuthenticated()) {
-      router.push("/");
+      router.push('/');
     } else {
       setIsAuthenticated(true);
-      setIsLoading(false);
-      loadConnectionRequests();
+      loadRequests();
     }
-  }, [router]);
+  }, [router, mode]);
+
+  // Load connection requests based on data mode
+  const loadRequests = async () => {
+    try {
+      setIsLoading(true);
+      
+      if (mode === "mock") {
+        setRequests(mockConnectionRequests);
+      } else {
+        // Real API call
+        const payload = await connectionsApi.getConnectionRequests();
+        const data = Array.isArray(payload) ? payload : (payload?.connections ?? []);
+        // Transform backend data to match frontend interface
+        const transformedRequests: Request[] = data.map((req: { id: number; requesterName?: string; requester?: { profile?: { city?: string; country?: string; profilePictureURL?: string } }; createdAt: string; message?: string }) => ({
+          id: req.id,
+          firstName: req.requesterName || "Unknown",
+          lastName: "",
+          city: req.requester?.profile?.city,
+          country: req.requester?.profile?.country,
+          profilePicture: req.requester?.profile?.profilePictureURL || "/sitefiles/default-profile-picture.png",
+          isOnline: false, // Backend doesn't provide online status yet
+          lastSeen: "Recently",
+          requestDate: req.createdAt,
+          message: req.message || "Would like to connect with you!"
+        }));
+        setRequests(transformedRequests);
+      }
+    } catch (error) {
+      console.error('Error loading connection requests:', error);
+      // Only fallback to mock data if in mock mode, otherwise show empty list
+      if (mode === "mock") {
+        setRequests(mockConnectionRequests);
+      } else {
+        setRequests([]);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     authApi.logout();
-    router.push("/");
+    router.push('/');
   };
 
   const handleNavigation = (tab: string) => {
     setActiveTab(tab);
   };
 
-  const handleAcceptRequest = async (requestId: number) => {
-    try {
-      console.log("Accepting connection request:", requestId);
-      await connectionsApi.updateConnection(requestId.toString(), "accepted");
-
-      // Remove from requests list (optimistic update)
-      setRequests((prev) => prev.filter((req) => req.id !== requestId));
-      console.log(`Accepted connection request ${requestId}`);
-    } catch (error) {
-      console.error("Error accepting connection request:", error);
-      alert("Failed to accept connection request. Please try again.");
-    }
+  const handleAcceptRequest = (requestId: number) => {
+    // Remove from requests and add to connections
+    setRequests(prev => prev.filter(req => req.id !== requestId));
+    console.log(`Accepted connection request ${requestId}`);
+    // TODO: Implement API call to accept connection request
   };
 
-  const handleRejectRequest = async (requestId: number) => {
-    try {
-      console.log("Rejecting connection request:", requestId);
-      await connectionsApi.updateConnection(requestId.toString(), "rejected");
-
-      // Remove from requests list (optimistic update)
-      setRequests((prev) => prev.filter((req) => req.id !== requestId));
-      console.log(`Rejected connection request ${requestId}`);
-
-      alert("Connection request rejected.");
-    } catch (error) {
-      console.error("Error rejecting connection request:", error);
-      alert("Failed to reject connection request. Please try again.");
-    }
+  const handleRejectRequest = (requestId: number) => {
+    // Remove from requests
+    setRequests(prev => prev.filter(req => req.id !== requestId));
+    console.log(`Rejected connection request ${requestId}`);
+    // TODO: Implement API call to reject connection request
   };
 
   const handleViewProfile = (requestId: number) => {
-    // TODO: Navigate to profile view page
-    console.log(`Viewing profile for request ${requestId}`);
-    // This would typically navigate to a profile view page
+    const req = requests.find(r => r.id === requestId);
+    if (!req) return;
+    setSelectedUserId(null);
+    setIsProfileOpen(true);
+    (window as unknown as { __mm_profile_mock?: unknown }).__mm_profile_mock = {
+      firstName: req.firstName,
+      lastName: req.lastName,
+      aboutMe: req.message,
+      languages: [],
+      hobbies: [],
+      interests: [],
+      city: req.city,
+      country: req.country,
+      profilePictureURL: req.profilePicture,
+    };
   };
 
   // Show loading screen while checking authentication
@@ -209,14 +253,13 @@ export default function ConnectionRequestsPage() {
                 </Link>
                 <button
                   onClick={() => handleNavigation("requests")}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition relative ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
                     activeTab === "requests"
                       ? "bg-blue-100 text-blue-700"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
                   }`}
                 >
                   Connection Requests
-                  <PendingRequestsIndicator className="absolute -top-1 -right-1" />
                 </button>
               </div>
             </div>
@@ -295,27 +338,40 @@ export default function ConnectionRequestsPage() {
             </Link>
             <button
               onClick={() => handleNavigation("requests")}
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left relative ${
+              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
                 activeTab === "requests"
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
             >
               Connection Requests
-              <PendingRequestsIndicator className="absolute top-1 right-1" />
             </button>
           </div>
         </div>
       </nav>
 
+      {/* Profile Modal */}
+      <ProfileModal
+        userId={selectedUserId}
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+      />
+
+      {/* Profile Modal */}
+      <ProfileModal
+        userId={selectedUserId}
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        initialProfile={(typeof window !== 'undefined' ? (window as unknown as { __mm_profile_mock?: unknown }).__mm_profile_mock as unknown : null) || null}
+      />
+
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
+          
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              Connection Requests
-            </h1>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Connection Requests</h1>
             <p className="text-lg text-gray-600">
               Review and respond to connection requests from other users
             </p>
@@ -327,28 +383,14 @@ export default function ConnectionRequestsPage() {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-5 h-5 text-orange-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
+                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">
-                    Pending Requests
-                  </p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {requests.length}
-                  </p>
+                  <p className="text-sm font-medium text-gray-500">Pending Requests</p>
+                  <p className="text-2xl font-semibold text-gray-900">{requests.length}</p>
                 </div>
               </div>
             </div>
@@ -357,33 +399,13 @@ export default function ConnectionRequestsPage() {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-5 h-5 text-green-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   </div>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">New Today</p>
+                  <p className="text-sm font-medium text-gray-500">Online Now</p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {
-                      requests.filter((req) => {
-                        const requestDate = new Date(req.requestDate);
-                        const today = new Date();
-                        return (
-                          requestDate.toDateString() === today.toDateString()
-                        );
-                      }).length
-                    }
+                    {requests.filter(req => req.isOnline).length}
                   </p>
                 </div>
               </div>
@@ -393,38 +415,14 @@ export default function ConnectionRequestsPage() {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-5 h-5 text-blue-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">
-                    From Cities
-                  </p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {
-                      new Set(
-                        requests.map((req) => req.city).filter((city) => city)
-                      ).size
-                    }
-                  </p>
+                  <p className="text-sm font-medium text-gray-500">With Messages</p>
+                  <p className="text-2xl font-semibold text-gray-900">{requests.length}</p>
                 </div>
               </div>
             </div>
@@ -433,59 +431,36 @@ export default function ConnectionRequestsPage() {
           {/* Connection Requests List */}
           <div className="bg-white shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">
-                Pending Requests
-              </h2>
-              {isLoadingRequests && (
-                <div className="flex items-center mt-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                  <span className="text-sm text-gray-600">
-                    Loading requests...
-                  </span>
-                </div>
-              )}
+              <h2 className="text-lg font-medium text-gray-900">Pending Requests</h2>
             </div>
-
-            {!isLoadingRequests && requests.length === 0 ? (
+            
+            {requests.length === 0 ? (
               <div className="text-center py-12">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
-                  No pending requests
-                </h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  You&apos;re all caught up! Check back later for new requests.
-                </p>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No pending requests</h3>
+                <p className="mt-1 text-sm text-gray-500">You&apos;re all caught up! Check back later for new requests.</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-200">
                 {requests.map((request) => (
-                  <div
-                    key={request.id}
-                    className="px-6 py-6 hover:bg-gray-50 transition-colors"
-                  >
+                  <div key={request.id} className="px-6 py-6 hover:bg-gray-50 transition-colors">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-4">
                         {/* Profile Picture */}
                         <div className="relative">
                           <Image
-                            src={getValidImageUrl(request.profilePicture)}
+                            src={request.profilePicture}
                             alt={`${request.firstName} ${request.lastName}`}
                             width={60}
                             height={60}
                             className="rounded-full border-2 border-white shadow-sm"
                           />
+                          {/* Online Status Indicator */}
+                          {request.isOnline && (
+                            <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                          )}
                         </div>
 
                         {/* Request Info */}
@@ -494,27 +469,24 @@ export default function ConnectionRequestsPage() {
                             <h3 className="text-lg font-medium text-gray-900">
                               {request.firstName} {request.lastName}
                             </h3>
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              New Request
-                            </span>
+                            {request.isOnline && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Online
+                              </span>
+                            )}
                           </div>
                           <p className="text-sm text-gray-500 mb-2">
-                            {request.city && request.country
-                              ? `${request.city}, ${request.country}`
-                              : "Location not specified"}
+                            {request.city}, {request.country}
                           </p>
                           <p className="text-xs text-gray-400 mb-3">
-                            Requested on{" "}
-                            {new Date(request.requestDate).toLocaleDateString()}
+                            Requested on {new Date(request.requestDate).toLocaleDateString()}
+                            {!request.isOnline && ` • Last seen ${request.lastSeen}`}
                           </p>
-
-                          {/* Connection request notice */}
+                          
+                          {/* Request Message */}
                           <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                            <p className="text-sm text-gray-700">
-                              <span className="font-medium">
-                                {request.firstName}
-                              </span>{" "}
-                              would like to connect with you.
+                            <p className="text-sm text-gray-700 italic">
+                              &quot;{request.message}&quot;
                             </p>
                           </div>
                         </div>
@@ -528,44 +500,24 @@ export default function ConnectionRequestsPage() {
                         >
                           View Profile
                         </button>
-
+                        
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleAcceptRequest(request.id)}
                             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                           >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M5 13l4 4L19 7"
-                              />
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                             </svg>
                             <span>Accept</span>
                           </button>
-
+                          
                           <button
                             onClick={() => handleRejectRequest(request.id)}
                             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                           >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M6 18L18 6M6 6l12 12"
-                              />
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                             <span>Reject</span>
                           </button>
