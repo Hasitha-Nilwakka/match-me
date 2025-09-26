@@ -3,8 +3,9 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi } from "../../lib/api";
+import { authApi, connectionsApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
+import { useDataMode } from "../../context/DataModeContext";
 
 // Mock connection data
 const mockConnections = [
@@ -65,14 +66,28 @@ const mockConnections = [
   }
 ];
 
+interface Connection {
+  id: number;
+  firstName: string;
+  lastName: string;
+  city?: string;
+  country?: string;
+  profilePicture: string;
+  isOnline: boolean;
+  lastSeen?: string;
+  connectionDate: string;
+  chatId?: number;
+}
+
 export default function ConnectionListPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("connections");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [connections, setConnections] = useState(mockConnections);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const { mode } = useDataMode();
 
   // Check authentication on page load
   useEffect(() => {
@@ -80,9 +95,43 @@ export default function ConnectionListPage() {
       router.push('/');
     } else {
       setIsAuthenticated(true);
+      loadConnections();
+    }
+  }, [router, mode]);
+
+  // Load connections based on data mode
+  const loadConnections = async () => {
+    try {
+      setIsLoading(true);
+      
+      if (mode === "mock") {
+        setConnections(mockConnections);
+      } else {
+        // Real API call
+        const data = await connectionsApi.getConnections();
+        // Transform backend data to match frontend interface
+        const transformedConnections: Connection[] = data.map((conn: { id: number; requesterName?: string; receiverName?: string; requester?: { profile?: { city?: string; country?: string; profilePictureURL?: string } }; receiver?: { profile?: { city?: string; country?: string; profilePictureURL?: string } }; createdAt: string; chatId?: number }) => ({
+          id: conn.id,
+          firstName: conn.requesterName || conn.receiverName || "Unknown",
+          lastName: "",
+          city: conn.requester?.profile?.city || conn.receiver?.profile?.city,
+          country: conn.requester?.profile?.country || conn.receiver?.profile?.country,
+          profilePicture: conn.requester?.profile?.profilePictureURL || conn.receiver?.profile?.profilePictureURL || "/sitefiles/default-profile-picture.png",
+          isOnline: false, // Backend doesn't provide online status yet
+          lastSeen: "Recently",
+          connectionDate: conn.createdAt,
+          chatId: conn.chatId
+        }));
+        setConnections(transformedConnections);
+      }
+    } catch (error) {
+      console.error('Error loading connections:', error);
+      // Fallback to mock data on error
+      setConnections(mockConnections);
+    } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  };
 
   const handleLogout = () => {
     authApi.logout();

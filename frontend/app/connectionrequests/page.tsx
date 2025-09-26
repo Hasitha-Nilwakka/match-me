@@ -3,8 +3,9 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi } from "../../lib/api";
+import { authApi, connectionsApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
+import { useDataMode } from "../../context/DataModeContext";
 
 // Mock connection request data
 const mockConnectionRequests = [
@@ -70,14 +71,28 @@ const mockConnectionRequests = [
   }
 ];
 
+interface Request {
+  id: number;
+  firstName: string;
+  lastName: string;
+  city?: string;
+  country?: string;
+  profilePicture: string;
+  isOnline: boolean;
+  lastSeen?: string;
+  requestDate: string;
+  message?: string;
+}
+
 export default function ConnectionRequestsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("requests");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [requests, setRequests] = useState(mockConnectionRequests);
+  const [requests, setRequests] = useState<Request[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const { mode } = useDataMode();
 
   // Check authentication on page load
   useEffect(() => {
@@ -85,9 +100,43 @@ export default function ConnectionRequestsPage() {
       router.push('/');
     } else {
       setIsAuthenticated(true);
+      loadRequests();
+    }
+  }, [router, mode]);
+
+  // Load connection requests based on data mode
+  const loadRequests = async () => {
+    try {
+      setIsLoading(true);
+      
+      if (mode === "mock") {
+        setRequests(mockConnectionRequests);
+      } else {
+        // Real API call
+        const data = await connectionsApi.getConnectionRequests();
+        // Transform backend data to match frontend interface
+        const transformedRequests: Request[] = data.map((req: { id: number; requesterName?: string; requester?: { profile?: { city?: string; country?: string; profilePictureURL?: string } }; createdAt: string; message?: string }) => ({
+          id: req.id,
+          firstName: req.requesterName || "Unknown",
+          lastName: "",
+          city: req.requester?.profile?.city,
+          country: req.requester?.profile?.country,
+          profilePicture: req.requester?.profile?.profilePictureURL || "/sitefiles/default-profile-picture.png",
+          isOnline: false, // Backend doesn't provide online status yet
+          lastSeen: "Recently",
+          requestDate: req.createdAt,
+          message: req.message || "Would like to connect with you!"
+        }));
+        setRequests(transformedRequests);
+      }
+    } catch (error) {
+      console.error('Error loading connection requests:', error);
+      // Fallback to mock data on error
+      setRequests(mockConnectionRequests);
+    } finally {
       setIsLoading(false);
     }
-  }, [router]);
+  };
 
   const handleLogout = () => {
     authApi.logout();

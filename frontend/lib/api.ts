@@ -48,6 +48,13 @@ export const API_ENDPOINTS = {
     LIKE: (id: string) => `/recommendations/${id}/like`,
     DISMISS: (id: string) => `/recommendations/${id}/dismiss`,
   },
+  CONNECTIONS: {
+    GET_ALL: '/connections',
+    GET_REQUESTS: '/connections/requests',
+    GET_MATCHES: '/connections/matches',
+    UPDATE: (id: string) => `/connections/${id}`,
+    DELETE: (id: string) => `/connections/${id}`,
+  },
   // Add more endpoints as needed
 } as const;
 
@@ -251,6 +258,82 @@ export const chatApi = {
     };
 
     return ws;
+  },
+};
+
+// Connections API functions
+export const connectionsApi = {
+  // Get all user's connections
+  getConnections: async () => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.GET_ALL);
+    if (!response.ok) {
+      throw new Error('Failed to fetch connections');
+    }
+    return response.json();
+  },
+
+  // Get connection requests
+  getConnectionRequests: async () => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.GET_REQUESTS);
+    if (!response.ok) {
+      throw new Error('Failed to fetch connection requests');
+    }
+    return response.json();
+  },
+
+  // Get matches
+  getMatches: async () => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.GET_MATCHES);
+    if (!response.ok) {
+      throw new Error('Failed to fetch matches');
+    }
+    return response.json();
+  },
+
+  // Accept a connection request
+  acceptConnection: async (connectionId: string) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.UPDATE(connectionId), {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'accepted' }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to accept connection');
+    }
+    return response.json();
+  },
+
+  // Reject a connection request
+  rejectConnection: async (connectionId: string) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.UPDATE(connectionId), {
+      method: 'PUT',
+      body: JSON.stringify({ status: 'rejected' }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to reject connection');
+    }
+    return response.json();
+  },
+
+  // Disconnect from a user
+  disconnectConnection: async (connectionId: string) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.DELETE(connectionId), {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to disconnect');
+    }
+    return response.json();
+  },
+
+  // Delete a connection
+  deleteConnection: async (connectionId: string) => {
+    const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.DELETE(connectionId), {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete connection');
+    }
+    return response.json();
   },
 };
 

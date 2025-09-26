@@ -116,6 +116,13 @@ export default function FrontPage() {
     }
   }, [router, loadUserProfile]);
 
+  // Reload recommendations when data mode changes
+  useEffect(() => {
+    if (isAuthenticated && userProfile) {
+      loadRecommendations();
+    }
+  }, [mode, isAuthenticated, userProfile]);
+
   // Load recommendations
   const loadRecommendations = async () => {
     try {
