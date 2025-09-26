@@ -142,11 +142,21 @@ export default function FrontPage() {
         console.log('Fetching real recommendations from API');
         recData = await recommendationsApi.getRecommendations();
         console.log('Real recommendations data:', recData);
-      }
-      
-      // Get detailed user info for each recommendation
-      const detailedRecs = await Promise.all(
-        recData.recommendations.map(async (rec: {id: number; score: number}) => {
+      console.log('Number of real recommendations:', recData.recommendations?.length || 0);
+      console.log('Real recommendation IDs:', recData.recommendations?.map((r: {id: number; score: number}) => r.id) || []);
+    }
+    
+    // Check if we have any recommendations to process
+    if (!recData.recommendations || recData.recommendations.length === 0) {
+      console.log('No recommendations found, setting empty array');
+      setRecommendations([]);
+      setCurrentRecommendationIndex(0);
+      return;
+    }
+    
+    // Get detailed user info for each recommendation
+    const detailedRecs = await Promise.all(
+      recData.recommendations.map(async (rec: {id: number; score: number}) => {
           try {
             let userInfo, userProfile, userBio;
             
@@ -156,17 +166,26 @@ export default function FrontPage() {
               userBio = { interests: ["music"], hobbies: ["hiking"], musicGenres: ["rock"], movieGenres: ["drama"], foodPreferences: ["vegan"], travelTypes: ["roadtrip"], languages: ["English"] };
             } else {
               console.log(`Fetching real user details for user ${rec.id}`);
-              [userInfo, userProfile, userBio] = await Promise.all([
-                fetch(`${getApiUrl()}/users/${rec.id}`, {
-                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                }).then(r => r.json()),
-                fetch(`${getApiUrl()}/users/${rec.id}/profile`, {
-                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                }).then(r => r.json()),
-                fetch(`${getApiUrl()}/users/${rec.id}/bio`, {
-                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                }).then(r => r.json())
-              ]);
+              try {
+                [userInfo, userProfile, userBio] = await Promise.all([
+                  fetch(`${getApiUrl()}/users/${rec.id}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  }).then(r => r.json()),
+                  fetch(`${getApiUrl()}/users/${rec.id}/profile`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  }).then(r => r.json()),
+                  fetch(`${getApiUrl()}/users/${rec.id}/bio`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  }).then(r => r.json())
+                ]);
+                console.log(`Successfully fetched details for user ${rec.id}:`, { userInfo, userProfile, userBio });
+              } catch (fetchError) {
+                console.error(`Failed to fetch details for user ${rec.id}:`, fetchError);
+                // Fallback to mock data if real fetch fails
+                userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
+                userProfile = { firstName: "Error", lastName: `User ${rec.id}`, aboutMe: "Failed to load profile", gender: "N/A", status: "error" };
+                userBio = { interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] };
+              }
             }
             
             return {
