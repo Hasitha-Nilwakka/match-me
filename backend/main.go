@@ -123,6 +123,7 @@ func main() {
 		protected.DELETE("/connections/:id", handlers.DeleteConnectionHandler)        // Delete connection
 
 		// Real-time chat system endpoints
+		protected.POST("/chats", handlers.CreateChatHandler)                        // Create a new chat
 		protected.GET("/chats", handlers.GetChatsHandler)                           // Get user's chats
 		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)   // Get chat messages
 		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler(hub)) // Send new message

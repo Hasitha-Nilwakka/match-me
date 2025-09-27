@@ -249,6 +249,105 @@ func WebSocketHandler(hub *Hub) gin.HandlerFunc {
 	}
 }
 
+// buildChatResponse creates a ChatResponse from a models.Chat
+func buildChatResponse(chat models.Chat, userID uint) ChatResponse {
+	response := ChatResponse{
+		ID:           chat.ID,
+		ConnectionID: chat.ConnectionID,
+		CreatedAt:    chat.CreatedAt,
+		UpdatedAt:    chat.UpdatedAt,
+		UnreadCount:  0, // Will be calculated separately if needed
+	}
+
+	// Determine the other user
+	var otherUser *models.User
+	if chat.Connection.RequesterID == userID {
+		otherUser = &chat.Connection.Receiver
+	} else {
+		otherUser = &chat.Connection.Requester
+	}
+
+	// Add other user info
+	if otherUser.Profile != nil {
+		response.OtherUser = &UserInfo{
+			ID:             otherUser.ID,
+			Name:           otherUser.Profile.FirstName + " " + otherUser.Profile.LastName,
+			ProfilePicture: otherUser.Profile.ProfilePictureURL,
+		}
+	}
+
+	return response
+}
+
+// CreateChatHandler creates a new chat for an accepted connection
+func CreateChatHandler(c *gin.Context) {
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		UserID uint `json:"userId" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Find the accepted connection between current user and target user
+	var connection models.Connection
+	if err := db.DB.Where("((requester_id = ? AND receiver_id = ?) OR (requester_id = ? AND receiver_id = ?)) AND status = ?",
+		userID, req.UserID, req.UserID, userID, "accepted").First(&connection).Error; err != nil {
+		c.JSON(404, gin.H{"error": "No accepted connection found with this user"})
+		return
+	}
+
+	// Check if chat already exists for this connection
+	var existingChat models.Chat
+	if err := db.DB.Preload("Connection.Requester.Profile").
+		Preload("Connection.Receiver.Profile").
+		Where("connection_id = ?", connection.ID).First(&existingChat).Error; err == nil {
+		// Chat already exists, return it in proper format
+		chatResponse := buildChatResponse(existingChat, userID)
+		c.JSON(200, gin.H{
+			"success": true,
+			"data": gin.H{
+				"chat": chatResponse,
+			},
+		})
+		return
+	}
+
+	// Create new chat
+	chat := models.Chat{
+		ConnectionID: connection.ID,
+	}
+
+	if err := db.DB.Create(&chat).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to create chat"})
+		return
+	}
+
+	// Load the created chat with relations
+	if err := db.DB.Preload("Connection.Requester.Profile").
+		Preload("Connection.Receiver.Profile").
+		Where("id = ?", chat.ID).First(&chat).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to load created chat"})
+		return
+	}
+
+	// Return chat in proper format
+	chatResponse := buildChatResponse(chat, userID)
+	c.JSON(201, gin.H{
+		"success": true,
+		"data": gin.H{
+			"chat": chatResponse,
+		},
+	})
+}
+
 // GetChatsHandler returns all chats for the current user
 func GetChatsHandler(c *gin.Context) {
 	userID, exists := middleware.GetUserIDFromContext(c)

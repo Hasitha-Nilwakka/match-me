@@ -4,6 +4,7 @@ import (
 	"backend/db"
 	"backend/models"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -341,6 +342,24 @@ func UpdateConnectionHandler(c *gin.Context) {
 			"data":    gin.H{"error": "Failed to update connection"},
 		})
 		return
+	}
+
+	// If connection is accepted, create a chat
+	if updateData.Status == "accepted" {
+		// Check if chat already exists for this connection
+		var existingChat models.Chat
+		if err := db.DB.Where("connection_id = ?", connection.ID).First(&existingChat).Error; err != nil {
+			// Chat doesn't exist, create it
+			chat := models.Chat{
+				ConnectionID: connection.ID,
+			}
+			if err := db.DB.Create(&chat).Error; err != nil {
+				// Log error but don't fail the connection update
+				log.Printf("Failed to create chat for connection %d: %v", connection.ID, err)
+			} else {
+				log.Printf("Created chat %d for accepted connection %d", chat.ID, connection.ID)
+			}
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

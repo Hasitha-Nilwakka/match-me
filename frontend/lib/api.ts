@@ -187,7 +187,9 @@ export const chatApi = {
       body: JSON.stringify({ userId }),
     });
     if (!response.ok) {
-      throw new Error('Failed to create chat');
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error || 'Failed to create chat';
+      throw new Error(errorMessage);
     }
     return response.json();
   },

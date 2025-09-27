@@ -3,7 +3,7 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, connectionsApi, chatApi } from "../../lib/api";
+import { authApi, connectionsApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
 import { useDataMode } from "../../context/DataModeContext";
 
@@ -68,6 +68,7 @@ const mockConnections = [
 
 interface Connection {
   id: number;
+  userId?: number; // The actual user ID for chat creation
   firstName: string;
   lastName: string;
   city?: string;
@@ -126,6 +127,7 @@ export default function ConnectionListPage() {
           // Transform backend data to match frontend interface
           const transformedConnections: Connection[] = connectionsData.map((conn: {
             id: number;
+            userId?: number;
             requesterName?: string;
             receiverName?: string;
             firstName?: string;
@@ -142,6 +144,7 @@ export default function ConnectionListPage() {
             receiver?: { profile?: { city?: string; country?: string; profilePictureURL?: string } };
           }) => ({
             id: conn.id,
+            userId: conn.userId, // This is the actual user ID for chat creation
             firstName: conn.requesterName || conn.receiverName || conn.firstName || "Unknown",
             lastName: conn.lastName || "",
             city: conn.requester?.profile?.city || conn.receiver?.profile?.city || conn.city || "Unknown",
@@ -191,9 +194,9 @@ export default function ConnectionListPage() {
     setActiveTab(tab);
   };
 
-  const handleStartChat = async (connectionId: number) => {
+  const handleStartChat = async (connection: Connection) => {
     try {
-      setStartingChatId(connectionId);
+      setStartingChatId(connection.id);
       
       if (mode === "mock") {
         // For mock mode, navigate directly to chats page
@@ -201,17 +204,26 @@ export default function ConnectionListPage() {
         router.push('/chats');
       } else {
         // For real mode, create a chat and navigate to it
-        const response = await chatApi.createChat(connectionId);
-        if (response.success && response.data && response.data.chat) {
-          // Navigate to the chat page - it will automatically select the new chat
-          router.push('/chats');
-        } else {
-          alert('Failed to start chat. Please try again.');
+        if (!connection.userId) {
+          alert('Unable to start chat: User ID not found');
+          return;
         }
+        
+        // Navigate to chat page with user ID parameter
+        router.push(`/chats?userId=${connection.userId}`);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error starting chat:', error);
-      alert('Failed to start chat. Please try again.');
+      
+      // Handle specific error cases
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('No accepted connection found')) {
+        alert('You need to accept the connection request first before starting a chat. Please go to Connection Requests and accept the request.');
+      } else if (errorMessage.includes('Failed to create chat')) {
+        alert('Failed to start chat. Please make sure you have an accepted connection with this user.');
+      } else {
+        alert('Failed to start chat. Please try again.');
+      }
     } finally {
       setStartingChatId(null);
     }
@@ -561,7 +573,7 @@ export default function ConnectionListPage() {
                         </button>
                         
                         <button
-                          onClick={() => handleStartChat(connection.id)}
+                          onClick={() => handleStartChat(connection)}
                           disabled={startingChatId === connection.id}
                           className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                         >
