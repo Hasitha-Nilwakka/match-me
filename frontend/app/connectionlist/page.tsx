@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, connectionsApi, chatApi } from "../../lib/api";
@@ -90,18 +90,8 @@ export default function ConnectionListPage() {
   const [startingChatId, setStartingChatId] = useState<number | null>(null);
   const { mode } = useDataMode();
 
-  // Check authentication on page load
-  useEffect(() => {
-    if (!authApi.isAuthenticated()) {
-      router.push('/');
-    } else {
-      setIsAuthenticated(true);
-      loadConnections();
-    }
-  }, [router, mode]);
-
   // Load connections based on data mode
-  const loadConnections = async () => {
+  const loadConnections = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -109,21 +99,65 @@ export default function ConnectionListPage() {
         setConnections(mockConnections);
       } else {
         // Real API call
-        const data = await connectionsApi.getConnections();
-        // Transform backend data to match frontend interface
-        const transformedConnections: Connection[] = data.map((conn: { id: number; requesterName?: string; receiverName?: string; requester?: { profile?: { city?: string; country?: string; profilePictureURL?: string } }; receiver?: { profile?: { city?: string; country?: string; profilePictureURL?: string } }; createdAt: string; chatId?: number }) => ({
-          id: conn.id,
-          firstName: conn.requesterName || conn.receiverName || "Unknown",
-          lastName: "",
-          city: conn.requester?.profile?.city || conn.receiver?.profile?.city,
-          country: conn.requester?.profile?.country || conn.receiver?.profile?.country,
-          profilePicture: conn.requester?.profile?.profilePictureURL || conn.receiver?.profile?.profilePictureURL || "/sitefiles/default-profile-picture.png",
-          isOnline: false, // Backend doesn't provide online status yet
-          lastSeen: "Recently",
-          connectionDate: conn.createdAt,
-          chatId: conn.chatId
-        }));
-        setConnections(transformedConnections);
+        const response = await connectionsApi.getConnections();
+        console.log('Connections API response:', response);
+        
+        // Handle different possible response structures
+        let connectionsData = [];
+        
+        if (Array.isArray(response)) {
+          // Direct array response
+          connectionsData = response;
+        } else if (response.success && response.data) {
+          // Standard API response with success/data structure
+          if (Array.isArray(response.data)) {
+            connectionsData = response.data;
+          } else if (response.data.connections && Array.isArray(response.data.connections)) {
+            connectionsData = response.data.connections;
+          }
+        } else if (response.connections && Array.isArray(response.connections)) {
+          // Direct connections property
+          connectionsData = response.connections;
+        }
+        
+        console.log('Extracted connections data:', connectionsData);
+        
+        if (connectionsData.length > 0) {
+          // Transform backend data to match frontend interface
+          const transformedConnections: Connection[] = connectionsData.map((conn: {
+            id: number;
+            requesterName?: string;
+            receiverName?: string;
+            firstName?: string;
+            lastName?: string;
+            city?: string;
+            country?: string;
+            profilePicture?: string;
+            isOnline?: boolean;
+            lastSeen?: string;
+            createdAt?: string;
+            connectionDate?: string;
+            chatId?: number;
+            requester?: { profile?: { city?: string; country?: string; profilePictureURL?: string } };
+            receiver?: { profile?: { city?: string; country?: string; profilePictureURL?: string } };
+          }) => ({
+            id: conn.id,
+            firstName: conn.requesterName || conn.receiverName || conn.firstName || "Unknown",
+            lastName: conn.lastName || "",
+            city: conn.requester?.profile?.city || conn.receiver?.profile?.city || conn.city || "Unknown",
+            country: conn.requester?.profile?.country || conn.receiver?.profile?.country || conn.country || "Unknown",
+            profilePicture: conn.requester?.profile?.profilePictureURL || conn.receiver?.profile?.profilePictureURL || conn.profilePicture || "/sitefiles/default-profile-picture.png",
+            isOnline: conn.isOnline || false,
+            lastSeen: conn.lastSeen || "Recently",
+            connectionDate: conn.createdAt || conn.connectionDate,
+            chatId: conn.chatId
+          }));
+          console.log('Transformed connections:', transformedConnections);
+          setConnections(transformedConnections);
+        } else {
+          console.log('No connections found in response');
+          setConnections([]);
+        }
       }
     } catch (error) {
       console.error('Error loading connections:', error);
@@ -136,7 +170,17 @@ export default function ConnectionListPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [mode]);
+
+  // Check authentication on page load
+  useEffect(() => {
+    if (!authApi.isAuthenticated()) {
+      router.push('/');
+    } else {
+      setIsAuthenticated(true);
+      loadConnections();
+    }
+  }, [router, mode, loadConnections]);
 
   const handleLogout = () => {
     authApi.logout();
