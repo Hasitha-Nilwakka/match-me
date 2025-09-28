@@ -117,6 +117,14 @@ export default function Home() {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
+        // Mark user as online after successful login
+        console.log('[Login] Setting user online after login');
+        authApi.updateOnlineStatus(true).then(() => {
+          console.log('[Login] Successfully set user online after login');
+        }).catch((error) => {
+          console.error('[Login] Failed to set user online after login:', error);
+        });
+        
         // Redirect to frontpage immediately (no state updates to avoid flash)
         router.push('/frontpage');
         

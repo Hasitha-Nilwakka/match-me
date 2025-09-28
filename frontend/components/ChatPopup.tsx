@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { authApi, chatApi } from "../lib/api";
 import { useDataMode } from "../context/DataModeContext";
+import { useChat } from "../context/ChatContext";
 
 interface Message {
   id: number;
@@ -47,6 +48,7 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentUser = authApi.getCurrentUser();
   const { mode } = useDataMode();
+  const { targetChatId } = useChat();
 
   // Debug mode changes for chat popup
   useEffect(() => {
@@ -62,6 +64,22 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
       setMessages([]);
       setChats([]);
       loadChats();
+      
+      // Mark user as online when chat popup opens
+      console.log('[ChatPopup] Setting user online');
+      authApi.updateOnlineStatus(true).then(() => {
+        console.log('[ChatPopup] Successfully set user online');
+      }).catch((error) => {
+        console.error('[ChatPopup] Failed to set user online:', error);
+      });
+    } else {
+      // Mark user as offline when chat popup closes
+      console.log('[ChatPopup] Setting user offline');
+      authApi.updateOnlineStatus(false).then(() => {
+        console.log('[ChatPopup] Successfully set user offline');
+      }).catch((error) => {
+        console.error('[ChatPopup] Failed to set user offline:', error);
+      });
     }
   }, [isOpen, mode]);
 
@@ -71,6 +89,17 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Auto-open target chat when chats are loaded and targetChatId is set
+  useEffect(() => {
+    if (targetChatId && chats.length > 0) {
+      const targetChat = chats.find(chat => chat.id === targetChatId);
+      if (targetChat) {
+        setActiveChat(targetChatId);
+        loadChatMessages(targetChatId);
+      }
+    }
+  }, [targetChatId, chats]);
 
   // Load user's chats
   const loadChats = async () => {
@@ -119,7 +148,8 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
         // eslint-disable-next-line no-console
         console.log('[ChatPopup] Fetching REAL chats via API');
         const data = await chatApi.getAllChats();
-        setChats(Array.isArray(data) ? data : []);
+        const chatsData = Array.isArray(data) ? data : (data?.chats || []);
+        setChats(chatsData);
       }
     } catch (error) {
       console.error('[ChatPopup] Error loading chats:', error);
@@ -170,7 +200,8 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
       } else {
         // Real API call
         const data = await chatApi.getChatMessages(chatId.toString());
-        setMessages(data);
+        const messagesData = Array.isArray(data) ? data : (data?.messages || []);
+        setMessages(messagesData);
       }
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -258,9 +289,17 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
     }
   };
 
-  // Format time
+  // Format time for message timestamps
   const formatTime = (dateString: string) => {
+    if (!dateString) return "Just now";
+    
     const date = new Date(dateString);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return "Just now";
+    }
+    
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
     
@@ -271,6 +310,63 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
     } else {
       return date.toLocaleDateString();
     }
+  };
+
+  // Format time for clock display (HH:MM)
+  const formatClockTime = (dateString: string) => {
+    if (!dateString) return "";
+    
+    const date = new Date(dateString);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return "";
+    }
+    
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Format date for date separators
+  const formatDateSeparator = (dateString: string) => {
+    if (!dateString) return "";
+    
+    const date = new Date(dateString);
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      return "";
+    }
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    if (messageDate.getTime() === today.getTime()) {
+      return "Today";
+    } else if (messageDate.getTime() === yesterday.getTime()) {
+      return "Yesterday";
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
+  };
+
+  // Check if two dates are on different days
+  const isDifferentDay = (date1: string, date2: string) => {
+    if (!date1 || !date2) return true;
+    
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return true;
+    
+    return d1.toDateString() !== d2.toDateString();
   };
 
   // Normalize chats to an array to avoid runtime errors
@@ -359,35 +455,65 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
               <>
                 {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                  {messages.map((message) => {
-                    const isOwnMessage = message.senderId === currentUser?.id;
-                    return (
-                      <div
-                        key={message.id}
-                        className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[200px] px-3 py-2 rounded-lg text-sm ${
-                            isOwnMessage
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-900'
-                          }`}
-                        >
-                          <p>{message.content}</p>
-                          <div className={`text-xs mt-1 ${
-                            isOwnMessage ? 'text-blue-100' : 'text-gray-500'
-                          }`}>
-                            {formatTime(message.createdAt)}
+                  {Array.isArray(messages) && messages
+                    .slice()
+                    .reverse() // Reverse to show oldest first
+                    .map((message, index, reversedMessages) => {
+                      const isOwnMessage = message.senderId === currentUser?.id;
+                      const clockTime = formatClockTime(message.createdAt);
+                      
+                      // Check if we need a date separator
+                      const showDateSeparator = index === 0 || 
+                        isDifferentDay(message.createdAt, reversedMessages[index - 1].createdAt);
+                      
+                      return (
+                        <React.Fragment key={message.id}>
+                          {/* Date Separator */}
+                          {showDateSeparator && (
+                            <div className="flex justify-center my-4">
+                              <div className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">
+                                {formatDateSeparator(message.createdAt)}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Message */}
+                          <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} items-end space-x-2`}>
+                            {!isOwnMessage && (
+                              <div className="text-xs text-gray-500 mb-1 min-w-[40px]">
+                                {clockTime}
+                              </div>
+                            )}
+                            
+                            <div
+                              className={`max-w-[200px] px-3 py-2 rounded-lg text-sm ${
+                                isOwnMessage
+                                  ? 'bg-blue-600 text-white'
+                                  : 'bg-gray-100 text-gray-900'
+                              }`}
+                            >
+                              <p>{message.content}</p>
+                              {isOwnMessage && (
+                                <div className="text-xs mt-1 text-blue-100 flex items-center justify-between">
+                                  <span>
+                                    {message.isRead ? '✓✓' : '✓'}
+                                  </span>
+                                  <span className="ml-2">
+                                    {clockTime}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            
                             {isOwnMessage && (
-                              <span className="ml-1">
-                                {message.isRead ? '✓✓' : '✓'}
-                              </span>
+                              <div className="text-xs text-gray-500 mb-1 min-w-[40px]">
+                                {/* Empty space for alignment */}
+                              </div>
                             )}
                           </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        </React.Fragment>
+                      );
+                    })}
                   <div ref={messagesEndRef} />
                 </div>
 

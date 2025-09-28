@@ -392,10 +392,23 @@ func GetChatsHandler(c *gin.Context) {
 
 		// Add other user info
 		if otherUser.Profile != nil {
+			// Fetch online status for the other user
+			var onlineStatus models.OnlineStatus
+			isOnline := false
+			var lastSeen *time.Time
+
+			err := db.DB.Where("user_id = ?", otherUser.ID).First(&onlineStatus).Error
+			if err == nil {
+				isOnline = onlineStatus.IsOnline
+				lastSeen = &onlineStatus.LastSeen
+			}
+
 			response.OtherUser = &UserInfo{
 				ID:             otherUser.ID,
 				Name:           otherUser.Profile.FirstName + " " + otherUser.Profile.LastName,
 				ProfilePicture: otherUser.Profile.ProfilePictureURL,
+				IsOnline:       isOnline,
+				LastSeen:       lastSeen,
 			}
 		}
 

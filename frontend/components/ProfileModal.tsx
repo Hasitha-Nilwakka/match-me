@@ -99,17 +99,23 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                 {/* Left - Picture */}
                 <div className="sm:col-span-1">
                   <div className="flex flex-col items-center">
-                    <Image
-                      src={profile.profilePictureURL && profile.profilePictureURL.trim() !== "" ? profile.profilePictureURL : "/sitefiles/default-profile-picture.png"}
-                      alt={`${profile.firstName || ""} ${profile.lastName || ""}`}
-                      width={160}
-                      height={160}
-                      className="rounded-full border-4 border-white shadow"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = "/sitefiles/default-profile-picture.png";
-                      }}
-                    />
+                    {profile.profilePictureURL && profile.profilePictureURL.trim() !== "" && profile.profilePictureURL.startsWith('/') ? (
+                      <Image
+                        src={profile.profilePictureURL}
+                        alt={`${profile.firstName || ""} ${profile.lastName || ""}`}
+                        width={160}
+                        height={160}
+                        className="rounded-full border-4 border-white shadow"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/sitefiles/default-profile-picture.png";
+                        }}
+                      />
+                    ) : (
+                      <div className="w-40 h-40 rounded-full border-4 border-white shadow bg-gray-200 flex items-center justify-center text-6xl">
+                        {profile.profilePictureURL || '👤'}
+                      </div>
+                    )}
                     <h4 className="mt-4 text-xl font-semibold text-gray-900">
                       {(profile.firstName || "").trim()} {(profile.lastName || "").trim()}
                     </h4>

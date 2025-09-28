@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, profileApi, referenceApi, externalApi } from "../../lib/api";
 import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
+import { useChat } from "../../context/ChatContext";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { openChat } = useChat();
   const [activeTab, setActiveTab] = useState("profile");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -374,8 +376,8 @@ export default function ProfilePage() {
   };
 
 
-  const handleLogout = () => {
-    authApi.logout();
+  const handleLogout = async () => {
+    await authApi.logout();
     router.push('/');
   };
 
@@ -480,16 +482,17 @@ export default function ProfilePage() {
         setLocationError('Location detected but city/country could not be determined automatically');
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Geolocation error:', error);
-      switch (error.code) {
-        case error.PERMISSION_DENIED:
+      const geolocationError = error as GeolocationPositionError;
+      switch (geolocationError.code) {
+        case geolocationError.PERMISSION_DENIED:
           setLocationError('Location access denied. Please enable location permissions in your browser.');
           break;
-        case error.POSITION_UNAVAILABLE:
+        case geolocationError.POSITION_UNAVAILABLE:
           setLocationError('Location information is unavailable.');
           break;
-        case error.TIMEOUT:
+        case geolocationError.TIMEOUT:
           setLocationError('Location request timed out.');
           break;
         default:
@@ -1176,11 +1179,11 @@ export default function ProfilePage() {
 
               {/* Action Buttons */}
               <div className="flex space-x-2 mt-6">
-                <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                <button 
+                  onClick={() => openChat()}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
                   Start a Chat
-                </button>
-                <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium">
-                  Remove Connection
                 </button>
               </div>
             </div>

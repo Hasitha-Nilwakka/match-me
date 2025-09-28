@@ -289,9 +289,21 @@ export default function FrontPage() {
     }
   };
 
-  const handleLogout = () => {
-    authApi.logout();
+  const handleLogout = async () => {
+    await authApi.logout();
     router.push('/');
+  };
+
+  const testOnlineStatus = async () => {
+    console.log('[Test] Manually setting online status to true');
+    try {
+      await authApi.updateOnlineStatus(true);
+      console.log('[Test] Successfully set online status to true');
+      alert('Online status set to true! Check console for details.');
+    } catch (error) {
+      console.error('[Test] Failed to set online status:', error);
+      alert('Failed to set online status. Check console for details.');
+    }
   };
 
   const handleNavigation = (tab: string) => {
@@ -385,9 +397,15 @@ export default function FrontPage() {
               </div>
             </div>
 
-            {/* Data Mode Toggle + Logout */}
+            {/* Data Mode Toggle + Test Button + Logout */}
             <div className="flex items-center gap-4">
               <DataModeToggle />
+              <button
+                onClick={testOnlineStatus}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition"
+              >
+                Test Online Status
+              </button>
               <button
                 onClick={handleLogout}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition"

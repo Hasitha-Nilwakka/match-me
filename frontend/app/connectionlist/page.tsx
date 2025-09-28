@@ -6,6 +6,7 @@ import Link from "next/link";
 import { authApi, connectionsApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
 import { useDataMode } from "../../context/DataModeContext";
+import { useChat } from "../../context/ChatContext";
 
 // Mock connection data
 const mockConnections = [
@@ -90,6 +91,7 @@ export default function ConnectionListPage() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [startingChatId, setStartingChatId] = useState<number | null>(null);
   const { mode } = useDataMode();
+  const { openChat } = useChat();
 
   // Load connections based on data mode
   const loadConnections = useCallback(async () => {
@@ -185,8 +187,8 @@ export default function ConnectionListPage() {
     }
   }, [router, mode, loadConnections]);
 
-  const handleLogout = () => {
-    authApi.logout();
+  const handleLogout = async () => {
+    await authApi.logout();
     router.push('/');
   };
 
@@ -199,64 +201,44 @@ export default function ConnectionListPage() {
       setStartingChatId(connection.id);
       
       if (mode === "mock") {
-        // For mock mode, navigate directly to chats page
-        // The chat page will handle mock data
-        router.push('/chats');
+        // For mock mode, just open the chat popup
+        openChat();
       } else {
-        // For real mode, create a chat and navigate to it
-        if (!connection.userId) {
-          alert('Unable to start chat: User ID not found');
-          return;
-        }
-        
-        // Navigate to chat page with user ID parameter
-        router.push(`/chats?userId=${connection.userId}`);
+        // For real mode, we need to find the chat ID for this connection
+        // Since the backend doesn't return chatId yet, we'll use a workaround
+        // We'll open the chat popup and let the user select the chat
+        // TODO: Once backend returns chatId, we can pass it directly
+        openChat();
       }
+      
     } catch (error: unknown) {
       console.error('Error starting chat:', error);
-      
-      // Handle specific error cases
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      if (errorMessage.includes('No accepted connection found')) {
-        alert('You need to accept the connection request first before starting a chat. Please go to Connection Requests and accept the request.');
-      } else if (errorMessage.includes('Failed to create chat')) {
-        alert('Failed to start chat. Please make sure you have an accepted connection with this user.');
-      } else {
-        alert('Failed to start chat. Please try again.');
-      }
+      alert('Failed to start chat. Please try again.');
     } finally {
       setStartingChatId(null);
     }
   };
 
-  const handleRemoveConnection = (connectionId: number) => {
-    // Remove connection from the list
-    setConnections(prev => prev.filter(conn => conn.id !== connectionId));
-    console.log(`Removed connection ${connectionId}`);
-    // TODO: Implement API call to remove connection from backend
+  const handleRemoveConnection = async (connectionId: number) => {
+    try {
+      // Call API to remove connection from backend
+      await connectionsApi.deleteConnection(connectionId.toString());
+      
+      // Remove connection from the local list
+      setConnections(prev => prev.filter(conn => conn.id !== connectionId));
+      console.log(`Removed connection ${connectionId}`);
+    } catch (error) {
+      console.error('Failed to remove connection:', error);
+      // You might want to show an error message to the user here
+    }
   };
 
   const handleViewProfile = (connectionId: number) => {
     const conn = connections.find(c => c.id === connectionId);
     if (!conn) return;
-    // Pass mock data into modal
-    setSelectedUserId(null);
+    // Use real user ID to fetch complete profile data
+    setSelectedUserId(conn.userId);
     setIsProfileOpen(true);
-    // store temporarily on window for modal prop bridging
-    (window as unknown as { __mm_profile_mock?: unknown }).__mm_profile_mock = {
-      firstName: conn.firstName,
-      lastName: conn.lastName,
-      aboutMe: undefined,
-      gender: undefined,
-      status: undefined,
-      relationshipStatus: undefined,
-      languages: [],
-      hobbies: [],
-      interests: [],
-      city: conn.city,
-      country: conn.country,
-      profilePictureURL: conn.profilePicture,
-    };
   };
 
   // Show loading screen while checking authentication
@@ -440,7 +422,6 @@ export default function ConnectionListPage() {
         userId={selectedUserId}
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
-        initialProfile={(typeof window !== 'undefined' ? (window as unknown as { __mm_profile_mock?: unknown }).__mm_profile_mock as unknown : null) || null}
       />
 
       {/* Main Content Area */}
@@ -528,13 +509,19 @@ export default function ConnectionListPage() {
                       <div className="flex items-center space-x-4">
                         {/* Profile Picture */}
                         <div className="relative">
-                          <Image
-                            src={connection.profilePicture}
-                            alt={`${connection.firstName} ${connection.lastName}`}
-                            width={60}
-                            height={60}
-                            className="rounded-full border-2 border-white shadow-sm"
-                          />
+                          {connection.profilePicture && connection.profilePicture.startsWith('/') ? (
+                            <Image
+                              src={connection.profilePicture}
+                              alt={`${connection.firstName} ${connection.lastName}`}
+                              width={60}
+                              height={60}
+                              className="rounded-full border-2 border-white shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-[60px] h-[60px] rounded-full border-2 border-white shadow-sm bg-gray-200 flex items-center justify-center text-2xl">
+                              {connection.profilePicture || '👤'}
+                            </div>
+                          )}
                           {/* Online Status Indicator */}
                           {connection.isOnline && (
                             <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>

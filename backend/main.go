@@ -90,20 +90,20 @@ func main() {
 	protected.Use(middleware.AuthMiddleware())
 	{
 		// User profile management endpoints
-		protected.GET("/me", handlers.GetMeHandler)                                          // Get current user info
-		protected.GET("/me/profile", handlers.GetMeProfileHandler)                           // Get current user profile
-		protected.PUT("/me/profile", handlers.UpdateMeProfileHandler)                        // Update current user profile
-		protected.POST("/me/profile-picture", handlers.UploadProfilePictureHandler)          // Upload profile picture
-		protected.POST("/me/change-password", handlers.ChangePasswordHandler)                // Change password
-		protected.GET("/me/bio", handlers.GetMeBioHandler)                                   // Get current user bio data
-		protected.PUT("/me/bio", handlers.UpdateMeBioHandler)                                // Update current user bio data
-		protected.PUT("/me/preferences", handlers.UpdateMePreferencesHandler)                // Update seeking preferences
-		protected.GET("/me/location", handlers.GetMeLocationHandler)                         // Get current user location
-		protected.PUT("/me/location", handlers.UpdateMeLocationHandler)                      // Update current user location
-		protected.GET("/me/biographical", handlers.GetMeBiographicalDataHandler)             // Get biographical data
-		protected.PUT("/me/biographical", handlers.UpdateMeBiographicalDataHandler)          // Update biographical data
-		protected.GET("/me/seeking-preferences", handlers.GetMeSeekingPreferencesHandler)    // Get seeking preferences
-		protected.PUT("/me/seeking-preferences", handlers.UpdateMeSeekingPreferencesHandler) // Update seeking preferences
+		protected.GET("/me", handlers.GetMeHandler)                                 // Get current user info
+		protected.GET("/me/profile", handlers.GetMeProfileHandler)                  // Get current user profile
+		protected.PUT("/me/profile", handlers.UpdateMeProfileHandler)               // Update current user profile
+		protected.POST("/me/profile-picture", handlers.UploadProfilePictureHandler) // Upload profile picture
+		protected.POST("/me/change-password", handlers.ChangePasswordHandler)       // Change password
+		protected.GET("/me/bio", handlers.GetMeBioHandler)                          // Get current user bio data
+		protected.PUT("/me/bio", handlers.UpdateMeBioHandler)                       // Update current user bio data
+		protected.GET("/me/preferences", handlers.GetMePreferencesHandler)          // Get seeking preferences
+		protected.PUT("/me/preferences", handlers.UpdateMePreferencesHandler)       // Update seeking preferences
+		protected.GET("/me/location", handlers.GetMeLocationHandler)                // Get current user location
+		protected.PUT("/me/location", handlers.UpdateMeLocationHandler)             // Update current user location
+		protected.GET("/me/biographical", handlers.GetMeBiographicalDataHandler)    // Get biographical data
+		protected.PUT("/me/biographical", handlers.UpdateMeBiographicalDataHandler) // Update biographical data
+		protected.PUT("/me/online-status", handlers.UpdateOnlineStatusHandler)      // Update online status
 
 		// Other user information endpoints
 		protected.GET("/users/:id", handlers.GetUserHandler)                // Get other user basic info

@@ -3,7 +3,15 @@
 
 // Get the API base URL from environment variables
 export const getApiUrl = (): string => {
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  const defaultUrl = 'http://10.84.226.21:8080';
+  const finalUrl = envUrl || defaultUrl;
+  
+  console.log('[API] Environment URL:', envUrl);
+  console.log('[API] Default URL:', defaultUrl);
+  console.log('[API] Final URL:', finalUrl);
+  
+  return finalUrl;
 };
 
 // API endpoints
@@ -73,7 +81,19 @@ export const apiRequest = async (
     },
   };
 
-  return fetch(url, { ...defaultOptions, ...options });
+  console.log('[API] Making request to:', url);
+  console.log('[API] Request options:', { ...defaultOptions, ...options });
+
+  try {
+    const response = await fetch(url, { ...defaultOptions, ...options });
+    console.log('[API] Response status:', response.status);
+    console.log('[API] Response headers:', Object.fromEntries(response.headers.entries()));
+    return response;
+  } catch (error) {
+    console.error('[API] Fetch error:', error);
+    console.error('[API] URL was:', url);
+    throw error;
+  }
 };
 
 // Authenticated API request function
@@ -329,17 +349,6 @@ export const connectionsApi = {
     return response.json();
   },
 
-  // Disconnect from a user
-  disconnectConnection: async (connectionId: string) => {
-    const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.DELETE(connectionId), {
-      method: 'DELETE',
-    });
-    if (!response.ok) {
-      throw new Error('Failed to disconnect');
-    }
-    return response.json();
-  },
-
   // Delete a connection
   deleteConnection: async (connectionId: string) => {
     const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.DELETE(connectionId), {
@@ -508,7 +517,16 @@ export const authApi = {
   },
 
   // Client-side logout (clears localStorage)
-  logout: () => {
+  logout: async () => {
+    // Mark user as offline before logging out
+    console.log('[Logout] Setting user offline before logout');
+    try {
+      await authApi.updateOnlineStatus(false);
+      console.log('[Logout] Successfully set user offline before logout');
+    } catch (error) {
+      console.error('[Logout] Failed to update online status on logout:', error);
+    }
+    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   },
@@ -528,6 +546,24 @@ export const authApi = {
     } catch {
       return null;
     }
+  },
+
+  // Update online status
+  updateOnlineStatus: async (isOnline: boolean) => {
+    console.log('[API] Updating online status to:', isOnline);
+    const response = await authenticatedApiRequest('/me/online-status', {
+      method: 'PUT',
+      body: JSON.stringify({ isOnline }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[API] Failed to update online status:', response.status, errorText);
+      throw new Error('Failed to update online status');
+    }
+    const result = await response.json();
+    console.log('[API] Successfully updated online status:', result);
+    return result;
   },
 };
 

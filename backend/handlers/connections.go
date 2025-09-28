@@ -83,7 +83,7 @@ func GetConnectionsHandler(c *gin.Context) {
 
 	// Fetch accepted connections for the current user
 	var connections []models.Connection
-	result := db.DB.Where("(requester_id = ? OR receiver_id = ?) AND status = ?",
+	result := db.DB.Preload("Chat").Where("(requester_id = ? OR receiver_id = ?) AND status = ?",
 		userID, userID, "accepted").Find(&connections)
 
 	if result.Error != nil {
@@ -137,6 +137,14 @@ func GetConnectionsHandler(c *gin.Context) {
 		}
 		// If error != nil, use default values (isOnline = false, lastSeen = zero time)
 
+		// Get chat ID for this connection
+		var chatID interface{}
+		if conn.Chat != nil {
+			chatID = conn.Chat.ID
+		} else {
+			chatID = nil
+		}
+
 		// Create formatted connection object
 		formattedConnection := gin.H{
 			"id":             conn.ID,
@@ -150,15 +158,14 @@ func GetConnectionsHandler(c *gin.Context) {
 			"lastSeen":       formatLastSeen(lastSeen),
 			"connectionDate": conn.CreatedAt.Format("2006-01-02"),
 			"status":         conn.Status,
+			"chatId":         chatID,
 		}
 
 		formattedConnections = append(formattedConnections, formattedConnection)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":  http.StatusOK,
-		"success": true,
-		"data":    gin.H{"connections": formattedConnections},
+		"connections": formattedConnections,
 	})
 }
 
@@ -447,9 +454,7 @@ func GetConnectionRequestsHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status":  http.StatusOK,
-		"success": true,
-		"data":    gin.H{"requests": formattedRequests},
+		"requests": formattedRequests,
 	})
 }
 

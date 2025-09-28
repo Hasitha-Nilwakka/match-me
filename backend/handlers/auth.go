@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // RegisterHandler handles user registration
@@ -110,6 +111,30 @@ func LoginHandler(c *gin.Context) {
 	user.LastLogin = &now
 	db.DB.Save(&user)
 
+	// Set user as online
+	var onlineStatus models.OnlineStatus
+	err = db.DB.Where("user_id = ?", user.ID).First(&onlineStatus).Error
+	if err == gorm.ErrRecordNotFound {
+		// Create new online status record
+		onlineStatus = models.OnlineStatus{
+			UserID:   user.ID,
+			IsOnline: true,
+			LastSeen: now,
+		}
+		if err := db.DB.Create(&onlineStatus).Error; err != nil {
+			log.Printf("Error creating online status: %v", err)
+		}
+	} else if err == nil {
+		// Update existing online status
+		onlineStatus.IsOnline = true
+		onlineStatus.LastSeen = now
+		if err := db.DB.Save(&onlineStatus).Error; err != nil {
+			log.Printf("Error updating online status: %v", err)
+		}
+	} else {
+		log.Printf("Error fetching online status: %v", err)
+	}
+
 	// Return success with token
 	c.JSON(200, gin.H{
 		"message": "Login successful",
@@ -119,5 +144,60 @@ func LoginHandler(c *gin.Context) {
 			"email":    user.Email,
 			"isActive": user.IsActive,
 		},
+	})
+}
+
+// UpdateOnlineStatusHandler updates user's online status
+func UpdateOnlineStatusHandler(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var req struct {
+		IsOnline bool `json:"isOnline"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Update or create online status record
+	var onlineStatus models.OnlineStatus
+	err := db.DB.Where("user_id = ?", userID).First(&onlineStatus).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// Create new online status record
+		onlineStatus = models.OnlineStatus{
+			UserID:   userID.(uint),
+			IsOnline: req.IsOnline,
+			LastSeen: time.Now(),
+		}
+		if err := db.DB.Create(&onlineStatus).Error; err != nil {
+			log.Printf("Error creating online status: %v", err)
+			c.JSON(500, gin.H{"error": "Failed to update online status"})
+			return
+		}
+	} else if err != nil {
+		log.Printf("Error fetching online status: %v", err)
+		c.JSON(500, gin.H{"error": "Failed to update online status"})
+		return
+	} else {
+		// Update existing record
+		onlineStatus.IsOnline = req.IsOnline
+		onlineStatus.LastSeen = time.Now()
+		if err := db.DB.Save(&onlineStatus).Error; err != nil {
+			log.Printf("Error updating online status: %v", err)
+			c.JSON(500, gin.H{"error": "Failed to update online status"})
+			return
+		}
+	}
+
+	c.JSON(200, gin.H{
+		"message":  "Online status updated successfully",
+		"isOnline": onlineStatus.IsOnline,
+		"lastSeen": onlineStatus.LastSeen,
 	})
 }
