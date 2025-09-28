@@ -17,9 +17,15 @@ type Profile = {
   gender?: string;
   status?: string;
   relationshipStatus?: string;
+  ethnicity?: string;
+  religion?: string;
   languages?: string[];
   hobbies?: string[];
   interests?: string[];
+  foodPreferences?: string[];
+  musicGenres?: string[];
+  movieGenres?: string[];
+  travelTypes?: string[];
   city?: string;
   country?: string;
   profilePictureURL?: string;
@@ -42,8 +48,25 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
       try {
         setIsLoading(true);
         setError(null);
-        const data = await profileApi.getUserProfile(String(userId));
-        setProfile(data as Profile);
+        
+        // Fetch both profile and biographical data
+        const [profileData, bioData] = await Promise.all([
+          profileApi.getUserProfile(String(userId)),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://10.84.226.21:8080'}/users/${userId}/bio`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json',
+            },
+          }).then(res => res.ok ? res.json() : null).catch(() => null)
+        ]);
+        
+        // Merge profile and biographical data
+        const combinedProfile = {
+          ...profileData,
+          ...bioData,
+        };
+        
+        setProfile(combinedProfile as Profile);
       } catch (e) {
         const message = e instanceof Error ? e.message : "Failed to load profile";
         setError(message);
@@ -154,16 +177,29 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                           <div className="text-gray-800">{profile?.relationshipStatus}</div>
                         </div>
                       ) : null}
-                      {(profile?.languages?.length ?? 0) > 0 ? (
+                    </div>
+
+                    {/* Additional profile info */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {profile?.ethnicity ? (
                         <div>
-                          <div className="text-sm text-gray-500">Languages</div>
-                          <div className="text-gray-800">{profile?.languages?.join(", ")}</div>
+                          <div className="text-sm text-gray-500">Ethnicity</div>
+                          <div className="text-gray-800">{profile?.ethnicity}</div>
+                        </div>
+                      ) : null}
+                      {profile?.religion ? (
+                        <div>
+                          <div className="text-sm text-gray-500">Religion</div>
+                          <div className="text-gray-800">{profile?.religion}</div>
                         </div>
                       ) : null}
                     </div>
 
                     {/* Bio lists if present */}
-                    {((profile?.hobbies?.length ?? 0) > 0 || (profile?.interests?.length ?? 0) > 0) ? (
+                    {((profile?.hobbies?.length ?? 0) > 0 || (profile?.interests?.length ?? 0) > 0 || 
+                      (profile?.languages?.length ?? 0) > 0 || (profile?.foodPreferences?.length ?? 0) > 0 ||
+                      (profile?.musicGenres?.length ?? 0) > 0 || (profile?.movieGenres?.length ?? 0) > 0 ||
+                      (profile?.travelTypes?.length ?? 0) > 0) ? (
                       <div className="grid grid-cols-2 gap-4">
                         {(profile?.hobbies?.length ?? 0) > 0 ? (
                           <div>
@@ -175,6 +211,36 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                           <div>
                             <div className="text-sm text-gray-500">Interests</div>
                             <div className="text-gray-800">{profile?.interests?.join(", ")}</div>
+                          </div>
+                        ) : null}
+                        {(profile?.languages?.length ?? 0) > 0 ? (
+                          <div>
+                            <div className="text-sm text-gray-500">Languages</div>
+                            <div className="text-gray-800">{profile?.languages?.join(", ")}</div>
+                          </div>
+                        ) : null}
+                        {(profile?.foodPreferences?.length ?? 0) > 0 ? (
+                          <div>
+                            <div className="text-sm text-gray-500">Food Preferences</div>
+                            <div className="text-gray-800">{profile?.foodPreferences?.join(", ")}</div>
+                          </div>
+                        ) : null}
+                        {(profile?.musicGenres?.length ?? 0) > 0 ? (
+                          <div>
+                            <div className="text-sm text-gray-500">Music Genres</div>
+                            <div className="text-gray-800">{profile?.musicGenres?.join(", ")}</div>
+                          </div>
+                        ) : null}
+                        {(profile?.movieGenres?.length ?? 0) > 0 ? (
+                          <div>
+                            <div className="text-sm text-gray-500">Movie Genres</div>
+                            <div className="text-gray-800">{profile?.movieGenres?.join(", ")}</div>
+                          </div>
+                        ) : null}
+                        {(profile?.travelTypes?.length ?? 0) > 0 ? (
+                          <div>
+                            <div className="text-sm text-gray-500">Travel Types</div>
+                            <div className="text-gray-800">{profile?.travelTypes?.join(", ")}</div>
                           </div>
                         ) : null}
                       </div>
