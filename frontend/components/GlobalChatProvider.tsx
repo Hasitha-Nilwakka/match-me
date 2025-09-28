@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { authApi, chatApi } from "../lib/api";
 import ChatPopup from "./ChatPopup";
 import { useDataMode } from "../context/DataModeContext";
+import { useChat } from "../context/ChatContext";
 
 interface ChatToggleButtonProps {
   unreadCount: number;
@@ -37,8 +38,7 @@ interface GlobalChatProviderProps {
 
 export default function GlobalChatProvider({ children }: GlobalChatProviderProps) {
   const pathname = usePathname();
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { isChatOpen, openChat, closeChat, unreadCount, setUnreadCount } = useChat();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { mode } = useDataMode();
 
@@ -84,11 +84,11 @@ export default function GlobalChatProvider({ children }: GlobalChatProviderProps
         <>
           <ChatToggleButton 
             unreadCount={unreadCount} 
-            onClick={() => setIsChatOpen(true)} 
+            onClick={openChat} 
           />
           <ChatPopup 
             isOpen={isChatOpen} 
-            onClose={() => setIsChatOpen(false)} 
+            onClose={closeChat} 
           />
         </>
       )}

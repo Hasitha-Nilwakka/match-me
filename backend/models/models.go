@@ -159,40 +159,40 @@ type UserLanguage struct {
 // SeekingPreference model for user matching preferences
 type SeekingPreference struct {
 	gorm.Model
-	UserID                 uint `gorm:"uniqueIndex;not null"`
-	MinAge                 int  `gorm:"default:18"`
-	MaxAge                 int  `gorm:"default:99"`
-	GenderPreference       *string
-	StatusPreference       *string
-	RelationshipPreference *string
-	LocationPreference     string `gorm:"default:'within_city'"`
-	MaxDistanceKm          int    `gorm:"default:50"`
+	UserID                 uint    `gorm:"uniqueIndex;not null;column:user_id"`
+	MinAge                 int     `gorm:"default:18;column:min_age"`
+	MaxAge                 int     `gorm:"default:99;column:max_age"`
+	GenderPreference       *string `gorm:"column:gender_preference"`
+	StatusPreference       *string `gorm:"column:status_preference"`
+	RelationshipPreference *string `gorm:"column:relationship_preference"`
+	LocationPreference     string  `gorm:"default:'within_city';column:location_preference"`
+	MaxDistanceKm          int     `gorm:"default:50;column:max_distance_km"`
 
 	// Preference values (what they're looking for)
-	HobbyPreference     *string
-	InterestPreference  *string
-	MusicPreference     *string
-	MoviePreference     *string
-	FoodPreference      *string
-	TravelPreference    *string
-	LanguagePreference  *string
-	EthnicityPreference *string
-	ReligionPreference  *string
+	HobbyPreference     *string `gorm:"column:hobby_preference"`
+	InterestPreference  *string `gorm:"column:interest_preference"`
+	MusicPreference     *string `gorm:"column:music_preference"`
+	MoviePreference     *string `gorm:"column:movie_preference"`
+	FoodPreference      *string `gorm:"column:food_preference"`
+	TravelPreference    *string `gorm:"column:travel_preference"`
+	LanguagePreference  *string `gorm:"column:language_preference"`
+	EthnicityPreference *string `gorm:"column:ethnicity_preference"`
+	ReligionPreference  *string `gorm:"column:religion_preference"`
 
 	// Weight values (priority levels)
-	GenderWeight       int `gorm:"default:2"`
-	StatusWeight       int `gorm:"default:2"`
-	RelationshipWeight int `gorm:"default:2"`
-	LocationWeight     int `gorm:"default:2"`
-	HobbiesWeight      int `gorm:"default:5"`
-	InterestsWeight    int `gorm:"default:5"`
-	MusicWeight        int `gorm:"default:3"`
-	MoviesWeight       int `gorm:"default:3"`
-	FoodWeight         int `gorm:"default:2"`
-	TravelWeight       int `gorm:"default:4"`
-	LanguagesWeight    int `gorm:"default:7"`
-	EthnicityWeight    int `gorm:"default:6"`
-	ReligionWeight     int `gorm:"default:6"`
+	GenderWeight       int `gorm:"default:2;column:gender_weight"`
+	StatusWeight       int `gorm:"default:2;column:status_weight"`
+	RelationshipWeight int `gorm:"default:2;column:relationship_weight"`
+	LocationWeight     int `gorm:"default:2;column:location_weight"`
+	HobbiesWeight      int `gorm:"default:5;column:hobbies_weight"`
+	InterestsWeight    int `gorm:"default:5;column:interests_weight"`
+	MusicWeight        int `gorm:"default:3;column:music_weight"`
+	MoviesWeight       int `gorm:"default:3;column:movies_weight"`
+	FoodWeight         int `gorm:"default:2;column:food_weight"`
+	TravelWeight       int `gorm:"default:4;column:travel_weight"`
+	LanguagesWeight    int `gorm:"default:7;column:languages_weight"`
+	EthnicityWeight    int `gorm:"default:6;column:ethnicity_weight"`
+	ReligionWeight     int `gorm:"default:6;column:religion_weight"`
 }
 
 // Connection model for user connections

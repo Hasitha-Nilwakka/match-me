@@ -106,13 +106,19 @@ export default function ChatSidebar({
                 <div className="flex items-start space-x-3">
                   {/* Profile Picture */}
                   <div className="relative">
-                    <Image
-                      src={chat.otherUser.profilePicture || "/sitefiles/default-profile-picture.png"}
-                      alt={chat.otherUser.name}
-                      width={48}
-                      height={48}
-                      className="rounded-full object-cover"
-                    />
+                    {chat.otherUser.profilePicture && chat.otherUser.profilePicture.startsWith('/') ? (
+                      <Image
+                        src={chat.otherUser.profilePicture}
+                        alt={chat.otherUser.name}
+                        width={48}
+                        height={48}
+                        className="rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-xl">
+                        {chat.otherUser.profilePicture || '👤'}
+                      </div>
+                    )}
                     {/* Online Status */}
                     {chat.otherUser.isOnline && (
                       <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>

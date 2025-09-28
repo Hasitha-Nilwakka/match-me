@@ -114,19 +114,19 @@ export default function ConnectionRequestsPage() {
       } else {
         // Real API call
         const payload = await connectionsApi.getConnectionRequests();
-        const data = Array.isArray(payload) ? payload : (payload?.connections ?? []);
+        const data = Array.isArray(payload) ? payload : (payload?.requests ?? []);
         // Transform backend data to match frontend interface
-        const transformedRequests: Request[] = data.map((req: { id: number; requesterName?: string; requester?: { profile?: { city?: string; country?: string; profilePictureURL?: string } }; createdAt: string; message?: string }) => ({
+        const transformedRequests: Request[] = data.map((req: { id: number; userId: number; firstName: string; lastName: string; city?: string; country?: string; profilePicture?: string; requestDate: string; status: string }) => ({
           id: req.id,
-          firstName: req.requesterName || "Unknown",
-          lastName: "",
-          city: req.requester?.profile?.city,
-          country: req.requester?.profile?.country,
-          profilePicture: req.requester?.profile?.profilePictureURL || "/sitefiles/default-profile-picture.png",
+          firstName: req.firstName,
+          lastName: req.lastName,
+          city: req.city,
+          country: req.country,
+          profilePicture: req.profilePicture && req.profilePicture.startsWith('/') ? req.profilePicture : "/sitefiles/default-profile-picture.png",
           isOnline: false, // Backend doesn't provide online status yet
           lastSeen: "Recently",
-          requestDate: req.createdAt,
-          message: req.message || "Would like to connect with you!"
+          requestDate: req.requestDate,
+          message: "Would like to connect with you!"
         }));
         setRequests(transformedRequests);
       }
@@ -143,8 +143,8 @@ export default function ConnectionRequestsPage() {
     }
   };
 
-  const handleLogout = () => {
-    authApi.logout();
+  const handleLogout = async () => {
+    await authApi.logout();
     router.push('/');
   };
 
@@ -450,13 +450,19 @@ export default function ConnectionRequestsPage() {
                       <div className="flex items-start space-x-4">
                         {/* Profile Picture */}
                         <div className="relative">
-                          <Image
-                            src={request.profilePicture}
-                            alt={`${request.firstName} ${request.lastName}`}
-                            width={60}
-                            height={60}
-                            className="rounded-full border-2 border-white shadow-sm"
-                          />
+                          {request.profilePicture && request.profilePicture.startsWith('/') ? (
+                            <Image
+                              src={request.profilePicture}
+                              alt={`${request.firstName} ${request.lastName}`}
+                              width={60}
+                              height={60}
+                              className="rounded-full border-2 border-white shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-[60px] h-[60px] rounded-full border-2 border-white shadow-sm bg-gray-200 flex items-center justify-center text-2xl">
+                              {request.profilePicture || '👤'}
+                            </div>
+                          )}
                           {/* Online Status Indicator */}
                           {request.isOnline && (
                             <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>

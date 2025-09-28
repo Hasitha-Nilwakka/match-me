@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -36,7 +36,7 @@ interface Chat {
   otherUser: ChatUser;
 }
 
-export default function ChatsPage() {
+function ChatsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
@@ -231,8 +231,8 @@ export default function ChatsPage() {
     }
   }, [chats, selectedChatId, loadMessages, searchParams]);
 
-  const handleLogout = () => {
-    authApi.logout();
+  const handleLogout = async () => {
+    await authApi.logout();
     router.push("/");
   };
 
@@ -493,5 +493,13 @@ export default function ChatsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ChatsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ChatsPageContent />
+    </Suspense>
   );
 }

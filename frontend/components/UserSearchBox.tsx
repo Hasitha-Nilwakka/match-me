@@ -42,7 +42,7 @@ export default function UserSearchBox({ onUserSelect, onCreateChat }: UserSearch
         const response = await connectionsApi.getConnections();
         if (response.success && response.data) {
           const connections = response.data.connections || [];
-          const filtered = connections.filter((conn: any) => {
+          const filtered = connections.filter((conn: { firstName: string; lastName: string }) => {
             const fullName = `${conn.firstName} ${conn.lastName}`.toLowerCase();
             return fullName.includes(searchQuery.toLowerCase());
           });
@@ -189,13 +189,19 @@ export default function UserSearchBox({ onUserSelect, onCreateChat }: UserSearch
                   }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <Image
-                      src={user.profilePicture || "/sitefiles/default-profile-picture.png"}
-                      alt={`${user.firstName} ${user.lastName}`}
-                      width={32}
-                      height={32}
-                      className="rounded-full object-cover"
-                    />
+                    {user.profilePicture && user.profilePicture.startsWith('/') ? (
+                      <Image
+                        src={user.profilePicture}
+                        alt={`${user.firstName} ${user.lastName}`}
+                        width={32}
+                        height={32}
+                        className="rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm">
+                        {user.profilePicture || '👤'}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 truncate">
                         {user.firstName} {user.lastName}

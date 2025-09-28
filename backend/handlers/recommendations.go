@@ -64,7 +64,9 @@ func GetRecommendationsHandler(c *gin.Context) {
 			user.SeekingPreference.MaxDistanceKm, excludedUserIDs)
 	} else {
 		// Fallback to loading all users (original behavior)
-		query = db.DB.Where("id NOT IN ? AND is_active = ?", excludedUserIDs, true).
+		// Filter out seeded users (those with @example.com emails) to show only real users
+		query = db.DB.Where("id NOT IN ? AND is_active = ? AND email NOT LIKE ?",
+			excludedUserIDs, true, "%@example.com").
 			Preload("Profile").Preload("Location").
 			Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
 			Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
@@ -113,9 +115,14 @@ func GetRecommendationsHandler(c *gin.Context) {
 		})
 	}
 
-	c.JSON(200, RecommendationsResponse{
-		Recommendations: recommendations,
-		Total:           len(recommendations),
+	// Ensure recommendations is an empty array if no matches, not nil
+	if recommendations == nil {
+		recommendations = []RecommendationResponse{}
+	}
+
+	c.JSON(200, gin.H{
+		"recommendations": recommendations,
+		"total":           len(recommendations),
 	})
 }
 
@@ -170,6 +177,29 @@ func calculateMatchScore(userA, userB models.User) float64 {
 			EthnicityWeight: 6,
 			ReligionWeight:  6,
 		}
+	}
+
+	// Basic compatibility checks - if these fail, return 0
+	if userA.Profile == nil || userB.Profile == nil {
+		return 0.0
+	}
+
+	// Check gender preference
+	if preferences.GenderPreference != nil && userB.Profile.Gender != nil {
+		if *preferences.GenderPreference != *userB.Profile.Gender {
+			return 0.0 // Gender doesn't match preference
+		}
+		score += float64(preferences.GenderWeight)
+		totalWeight += float64(preferences.GenderWeight)
+	}
+
+	// Check status preference
+	if preferences.StatusPreference != nil && userB.Profile.Status != nil {
+		if *preferences.StatusPreference != *userB.Profile.Status {
+			return 0.0 // Status doesn't match preference
+		}
+		score += float64(preferences.StatusWeight)
+		totalWeight += float64(preferences.StatusWeight)
 	}
 
 	// Compare hobbies
@@ -497,12 +527,13 @@ func getNearbyUsers(userLat, userLon float64, radiusKm int, excludedUserIDs []ui
 	maxLon := userLon + lonDelta
 
 	// Query users within bounding box first (much faster than Haversine for all users)
+	// Filter out seeded users (those with @example.com emails) to show only real users
 	var nearbyUsers []models.User
 	query := db.DB.Where(`
-		id NOT IN ? AND is_active = ? AND 
+		id NOT IN ? AND is_active = ? AND email NOT LIKE ? AND
 		latitude IS NOT NULL AND longitude IS NOT NULL AND
 		latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?
-	`, excludedUserIDs, true, minLat, maxLat, minLon, maxLon).
+	`, excludedUserIDs, true, "%@example.com", minLat, maxLat, minLon, maxLon).
 		Preload("Profile").Preload("Location").
 		Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
 		Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
@@ -510,8 +541,10 @@ func getNearbyUsers(userLat, userLon float64, radiusKm int, excludedUserIDs []ui
 
 	if query.Error != nil {
 		// If spatial query fails, fallback to loading all users
+		// Filter out seeded users (those with @example.com emails) to show only real users
 		var allUsers []models.User
-		db.DB.Where("id NOT IN ? AND is_active = ?", excludedUserIDs, true).
+		db.DB.Where("id NOT IN ? AND is_active = ? AND email NOT LIKE ?",
+			excludedUserIDs, true, "%@example.com").
 			Preload("Profile").Preload("Location").
 			Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
 			Preload("UserMovies").Preload("UserFood").Preload("UserTravel").

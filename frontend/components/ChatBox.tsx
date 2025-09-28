@@ -100,7 +100,7 @@ export default function ChatBox({
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleUserSelect = (user: any) => {
+  const handleUserSelect = (user: { id: number }) => {
     onCreateChat(user.id);
     setShowUserSearch(false);
   };
@@ -122,13 +122,19 @@ export default function ChatBox({
           <div className="p-4 border-b border-gray-200 bg-white">
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <Image
-                  src={selectedChat.otherUser.profilePicture || "/sitefiles/default-profile-picture.png"}
-                  alt={selectedChat.otherUser.name}
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover"
-                />
+                {selectedChat.otherUser.profilePicture && selectedChat.otherUser.profilePicture.startsWith('/') ? (
+                  <Image
+                    src={selectedChat.otherUser.profilePicture}
+                    alt={selectedChat.otherUser.name}
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-lg">
+                    {selectedChat.otherUser.profilePicture || '👤'}
+                  </div>
+                )}
                 {selectedChat.otherUser.isOnline && (
                   <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                 )}

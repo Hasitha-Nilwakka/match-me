@@ -690,6 +690,122 @@ func UpdateMeBioHandler(c *gin.Context) {
 	})
 }
 
+// GetMePreferencesHandler gets current user's seeking preferences
+func GetMePreferencesHandler(c *gin.Context) {
+	userID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var preferences models.SeekingPreference
+	result := db.DB.Where("user_id = ?", userID).First(&preferences)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			// Return default preferences if none exist
+			c.JSON(200, gin.H{
+				"id":                     userID,
+				"minAge":                 18,
+				"maxAge":                 99,
+				"genderPreference":       nil,
+				"statusPreference":       nil,
+				"relationshipPreference": nil,
+				"locationPreference":     "within_city",
+				"maxDistanceKm":          50,
+				"hobbyPreference":        nil,
+				"interestPreference":     nil,
+				"musicPreference":        nil,
+				"moviePreference":        nil,
+				"foodPreference":         nil,
+				"travelPreference":       nil,
+				"languagePreference":     nil,
+				"ethnicityPreference":    nil,
+				"religionPreference":     nil,
+				"genderWeight":           2,
+				"statusWeight":           2,
+				"relationshipWeight":     2,
+				"locationWeight":         2,
+				"hobbiesWeight":          5,
+				"interestsWeight":        5,
+				"musicWeight":            3,
+				"moviesWeight":           3,
+				"foodWeight":             2,
+				"travelWeight":           4,
+				"languagesWeight":        7,
+				"ethnicityWeight":        6,
+				"religionWeight":         6,
+			})
+			return
+		}
+		c.JSON(500, gin.H{"error": "Failed to get preferences", "details": result.Error.Error()})
+		return
+	}
+
+	// Convert preference strings back to arrays for frontend
+	var interestsPreference []string
+	var hobbiesPreference []string
+	var foodPreferencesPreference []string
+	var musicGenresPreference []string
+	var movieGenresPreference []string
+	var travelTypesPreference []string
+	var languagesPreference []string
+
+	if preferences.InterestPreference != nil && *preferences.InterestPreference != "" {
+		interestsPreference = strings.Split(*preferences.InterestPreference, ",")
+	}
+	if preferences.HobbyPreference != nil && *preferences.HobbyPreference != "" {
+		hobbiesPreference = strings.Split(*preferences.HobbyPreference, ",")
+	}
+	if preferences.FoodPreference != nil && *preferences.FoodPreference != "" {
+		foodPreferencesPreference = strings.Split(*preferences.FoodPreference, ",")
+	}
+	if preferences.MusicPreference != nil && *preferences.MusicPreference != "" {
+		musicGenresPreference = strings.Split(*preferences.MusicPreference, ",")
+	}
+	if preferences.MoviePreference != nil && *preferences.MoviePreference != "" {
+		movieGenresPreference = strings.Split(*preferences.MoviePreference, ",")
+	}
+	if preferences.TravelPreference != nil && *preferences.TravelPreference != "" {
+		travelTypesPreference = strings.Split(*preferences.TravelPreference, ",")
+	}
+	if preferences.LanguagePreference != nil && *preferences.LanguagePreference != "" {
+		languagesPreference = strings.Split(*preferences.LanguagePreference, ",")
+	}
+
+	c.JSON(200, gin.H{
+		"id":                        userID,
+		"minAge":                    preferences.MinAge,
+		"maxAge":                    preferences.MaxAge,
+		"genderPreference":          preferences.GenderPreference,
+		"statusPreference":          preferences.StatusPreference,
+		"relationshipPreference":    preferences.RelationshipPreference,
+		"locationPreference":        preferences.LocationPreference,
+		"maxDistanceKm":             preferences.MaxDistanceKm,
+		"interestsPreference":       interestsPreference,
+		"hobbiesPreference":         hobbiesPreference,
+		"foodPreferencesPreference": foodPreferencesPreference,
+		"musicGenresPreference":     musicGenresPreference,
+		"movieGenresPreference":     movieGenresPreference,
+		"travelTypesPreference":     travelTypesPreference,
+		"languagesPreference":       languagesPreference,
+		"ethnicityPreference":       preferences.EthnicityPreference,
+		"religionPreference":        preferences.ReligionPreference,
+		"genderWeight":              preferences.GenderWeight,
+		"statusWeight":              preferences.StatusWeight,
+		"relationshipWeight":        preferences.RelationshipWeight,
+		"locationWeight":            preferences.LocationWeight,
+		"hobbiesWeight":             preferences.HobbiesWeight,
+		"interestsWeight":           preferences.InterestsWeight,
+		"musicGenresWeight":         preferences.MusicWeight,
+		"movieGenresWeight":         preferences.MoviesWeight,
+		"foodPreferencesWeight":     preferences.FoodWeight,
+		"travelTypesWeight":         preferences.TravelWeight,
+		"languagesWeight":           preferences.LanguagesWeight,
+		"ethnicityWeight":           preferences.EthnicityWeight,
+		"religionWeight":            preferences.ReligionWeight,
+	})
+}
+
 // UpdateMePreferencesHandler updates current user's seeking preferences
 func UpdateMePreferencesHandler(c *gin.Context) {
 	userID, exists := middleware.GetUserIDFromContext(c)
@@ -707,15 +823,32 @@ func UpdateMePreferencesHandler(c *gin.Context) {
 		RelationshipPreference *string `json:"relationshipPreference"`
 		LocationPreference     *string `json:"locationPreference"`
 		MaxDistanceKm          *int    `json:"maxDistanceKm"`
-		HobbiesWeight          *int    `json:"hobbiesWeight"`
-		InterestsWeight        *int    `json:"interestsWeight"`
-		MusicWeight            *int    `json:"musicWeight"`
-		MoviesWeight           *int    `json:"moviesWeight"`
-		FoodWeight             *int    `json:"foodWeight"`
-		TravelWeight           *int    `json:"travelWeight"`
-		LanguagesWeight        *int    `json:"languagesWeight"`
-		EthnicityWeight        *int    `json:"ethnicityWeight"`
-		ReligionWeight         *int    `json:"religionWeight"`
+
+		// Preference arrays (what they're looking for)
+		InterestsPreference       *[]string `json:"interestsPreference"`
+		HobbiesPreference         *[]string `json:"hobbiesPreference"`
+		FoodPreferencesPreference *[]string `json:"foodPreferencesPreference"`
+		MusicGenresPreference     *[]string `json:"musicGenresPreference"`
+		MovieGenresPreference     *[]string `json:"movieGenresPreference"`
+		TravelTypesPreference     *[]string `json:"travelTypesPreference"`
+		LanguagesPreference       *[]string `json:"languagesPreference"`
+		EthnicityPreference       *string   `json:"ethnicityPreference"`
+		ReligionPreference        *string   `json:"religionPreference"`
+
+		// Weight values (priority levels)
+		GenderWeight          *int `json:"genderWeight"`
+		StatusWeight          *int `json:"statusWeight"`
+		RelationshipWeight    *int `json:"relationshipWeight"`
+		LocationWeight        *int `json:"locationWeight"`
+		HobbiesWeight         *int `json:"hobbiesWeight"`
+		InterestsWeight       *int `json:"interestsWeight"`
+		MusicGenresWeight     *int `json:"musicGenresWeight"`
+		MovieGenresWeight     *int `json:"movieGenresWeight"`
+		FoodPreferencesWeight *int `json:"foodPreferencesWeight"`
+		TravelTypesWeight     *int `json:"travelTypesWeight"`
+		LanguagesWeight       *int `json:"languagesWeight"`
+		EthnicityWeight       *int `json:"ethnicityWeight"`
+		ReligionWeight        *int `json:"religionWeight"`
 	}
 
 	if err := c.ShouldBindJSON(&updateData); err != nil {
@@ -755,23 +888,73 @@ func UpdateMePreferencesHandler(c *gin.Context) {
 	if updateData.MaxDistanceKm != nil {
 		preferences.MaxDistanceKm = *updateData.MaxDistanceKm
 	}
+
+	// Update preference arrays (convert to comma-separated strings)
+	if updateData.InterestsPreference != nil {
+		interestsStr := strings.Join(*updateData.InterestsPreference, ",")
+		preferences.InterestPreference = &interestsStr
+	}
+	if updateData.HobbiesPreference != nil {
+		hobbiesStr := strings.Join(*updateData.HobbiesPreference, ",")
+		preferences.HobbyPreference = &hobbiesStr
+	}
+	if updateData.FoodPreferencesPreference != nil {
+		foodStr := strings.Join(*updateData.FoodPreferencesPreference, ",")
+		preferences.FoodPreference = &foodStr
+	}
+	if updateData.MusicGenresPreference != nil {
+		musicStr := strings.Join(*updateData.MusicGenresPreference, ",")
+		preferences.MusicPreference = &musicStr
+	}
+	if updateData.MovieGenresPreference != nil {
+		movieStr := strings.Join(*updateData.MovieGenresPreference, ",")
+		preferences.MoviePreference = &movieStr
+	}
+	if updateData.TravelTypesPreference != nil {
+		travelStr := strings.Join(*updateData.TravelTypesPreference, ",")
+		preferences.TravelPreference = &travelStr
+	}
+	if updateData.LanguagesPreference != nil {
+		languagesStr := strings.Join(*updateData.LanguagesPreference, ",")
+		preferences.LanguagePreference = &languagesStr
+	}
+	if updateData.EthnicityPreference != nil {
+		preferences.EthnicityPreference = updateData.EthnicityPreference
+	}
+	if updateData.ReligionPreference != nil {
+		preferences.ReligionPreference = updateData.ReligionPreference
+	}
+
+	// Update weight values
+	if updateData.GenderWeight != nil {
+		preferences.GenderWeight = *updateData.GenderWeight
+	}
+	if updateData.StatusWeight != nil {
+		preferences.StatusWeight = *updateData.StatusWeight
+	}
+	if updateData.RelationshipWeight != nil {
+		preferences.RelationshipWeight = *updateData.RelationshipWeight
+	}
+	if updateData.LocationWeight != nil {
+		preferences.LocationWeight = *updateData.LocationWeight
+	}
 	if updateData.HobbiesWeight != nil {
 		preferences.HobbiesWeight = *updateData.HobbiesWeight
 	}
 	if updateData.InterestsWeight != nil {
 		preferences.InterestsWeight = *updateData.InterestsWeight
 	}
-	if updateData.MusicWeight != nil {
-		preferences.MusicWeight = *updateData.MusicWeight
+	if updateData.MusicGenresWeight != nil {
+		preferences.MusicWeight = *updateData.MusicGenresWeight
 	}
-	if updateData.MoviesWeight != nil {
-		preferences.MoviesWeight = *updateData.MoviesWeight
+	if updateData.MovieGenresWeight != nil {
+		preferences.MoviesWeight = *updateData.MovieGenresWeight
 	}
-	if updateData.FoodWeight != nil {
-		preferences.FoodWeight = *updateData.FoodWeight
+	if updateData.FoodPreferencesWeight != nil {
+		preferences.FoodWeight = *updateData.FoodPreferencesWeight
 	}
-	if updateData.TravelWeight != nil {
-		preferences.TravelWeight = *updateData.TravelWeight
+	if updateData.TravelTypesWeight != nil {
+		preferences.TravelWeight = *updateData.TravelTypesWeight
 	}
 	if updateData.LanguagesWeight != nil {
 		preferences.LanguagesWeight = *updateData.LanguagesWeight
