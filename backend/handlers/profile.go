@@ -89,6 +89,19 @@ func GetUserProfileHandler(c *gin.Context) {
 		return
 	}
 
+	// Get user's location data
+	var location models.Location
+	locationData := gin.H{}
+	if err := db.DB.Where("user_id = ?", uint(userID)).First(&location).Error; err == nil {
+		// Location data found, include it in response
+		locationData = gin.H{
+			"city":      location.City,
+			"country":   location.Country,
+			"latitude":  location.Latitude,
+			"longitude": location.Longitude,
+		}
+	}
+
 	// Return profile data (excluding sensitive information)
 	c.JSON(200, gin.H{
 		"id":                 user.ID,
@@ -103,6 +116,10 @@ func GetUserProfileHandler(c *gin.Context) {
 		"religion":           profile.Religion,
 		"createdAt":          profile.CreatedAt,
 		"updatedAt":          profile.UpdatedAt,
+		"city":               locationData["city"],
+		"country":            locationData["country"],
+		"latitude":           locationData["latitude"],
+		"longitude":          locationData["longitude"],
 	})
 }
 

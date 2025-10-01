@@ -49,7 +49,7 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
         setIsLoading(true);
         setError(null);
         
-        // Fetch both profile and biographical data
+        // Fetch profile and biographical data
         const [profileData, bioData] = await Promise.all([
           profileApi.getUserProfile(String(userId)),
           fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://10.84.226.21:8080'}/users/${userId}/bio`, {
@@ -132,8 +132,6 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                         ? profile.profilePictureURL
                         : "/sitefiles/default-profile-picture.png";
                       
-                      console.log('ProfileModal - Profile picture URL:', profile.profilePictureURL);
-                      console.log('ProfileModal - Final profile picture src:', profilePicSrc);
                       
                       return (
                         <Image
@@ -144,7 +142,6 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                           className="rounded-full border-4 border-white shadow"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            console.log('ProfileModal - Image failed to load, falling back to default');
                             target.src = "/sitefiles/default-profile-picture.png";
                           }}
                         />
@@ -154,8 +151,18 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                       {(profile.firstName || "").trim()} {(profile.lastName || "").trim()}
                     </h4>
                     {profile.city || profile.country ? (
-                      <p className="text-sm text-gray-500">{[profile.city, profile.country].filter(Boolean).join(", ")}</p>
-                    ) : null}
+                      <div className="mt-2 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-gray-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <p className="text-sm text-gray-600 font-medium">{[profile.city, profile.country].filter(Boolean).join(", ")}</p>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-xs text-gray-400">
+                        Location not available
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -188,6 +195,15 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                           <div className="text-gray-800">{profile?.relationshipStatus}</div>
                         </div>
                       ) : null}
+        <div>
+          <div className="text-sm text-gray-500">Location</div>
+          <div className="text-gray-800">
+            {(profile?.city || profile?.country) ? 
+              [profile?.city, profile?.country].filter(Boolean).join(", ") : 
+              "Not specified"
+            }
+          </div>
+        </div>
                     </div>
 
                     {/* Additional profile info */}
