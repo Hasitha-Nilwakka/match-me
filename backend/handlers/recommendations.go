@@ -106,24 +106,33 @@ func GetRecommendationsHandler(c *gin.Context) {
 		scoredMatches = scoredMatches[:maxRecommendations]
 	}
 
-	// Build response
-	var recommendations []RecommendationResponse
-	for _, match := range scoredMatches {
-		recommendations = append(recommendations, RecommendationResponse{
-			ID:    match.User.ID,
-			Score: match.Score,
-		})
-	}
+    // Minimal mode: only return IDs
+    if c.Query("minimal") == "true" {
+        ids := make([]gin.H, 0, len(scoredMatches))
+        for _, match := range scoredMatches {
+            ids = append(ids, gin.H{"id": match.User.ID})
+        }
+        c.JSON(200, ids)
+        return
+    }
 
-	// Ensure recommendations is an empty array if no matches, not nil
-	if recommendations == nil {
-		recommendations = []RecommendationResponse{}
-	}
+    // Build full response
+    var recommendations []RecommendationResponse
+    for _, match := range scoredMatches {
+        recommendations = append(recommendations, RecommendationResponse{
+            ID:    match.User.ID,
+            Score: match.Score,
+        })
+    }
 
-	c.JSON(200, gin.H{
-		"recommendations": recommendations,
-		"total":           len(recommendations),
-	})
+    if recommendations == nil {
+        recommendations = []RecommendationResponse{}
+    }
+
+    c.JSON(200, gin.H{
+        "recommendations": recommendations,
+        "total":           len(recommendations),
+    })
 }
 
 // ScoredMatch represents a user with their match score

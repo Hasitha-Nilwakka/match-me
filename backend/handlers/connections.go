@@ -95,7 +95,23 @@ func GetConnectionsHandler(c *gin.Context) {
 		return
 	}
 
-	// Format connections for frontend
+    // Minimal mode: return just connected user IDs
+    if c.Query("minimal") == "true" {
+        var ids []gin.H
+        for _, conn := range connections {
+            var connectedUserID uint
+            if conn.RequesterID == userID {
+                connectedUserID = conn.ReceiverID
+            } else {
+                connectedUserID = conn.RequesterID
+            }
+            ids = append(ids, gin.H{"id": connectedUserID})
+        }
+        c.JSON(http.StatusOK, ids)
+        return
+    }
+
+    // Format connections for frontend
 	var formattedConnections []gin.H
 	for _, conn := range connections {
 		// Determine which user is the connected user (not the current user)
