@@ -26,6 +26,7 @@ type Profile = {
 interface Recommendation {
   id: number;
   score: number;
+  profilePictureURL?: string;
   userInfo?: {
     id: number;
     createdAt: string;
@@ -73,6 +74,9 @@ export default function FrontPage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedProfileInitial, setSelectedProfileInitial] = useState<Profile | null>(null);
+
+  // Get current recommendation
+  const currentRec = recommendations[currentRecommendationIndex];
 
   // Load user profile data
   const loadUserProfile = useCallback(async () => {
@@ -128,6 +132,7 @@ export default function FrontPage() {
       loadRecommendations();
     }
   }, [mode, isAuthenticated, userProfile]);
+
 
   // Load recommendations
   const loadRecommendations = async () => {
@@ -205,11 +210,13 @@ export default function FrontPage() {
               }
             }
             
+            console.log(`Profile picture URL for user ${rec.id}:`, userProfile?.profilePictureURL);
             return {
               ...rec,
               userInfo,
               profile: userProfile,
-              bio: userBio
+              bio: userBio,
+              profilePictureURL: userProfile?.profilePictureURL || '/sitefiles/default-profile-picture.png'
             };
           } catch (error) {
             console.error(`Error loading details for user ${rec.id}:`, error);
@@ -517,13 +524,36 @@ export default function FrontPage() {
             <div className="relative">
               {recommendations.length > 0 ? (
                 <div className="h-64 sm:h-80 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                  <Image
-                    src="/sitefiles/default-profile-picture.png"
-                    alt="Recommendation Profile"
-                    width={200}
-                    height={200}
-                    className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-8 border-white shadow-2xl object-cover"
-                  />
+                  {(() => {
+                    console.log('Current rec profile picture URL:', currentRec?.profilePictureURL);
+                    console.log('Current rec profile picture starts with /:', currentRec?.profilePictureURL?.startsWith('/'));
+                    
+                    // Use the same logic as profile page for handling different URL formats
+                    const profilePicSrc = currentRec?.profilePictureURL && currentRec.profilePictureURL.startsWith('http')
+                      ? currentRec.profilePictureURL
+                      : currentRec?.profilePictureURL && currentRec.profilePictureURL.startsWith('/uploads')
+                      ? `http://localhost:8080${currentRec.profilePictureURL}`
+                      : currentRec?.profilePictureURL && currentRec.profilePictureURL.startsWith('/')
+                      ? currentRec.profilePictureURL
+                      : "/sitefiles/default-profile-picture.png";
+                    
+                    console.log('Final profile picture src:', profilePicSrc);
+                    
+                    return (
+                      <Image
+                        src={profilePicSrc}
+                        alt="Recommendation Profile"
+                        width={200}
+                        height={200}
+                        className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-8 border-white shadow-2xl object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          console.log('Image failed to load, falling back to default');
+                          target.src = "/sitefiles/default-profile-picture.png";
+                        }}
+                      />
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="h-40 sm:h-48 bg-gray-50 flex items-center justify-center">
@@ -725,7 +755,7 @@ export default function FrontPage() {
                         languages: currentRec.bio?.languages ?? [],
                         hobbies: currentRec.bio?.hobbies ?? [],
                         interests: currentRec.bio?.interests ?? [],
-                        profilePictureURL: "/sitefiles/default-profile-picture.png",
+                        profilePictureURL: currentRec.profilePictureURL || "/sitefiles/default-profile-picture.png",
                       });
                       setIsProfileOpen(true);
                     } else {

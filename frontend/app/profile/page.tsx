@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, profileApi, referenceApi, externalApi } from "../../lib/api";
 import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
-import { useChat } from "../../context/ChatContext";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { openChat } = useChat();
   const [activeTab, setActiveTab] = useState("profile");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -1251,14 +1249,6 @@ export default function ProfilePage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex space-x-2 mt-6">
-                <button 
-                  onClick={() => openChat()}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-                >
-                  Start a Chat
-                </button>
-              </div>
             </div>
 
             {/* Section 2: About Me */}

@@ -122,23 +122,34 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                 {/* Left - Picture */}
                 <div className="sm:col-span-1">
                   <div className="flex flex-col items-center">
-                    {profile.profilePictureURL && profile.profilePictureURL.trim() !== "" && profile.profilePictureURL.startsWith('/') ? (
-                      <Image
-                        src={profile.profilePictureURL}
-                        alt={`${profile.firstName || ""} ${profile.lastName || ""}`}
-                        width={160}
-                        height={160}
-                        className="rounded-full border-4 border-white shadow"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = "/sitefiles/default-profile-picture.png";
-                        }}
-                      />
-                    ) : (
-                      <div className="w-40 h-40 rounded-full border-4 border-white shadow bg-gray-200 flex items-center justify-center text-6xl">
-                        {profile.profilePictureURL || '👤'}
-                      </div>
-                    )}
+                    {(() => {
+                      // Use the same logic as profile page for handling different URL formats
+                      const profilePicSrc = profile.profilePictureURL && profile.profilePictureURL.startsWith('http')
+                        ? profile.profilePictureURL
+                        : profile.profilePictureURL && profile.profilePictureURL.startsWith('/uploads')
+                        ? `http://localhost:8080${profile.profilePictureURL}`
+                        : profile.profilePictureURL && profile.profilePictureURL.startsWith('/')
+                        ? profile.profilePictureURL
+                        : "/sitefiles/default-profile-picture.png";
+                      
+                      console.log('ProfileModal - Profile picture URL:', profile.profilePictureURL);
+                      console.log('ProfileModal - Final profile picture src:', profilePicSrc);
+                      
+                      return (
+                        <Image
+                          src={profilePicSrc}
+                          alt={`${profile.firstName || ""} ${profile.lastName || ""}`}
+                          width={160}
+                          height={160}
+                          className="rounded-full border-4 border-white shadow"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            console.log('ProfileModal - Image failed to load, falling back to default');
+                            target.src = "/sitefiles/default-profile-picture.png";
+                          }}
+                        />
+                      );
+                    })()}
                     <h4 className="mt-4 text-xl font-semibold text-gray-900">
                       {(profile.firstName || "").trim()} {(profile.lastName || "").trim()}
                     </h4>
