@@ -31,7 +31,6 @@ export default function ProfilePage() {
     lastName: '',
     gender: '',
     status: '',
-    relationshipStatus: '',
     aboutMe: '',
     ethnicity: '',
     religion: '',
@@ -49,6 +48,9 @@ export default function ProfilePage() {
   const [availableTravelTypes, setAvailableTravelTypes] = useState<string[]>([]);
   const [countries, setCountries] = useState<{ name: string; code: string }[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const [cities, setCities] = useState<{ name: string; population?: number }[]>([]);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [citiesError, setCitiesError] = useState('');
   const [locationData, setLocationData] = useState({
     city: '',
     country: '',
@@ -70,7 +72,6 @@ export default function ProfilePage() {
   const [seekingPreferences, setSeekingPreferences] = useState({
     gender: '',
     status: '',
-    relationshipStatus: '',
     locationPreference: '',
     ethnicity: '',
     religion: '',
@@ -89,7 +90,6 @@ export default function ProfilePage() {
   const [priorityLevels, setPriorityLevels] = useState({
     gender: 2,
     status: 2,
-    relationshipStatus: 2,
     locationPreference: 2,
     languages: 2,
     interests: 2,
@@ -115,17 +115,26 @@ export default function ProfilePage() {
     } else {
       console.log('Authenticated, loading profile data...');
       setIsAuthenticated(true);
-      loadProfileData();
-      loadAvailableLanguages();
-      loadAvailableHobbies();
-      loadAvailableInterests();
-      loadAvailableFoodPreferences();
-      loadAvailableMusicGenres();
-      loadAvailableMovieGenres();
-      loadAvailableTravelTypes();
-      loadCountries();
+      
+      // Load countries first, then load profile data
+      const initializeData = async () => {
+        console.log('Starting initialization...');
+        await loadCountries();
+        console.log('Countries loaded, loading profile data...');
+        loadProfileData();
+        loadAvailableLanguages();
+        loadAvailableHobbies();
+        loadAvailableInterests();
+        loadAvailableFoodPreferences();
+        loadAvailableMusicGenres();
+        loadAvailableMovieGenres();
+        loadAvailableTravelTypes();
+      };
+      
+      initializeData();
     }
   }, [router]);
+
 
   // Load available languages from backend
   const loadAvailableLanguages = async () => {
@@ -230,10 +239,62 @@ export default function ProfilePage() {
   // Load countries from external API
   const loadCountries = async () => {
     try {
+      console.log('Loading countries...');
       const countriesData = await externalApi.getCountries();
+      console.log('Loaded countries:', countriesData.length);
+      console.log('First 10 countries:', countriesData.slice(0, 10).map(c => c.name));
       setCountries(countriesData);
+      return countriesData;
     } catch (error) {
       console.error('Error loading countries:', error);
+      return [];
+    }
+  };
+
+  // Load cities for a specific country
+  const loadCities = async (countryName: string) => {
+    if (!countryName) {
+      setCities([]);
+      return;
+    }
+
+    setIsLoadingCities(true);
+    setCitiesError('');
+    
+    try {
+      // Ensure countries are loaded first
+      let currentCountries = countries;
+      if (currentCountries.length === 0) {
+        const loadedCountries = await loadCountries();
+        currentCountries = loadedCountries || countries;
+      }
+
+      // Find the country code for the selected country
+      const country = currentCountries.find(c => c.name === countryName);
+      
+      if (!country) {
+        // Try case-insensitive search
+        const countryInsensitive = currentCountries.find(c => 
+          c.name.toLowerCase() === countryName.toLowerCase()
+        );
+        
+        if (countryInsensitive) {
+          const citiesData = await externalApi.getCitiesByCountry(countryInsensitive.code);
+          setCities(citiesData);
+          return;
+        }
+        
+        throw new Error(`Country "${countryName}" not found in available countries`);
+      }
+
+      const citiesData = await externalApi.getCitiesByCountry(country.code);
+      setCities(citiesData);
+    } catch (error) {
+      console.error('Error loading cities:', error);
+      setCitiesError('Failed to load cities for this country');
+      setCities([]);
+    } finally {
+      setIsLoadingCities(false);
     }
   };
 
@@ -255,7 +316,6 @@ export default function ProfilePage() {
           lastName: profile.lastName || '',
           gender: profile.gender || '',
           status: profile.status || '',
-          relationshipStatus: profile.relationshipStatus || '',
           aboutMe: profile.aboutMe || '',
           ethnicity: profile.ethnicity || '',
           religion: profile.religion || '',
@@ -278,6 +338,11 @@ export default function ProfilePage() {
           longitude: location.longitude || null,
         });
         setSelectedCountry(location.country || '');
+        
+        // Load cities for the existing country if it exists
+        if (location.country) {
+          loadCities(location.country);
+        }
       } catch (error) {
         console.log('No existing location found, starting fresh');
         // Location doesn't exist yet, that's okay
@@ -314,7 +379,6 @@ export default function ProfilePage() {
         setSeekingPreferences({
           gender: seekingData.genderPreference || '',
           status: seekingData.statusPreference || '',
-          relationshipStatus: seekingData.relationshipPreference || '',
           locationPreference: seekingData.locationPreference || 'within_city',
           ethnicity: seekingData.ethnicityPreference || '',
           religion: seekingData.religionPreference || '',
@@ -337,7 +401,6 @@ export default function ProfilePage() {
         setPriorityLevels({
           gender: seekingData.genderWeight || 2,
           status: seekingData.statusWeight || 2,
-          relationshipStatus: seekingData.relationshipWeight || 2,
           locationPreference: seekingData.locationWeight || 2,
           languages: seekingData.languagesWeight || 2,
           interests: seekingData.interestsWeight || 2,
@@ -353,7 +416,6 @@ export default function ProfilePage() {
         console.log('Set seeking preferences state:', {
           gender: seekingData.genderPreference || '',
           status: seekingData.statusPreference || '',
-          relationshipStatus: seekingData.relationshipPreference || '',
           locationPreference: seekingData.locationPreference || 'within_city',
         });
       } catch (error) {
@@ -411,8 +473,16 @@ export default function ProfilePage() {
     setSelectedCountry(countryName);
     setLocationData(prev => ({
       ...prev,
-      country: countryName
+      country: countryName,
+      city: '' // Reset city when country changes
     }));
+    
+    // Clear cities first to prevent contamination
+    setCities([]);
+    setCitiesError('');
+    
+    // Load cities for the selected country
+    loadCities(countryName);
   };
 
   // Handle city input change
@@ -476,6 +546,9 @@ export default function ProfilePage() {
             country: data.countryName
           }));
           setSelectedCountry(data.countryName);
+          
+          // Load cities for the detected country
+          loadCities(data.countryName);
         }
       } catch (geocodeError) {
         console.log('Reverse geocoding failed, but coordinates are saved:', geocodeError);
@@ -845,7 +918,7 @@ export default function ProfilePage() {
         const seekingData = {
           genderPreference: seekingPreferences.gender || undefined,
           statusPreference: seekingPreferences.status || undefined,
-          relationshipPreference: seekingPreferences.relationshipStatus || undefined,
+          relationshipPreference: undefined, // Removed from UI but keeping for API compatibility
           locationPreference: seekingPreferences.locationPreference || 'within_city',
           maxDistanceKm: seekingPreferences.locationPreference === 'define_radius' ? searchRadius : undefined,
           
@@ -865,7 +938,7 @@ export default function ProfilePage() {
           // Weight values (priority levels)
           genderWeight: priorityLevels.gender,
           statusWeight: priorityLevels.status,
-          relationshipWeight: priorityLevels.relationshipStatus,
+          relationshipWeight: 2, // Default value since removed from UI
           locationWeight: priorityLevels.locationPreference,
           languagesWeight: priorityLevels.languages,
           interestsWeight: priorityLevels.interests,
@@ -1243,21 +1316,6 @@ export default function ProfilePage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Relationship Status</label>
-                  <select 
-                    value={profileData.relationshipStatus}
-                    onChange={(e) => handleInputChange('relationshipStatus', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Relationship Status</option>
-                    <option value="Single">Single</option>
-                    <option value="In a relationship">In a relationship</option>
-                    <option value="Married">Married</option>
-                    <option value="Divorced">Divorced</option>
-                    <option value="Widowed">Widowed</option>
-                  </select>
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Languages</label>
                   <div className="space-y-2">
                     {/* Selected Languages Display */}
@@ -1319,13 +1377,32 @@ export default function ProfilePage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
                   <div className="space-y-2">
-                    <input
-                      type="text"
+                    <select
                       value={locationData.city}
                       onChange={(e) => handleCityChange(e.target.value)}
-                      placeholder="Enter your city"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                      disabled={!selectedCountry || isLoadingCities}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">
+                        {!selectedCountry 
+                          ? 'Select a country first' 
+                          : isLoadingCities 
+                            ? 'Loading cities...' 
+                            : citiesError 
+                              ? 'Error loading cities' 
+                              : 'Select a city'
+                        }
+                      </option>
+                      {cities.map((city) => (
+                        <option key={city.name} value={city.name}>
+                          {city.name}
+                          {city.population && city.population > 0 && ` (${city.population.toLocaleString()})`}
+                        </option>
+                      ))}
+                    </select>
+                    {citiesError && (
+                      <p className="text-sm text-red-600">{citiesError}</p>
+                    )}
                     <button
                       type="button"
                       onClick={getCurrentLocation}
@@ -1743,38 +1820,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Relationship Status with Priority */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Relationship Status</label>
-                  <select 
-                    value={seekingPreferences.relationshipStatus}
-                    onChange={(e) => handleSeekingPreferenceChange('relationshipStatus', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Any</option>
-                    <option value="Single">Single</option>
-                    <option value="In a relationship">In a relationship</option>
-                    <option value="Married">Married</option>
-                    <option value="Divorced">Divorced</option>
-                    <option value="Widowed">Widowed</option>
-                  </select>
-                  <div className="mt-2">
-                    <label className="block text-xs text-gray-600 mb-1">Priority</label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="3"
-                      value={priorityLevels.relationshipStatus}
-                      onChange={(e) => handlePriorityChange('relationshipStatus', parseInt(e.target.value))}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>Low</span>
-                      <span>Medium</span>
-                      <span>High</span>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Location with Priority */}
                 <div>
