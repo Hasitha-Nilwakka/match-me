@@ -117,15 +117,16 @@ export default function Home() {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Mark user as online after successful login
+        // Mark user as online after successful login (await to avoid navigation-cancel)
         console.log('[Login] Setting user online after login');
-        authApi.updateOnlineStatus(true).then(() => {
+        try {
+          await authApi.updateOnlineStatus(true);
           console.log('[Login] Successfully set user online after login');
-        }).catch((error) => {
+        } catch (error) {
           console.error('[Login] Failed to set user online after login:', error);
-        });
-        
-        // Redirect to frontpage immediately (no state updates to avoid flash)
+        }
+
+        // Redirect to frontpage after ensuring online status update request fired
         router.push('/frontpage');
         
         console.log('Login successful:', data);

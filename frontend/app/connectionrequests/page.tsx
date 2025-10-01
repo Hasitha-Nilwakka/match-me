@@ -524,7 +524,7 @@ export default function ConnectionRequestsPage() {
                           </p>
                           
                           {/* Request Message */}
-                          <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                  <div className="bg-gray-50 rounded-lg p-3 mb-4">
                             <p className="text-sm text-gray-700 italic">
                               &quot;{request.message}&quot;
                             </p>
@@ -533,18 +533,18 @@ export default function ConnectionRequestsPage() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex flex-col space-y-2 ml-4">
+              <div className="flex sm:flex-col flex-row sm:space-y-2 space-y-0 sm:space-x-0 space-x-2 ml-2 sm:ml-4">
                         <button
                           onClick={() => handleViewProfile(request.id)}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors text-left"
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors text-left"
                         >
                           View Profile
                         </button>
                         
-                        <div className="flex space-x-2">
+                <div className="flex space-x-2">
                           <button
                             onClick={() => handleAcceptRequest(request.id)}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
+                    className="bg-green-600 hover:bg-green-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
@@ -554,7 +554,7 @@ export default function ConnectionRequestsPage() {
                           
                           <button
                             onClick={() => handleRejectRequest(request.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />

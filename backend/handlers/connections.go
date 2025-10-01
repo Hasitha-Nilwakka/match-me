@@ -351,20 +351,29 @@ func UpdateConnectionHandler(c *gin.Context) {
 		return
 	}
 
-	// If connection is accepted, create a chat
+	// If connection is accepted, ensure a single chat exists between these two users
 	if updateData.Status == "accepted" {
-		// Check if chat already exists for this connection
+		// First, see if any chat already exists between these two users via any accepted connection
 		var existingChat models.Chat
-		if err := db.DB.Where("connection_id = ?", connection.ID).First(&existingChat).Error; err != nil {
-			// Chat doesn't exist, create it
-			chat := models.Chat{
-				ConnectionID: connection.ID,
-			}
-			if err := db.DB.Create(&chat).Error; err != nil {
-				// Log error but don't fail the connection update
-				log.Printf("Failed to create chat for connection %d: %v", connection.ID, err)
-			} else {
-				log.Printf("Created chat %d for accepted connection %d", chat.ID, connection.ID)
+		err := db.DB.
+			Joins("JOIN connections ON chats.connection_id = connections.id").
+			Where("((connections.requester_id = ? AND connections.receiver_id = ?) OR (connections.requester_id = ? AND connections.receiver_id = ?)) AND connections.status = ?",
+				connection.RequesterID, connection.ReceiverID, connection.ReceiverID, connection.RequesterID, "accepted").
+			First(&existingChat).Error
+
+		if err == nil {
+			// A chat already exists between these two users; do not create another
+			log.Printf("Reusing existing chat %d between users %d and %d for connection %d", existingChat.ID, connection.RequesterID, connection.ReceiverID, connection.ID)
+		} else {
+			// Otherwise, if no chat exists at all (including for this specific connection), create one for this connection
+			var connChat models.Chat
+			if err := db.DB.Where("connection_id = ?", connection.ID).First(&connChat).Error; err != nil {
+				chat := models.Chat{ConnectionID: connection.ID}
+				if err := db.DB.Create(&chat).Error; err != nil {
+					log.Printf("Failed to create chat for connection %d: %v", connection.ID, err)
+				} else {
+					log.Printf("Created chat %d for accepted connection %d", chat.ID, connection.ID)
+				}
 			}
 		}
 	}

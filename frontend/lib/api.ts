@@ -316,6 +316,17 @@ export const connectionsApi = {
     return response.json();
   },
 
+  // Get count of pending connection requests (lightweight consumer utility)
+  getConnectionRequestsCount: async (): Promise<number> => {
+    try {
+      const data = await connectionsApi.getConnectionRequests();
+      const requests = Array.isArray(data) ? data : (data?.requests || []);
+      return requests.length || 0;
+    } catch (e) {
+      return 0;
+    }
+  },
+
   // Get matches
   getMatches: async () => {
     const response = await authenticatedApiRequest(API_ENDPOINTS.CONNECTIONS.GET_MATCHES);

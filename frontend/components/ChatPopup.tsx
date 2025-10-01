@@ -46,6 +46,7 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   const [isSending, setIsSending] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const currentUser = authApi.getCurrentUser();
   const { mode } = useDataMode();
   const { targetChatId } = useChat();
@@ -72,14 +73,6 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
       }).catch((error) => {
         console.error('[ChatPopup] Failed to set user online:', error);
       });
-    } else {
-      // Mark user as offline when chat popup closes
-      console.log('[ChatPopup] Setting user offline');
-      authApi.updateOnlineStatus(false).then(() => {
-        console.log('[ChatPopup] Successfully set user offline');
-      }).catch((error) => {
-        console.error('[ChatPopup] Failed to set user offline:', error);
-      });
     }
   }, [isOpen, mode]);
 
@@ -89,6 +82,16 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Live refresh of chats (and online indicators) while popup is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const intervalId = setInterval(() => {
+      // Silent refresh of chat list to get updated isOnline/lastSeen
+      loadChats();
+    }, 10000); // 10s
+    return () => clearInterval(intervalId);
+  }, [isOpen, mode]);
 
   // Auto-open target chat when chats are loaded and targetChatId is set
   useEffect(() => {
@@ -218,7 +221,58 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
     setActiveChat(chatId);
     setIsMinimized(false);
     loadChatMessages(chatId);
+    // Mark as read immediately when opening and zero unread locally
+    chatApi.markAsRead(chatId.toString())
+      .then(() => {
+        setChats(prev => prev.map(c => c.id === chatId ? { ...c, unreadCount: 0 } : c));
+      })
+      .catch((err) => console.error('Failed to mark messages as read:', err));
   };
+
+  // WebSocket connection for active chat
+  useEffect(() => {
+    // Cleanup any existing connection
+    if (wsRef.current) {
+      try { wsRef.current.close(); } catch { /* noop */ }
+      wsRef.current = null;
+    }
+
+    if (!activeChat) return;
+    try {
+      const ws = chatApi.createWebSocketConnection(activeChat.toString(), (incoming: unknown) => {
+        // Expecting ChatMessage shape
+        const msg = incoming as Message;
+        if (!msg || typeof msg !== 'object') return;
+        setMessages(prev => [...prev, {
+          id: (msg as any).id,
+          chatId: activeChat,
+          senderId: (msg as any).senderId,
+          content: (msg as any).content,
+          isRead: Boolean((msg as any).isRead),
+          createdAt: (msg as any).createdAt,
+          senderName: (msg as any).senderName,
+        }]);
+
+        // If the incoming message belongs to the active chat and is from the other user,
+        // immediately mark as read and keep unread badge at zero
+        const fromOtherUser = (msg as any).senderId !== currentUser?.id;
+        if (fromOtherUser) {
+          chatApi.markAsRead(activeChat.toString()).catch(() => {});
+        }
+        setChats(prev => prev.map(c => c.id === activeChat ? { ...c, unreadCount: 0 } : c));
+      });
+      wsRef.current = ws;
+    } catch (error) {
+      console.error('Failed to open WebSocket for chat', activeChat, error);
+    }
+
+    return () => {
+      if (wsRef.current) {
+        try { wsRef.current.close(); } catch { /* noop */ }
+        wsRef.current = null;
+      }
+    };
+  }, [activeChat]);
 
   // Delete a chat
   const handleDeleteChat = async (chatId: number, e: React.MouseEvent) => {
@@ -455,10 +509,12 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
               <>
                 {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                  {Array.isArray(messages) && messages
-                    .slice()
-                    .reverse() // Reverse to show oldest first
-                    .map((message, index, reversedMessages) => {
+                  {(() => {
+                    const safeMessages = Array.isArray(messages) ? messages.filter((m) => !!m) : [];
+                    return safeMessages
+                      .slice()
+                      .reverse() // Reverse to show oldest first
+                      .map((message, index, reversedMessages) => {
                       const isOwnMessage = message.senderId === currentUser?.id;
                       const clockTime = formatClockTime(message.createdAt);
                       
@@ -467,7 +523,7 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
                         isDifferentDay(message.createdAt, reversedMessages[index - 1].createdAt);
                       
                       return (
-                        <React.Fragment key={message.id}>
+                        <React.Fragment key={`${message?.id ?? 'm'}-${index}`}>
                           {/* Date Separator */}
                           {showDateSeparator && (
                             <div className="flex justify-center my-4">
@@ -513,7 +569,8 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
                           </div>
                         </React.Fragment>
                       );
-                    })}
+                    });
+                  })()}
                   <div ref={messagesEndRef} />
                 </div>
 

@@ -9,6 +9,7 @@ import PendingRequestsIndicator from "../../components/PendingRequestsIndicator"
 export default function ProfilePage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("profile");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -1062,6 +1063,16 @@ export default function ProfilePage() {
                   Front Page
                 </Link>
                 <Link
+                  href="/profile"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
+                    activeTab === "profile"
+                      ? "bg-blue-100 text-blue-700"
+                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
+                  }`}
+                >
+                  Profile
+                </Link>
+                <Link
                   href="/connectionlist"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition ${
                     activeTab === "connections"
@@ -1101,7 +1112,8 @@ export default function ProfilePage() {
                 type="button"
                 className="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                 aria-controls="mobile-menu"
-                aria-expanded="false"
+                aria-expanded={isMobileMenuOpen}
+                onClick={() => setIsMobileMenuOpen(prev => !prev)}
               >
                 <span className="sr-only">Open main menu</span>
                 <svg
@@ -1125,6 +1137,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Mobile menu */}
+        {isMobileMenuOpen && (
         <div className="md:hidden" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
             <Link
@@ -1134,8 +1147,20 @@ export default function ProfilePage() {
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Front Page
+            </Link>
+            <Link
+              href="/profile"
+              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
+                activeTab === "profile"
+                  ? "bg-blue-100 text-blue-700"
+                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
+              }`}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Profile
             </Link>
             <Link
               href="/connectionlist"
@@ -1144,6 +1169,7 @@ export default function ProfilePage() {
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Connection List
             </Link>
@@ -1154,12 +1180,14 @@ export default function ProfilePage() {
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Connection Requests
               <PendingRequestsIndicator className="absolute top-1 right-1" />
             </Link>
           </div>
         </div>
+        )}
       </nav>
 
       {/* Main Content Area */}

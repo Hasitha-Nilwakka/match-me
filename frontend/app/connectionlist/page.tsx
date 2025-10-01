@@ -92,6 +92,7 @@ export default function ConnectionListPage() {
   const [startingChatId, setStartingChatId] = useState<number | null>(null);
   const { mode } = useDataMode();
   const { openChat } = useChat();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Load connections based on data mode
   const loadConnections = useCallback(async () => {
@@ -318,16 +319,7 @@ export default function ConnectionListPage() {
                 >
                   Connection Requests
                 </Link>
-                <button
-                  onClick={() => handleNavigation("chat")}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "chat"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Chat
-                </button>
+                {/* Chat tab removed to match other pages */}
               </div>
             </div>
 
@@ -347,7 +339,8 @@ export default function ConnectionListPage() {
                 type="button"
                 className="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                 aria-controls="mobile-menu"
-                aria-expanded="false"
+                aria-expanded={isMobileMenuOpen}
+                onClick={() => setIsMobileMenuOpen(prev => !prev)}
               >
                 <span className="sr-only">Open main menu</span>
                 <svg
@@ -371,6 +364,7 @@ export default function ConnectionListPage() {
         </div>
 
         {/* Mobile menu */}
+        {isMobileMenuOpen && (
         <div className="md:hidden" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
             <Link
@@ -380,6 +374,7 @@ export default function ConnectionListPage() {
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Front Page
             </Link>
@@ -390,6 +385,7 @@ export default function ConnectionListPage() {
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Profile
             </Link>
@@ -410,11 +406,13 @@ export default function ConnectionListPage() {
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
+              onClick={() => setIsMobileMenuOpen(false)}
             >
               Connection Requests
             </Link>
           </div>
         </div>
+        )}
       </nav>
 
       {/* Profile Modal */}
@@ -561,10 +559,10 @@ export default function ConnectionListPage() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center sm:space-x-3 space-x-2 flex-wrap sm:flex-nowrap justify-end">
                         <button
                           onClick={() => handleViewProfile(connection.id)}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors order-2 sm:order-1"
                         >
                           View Profile
                         </button>
@@ -572,7 +570,7 @@ export default function ConnectionListPage() {
                         <button
                           onClick={() => handleStartChat(connection)}
                           disabled={startingChatId === connection.id}
-                          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
+                          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1 order-1 sm:order-2"
                         >
                           {startingChatId === connection.id ? (
                             <>
@@ -591,7 +589,7 @@ export default function ConnectionListPage() {
                         
                         <button
                           onClick={() => handleRemoveConnection(connection.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1 order-3"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />

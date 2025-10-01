@@ -372,8 +372,9 @@ func GetChatsHandler(c *gin.Context) {
 		return
 	}
 
-	// Build response
+	// Build response with de-duplication per counterpart user
 	var chatResponses []ChatResponse
+	seenByCounterpart := make(map[uint]bool)
 	for _, chat := range chats {
 		response := ChatResponse{
 			ID:           chat.ID,
@@ -412,6 +413,35 @@ func GetChatsHandler(c *gin.Context) {
 			}
 		}
 
+		// If we've already included a chat with this counterpart, prefer the one that has a lastMessage or newer UpdatedAt
+		counterpartID := response.OtherUser.ID
+		if seenByCounterpart[counterpartID] {
+			// Find existing index for this counterpart
+			for i := range chatResponses {
+				if chatResponses[i].OtherUser != nil && chatResponses[i].OtherUser.ID == counterpartID {
+					// Decide which to keep: prefer with LastMessage; otherwise newer UpdatedAt
+					keepExisting := false
+					if chatResponses[i].LastMessage != nil && response.LastMessage == nil {
+						keepExisting = true
+					} else if chatResponses[i].LastMessage == nil && response.LastMessage != nil {
+						keepExisting = false
+					} else {
+						// Both have or both don't; compare UpdatedAt
+						if chatResponses[i].UpdatedAt.After(response.UpdatedAt) {
+							keepExisting = true
+						}
+					}
+					if keepExisting {
+						// do nothing; keep existing entry
+					} else {
+						chatResponses[i] = response
+					}
+					break
+				}
+			}
+			continue
+		}
+
 		// Add last message if exists
 		if len(chat.Messages) > 0 {
 			lastMsg := chat.Messages[0]
@@ -433,6 +463,9 @@ func GetChatsHandler(c *gin.Context) {
 		response.UnreadCount = int(unreadCount)
 
 		chatResponses = append(chatResponses, response)
+		if response.OtherUser != nil {
+			seenByCounterpart[response.OtherUser.ID] = true
+		}
 	}
 
 	c.JSON(200, gin.H{

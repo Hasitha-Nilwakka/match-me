@@ -3,7 +3,7 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, profileApi, recommendationsApi, getApiUrl } from "../../lib/api";
+import { authApi, profileApi, recommendationsApi, getApiUrl, connectionsApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
 import DataModeToggle from "../../components/DataModeToggle";
 import { useDataMode } from "../../context/DataModeContext";
@@ -74,6 +74,8 @@ export default function FrontPage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedProfileInitial, setSelectedProfileInitial] = useState<Profile | null>(null);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Get current recommendation
   const currentRec = recommendations[currentRecommendationIndex];
@@ -125,6 +127,27 @@ export default function FrontPage() {
       // loadRecommendations will be called from loadUserProfile if profile is complete
     }
   }, [router, loadUserProfile]);
+
+  // Poll pending connection requests count while authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let mounted = true;
+    const fetchCount = async () => {
+      try {
+        const data = await connectionsApi.getConnectionRequests();
+        const list = Array.isArray(data) ? data : (data?.requests || []);
+        if (mounted) setPendingRequestsCount(list.length || 0);
+      } catch {
+        if (mounted) setPendingRequestsCount(0);
+      }
+    };
+    fetchCount();
+    const id = setInterval(fetchCount, 15000);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, [isAuthenticated]);
 
   // Reload recommendations when data mode changes
   useEffect(() => {
@@ -301,17 +324,7 @@ export default function FrontPage() {
     router.push('/');
   };
 
-  const testOnlineStatus = async () => {
-    console.log('[Test] Manually setting online status to true');
-    try {
-      await authApi.updateOnlineStatus(true);
-      console.log('[Test] Successfully set online status to true');
-      alert('Online status set to true! Check console for details.');
-    } catch (error) {
-      console.error('[Test] Failed to set online status:', error);
-      alert('Failed to set online status. Check console for details.');
-    }
-  };
+  // Removed test online status utility
 
   const handleNavigation = (tab: string) => {
     setActiveTab(tab);
@@ -393,13 +406,18 @@ export default function FrontPage() {
                 </Link>
                 <Link
                   href="/connectionrequests"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
+                  className={`relative px-3 py-2 rounded-md text-sm font-medium transition ${
                     activeTab === "requests"
                       ? "bg-blue-100 text-blue-700"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
                   }`}
                 >
                   Connection Requests
+                  {pendingRequestsCount > 0 && (
+                    <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs rounded-full px-2 py-0.5 min-w-[18px] text-center">
+                      {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
+                    </span>
+                  )}
                 </Link>
               </div>
             </div>
@@ -407,12 +425,7 @@ export default function FrontPage() {
             {/* Data Mode Toggle + Test Button + Logout */}
             <div className="flex items-center gap-4">
               <DataModeToggle />
-              <button
-                onClick={testOnlineStatus}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition"
-              >
-                Test Online Status
-              </button>
+              {/* Test Online Status button removed */}
               <button
                 onClick={handleLogout}
                 className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition"
@@ -427,7 +440,8 @@ export default function FrontPage() {
                 type="button"
                 className="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                 aria-controls="mobile-menu"
-                aria-expanded="false"
+                aria-expanded={isMobileMenuOpen}
+                onClick={() => setIsMobileMenuOpen(prev => !prev)}
               >
                 <span className="sr-only">Open main menu</span>
                 <svg
@@ -451,10 +465,11 @@ export default function FrontPage() {
         </div>
 
         {/* Mobile menu */}
+        {isMobileMenuOpen && (
         <div className="md:hidden" id="mobile-menu">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
             <button
-              onClick={() => handleNavigation("frontpage")}
+              onClick={() => { handleNavigation("frontpage"); setIsMobileMenuOpen(false); }}
               className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
                 activeTab === "frontpage"
                   ? "bg-blue-100 text-blue-700"
@@ -465,6 +480,7 @@ export default function FrontPage() {
             </button>
             <Link
               href="/profile"
+              onClick={() => setIsMobileMenuOpen(false)}
               className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
                 activeTab === "profile"
                   ? "bg-blue-100 text-blue-700"
@@ -475,6 +491,7 @@ export default function FrontPage() {
             </Link>
             <Link
               href="/connectionlist"
+              onClick={() => setIsMobileMenuOpen(false)}
               className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
                 activeTab === "connections"
                   ? "bg-blue-100 text-blue-700"
@@ -485,16 +502,23 @@ export default function FrontPage() {
             </Link>
             <Link
               href="/connectionrequests"
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
+              onClick={() => setIsMobileMenuOpen(false)}
+              className={`relative block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
                 activeTab === "requests"
                   ? "bg-blue-100 text-blue-700"
                   : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
               }`}
             >
               Connection Requests
+              {pendingRequestsCount > 0 && (
+                <span className="absolute top-2 right-4 bg-red-600 text-white text-xs rounded-full px-2 py-0.5 min-w-[18px] text-center">
+                  {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
+                </span>
+              )}
             </Link>
           </div>
         </div>
+        )}
       </nav>
 
       {/* Main Content Area - Recommendations Focus */}
