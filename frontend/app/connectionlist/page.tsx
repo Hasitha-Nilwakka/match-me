@@ -235,7 +235,7 @@ export default function ConnectionListPage() {
 
   const handleViewProfile = (connectionId: number) => {
     const conn = connections.find(c => c.id === connectionId);
-    if (!conn) return;
+    if (!conn || !conn.userId) return;
     // Use real user ID to fetch complete profile data
     setSelectedUserId(conn.userId);
     setIsProfileOpen(true);
@@ -509,19 +509,29 @@ export default function ConnectionListPage() {
                       <div className="flex items-center space-x-4">
                         {/* Profile Picture */}
                         <div className="relative">
-                          {connection.profilePicture && connection.profilePicture.startsWith('/') ? (
-                            <Image
-                              src={connection.profilePicture}
-                              alt={`${connection.firstName} ${connection.lastName}`}
-                              width={60}
-                              height={60}
-                              className="rounded-full border-2 border-white shadow-sm"
-                            />
-                          ) : (
-                            <div className="w-[60px] h-[60px] rounded-full border-2 border-white shadow-sm bg-gray-200 flex items-center justify-center text-2xl">
-                              {connection.profilePicture || '👤'}
-                            </div>
-                          )}
+                          {(() => {
+                            const profilePicSrc = connection.profilePicture && connection.profilePicture.startsWith('http')
+                              ? connection.profilePicture
+                              : connection.profilePicture && connection.profilePicture.startsWith('/uploads')
+                              ? `http://localhost:8080${connection.profilePicture}`
+                              : connection.profilePicture && connection.profilePicture.startsWith('/')
+                              ? connection.profilePicture
+                              : "/sitefiles/default-profile-picture.png";
+                            
+                            return (
+                              <Image
+                                src={profilePicSrc}
+                                alt={`${connection.firstName} ${connection.lastName}`}
+                                width={60}
+                                height={60}
+                                className="rounded-full border-2 border-white shadow-sm"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = "/sitefiles/default-profile-picture.png";
+                                }}
+                              />
+                            );
+                          })()}
                           {/* Online Status Indicator */}
                           {connection.isOnline && (
                             <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>

@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, connectionsApi } from "../../lib/api";
@@ -94,18 +94,8 @@ export default function ConnectionRequestsPage() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const { mode } = useDataMode();
 
-  // Check authentication on page load
-  useEffect(() => {
-    if (!authApi.isAuthenticated()) {
-      router.push('/');
-    } else {
-      setIsAuthenticated(true);
-      loadRequests();
-    }
-  }, [router, mode]);
-
   // Load connection requests based on data mode
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -141,7 +131,17 @@ export default function ConnectionRequestsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [mode]);
+
+  // Check authentication on page load
+  useEffect(() => {
+    if (!authApi.isAuthenticated()) {
+      router.push('/');
+    } else {
+      setIsAuthenticated(true);
+      loadRequests();
+    }
+  }, [router, loadRequests]);
 
   const handleLogout = async () => {
     await authApi.logout();
@@ -152,18 +152,42 @@ export default function ConnectionRequestsPage() {
     setActiveTab(tab);
   };
 
-  const handleAcceptRequest = (requestId: number) => {
-    // Remove from requests and add to connections
-    setRequests(prev => prev.filter(req => req.id !== requestId));
-    console.log(`Accepted connection request ${requestId}`);
-    // TODO: Implement API call to accept connection request
+  const handleAcceptRequest = async (requestId: number) => {
+    try {
+      if (mode === "mock") {
+        // Mock mode - just remove from UI
+        setRequests(prev => prev.filter(req => req.id !== requestId));
+        console.log(`Accepted connection request ${requestId} (mock mode)`);
+      } else {
+        // Real API call
+        await connectionsApi.acceptConnection(String(requestId));
+        // Remove from requests after successful API call
+        setRequests(prev => prev.filter(req => req.id !== requestId));
+        console.log(`Accepted connection request ${requestId}`);
+      }
+    } catch (error) {
+      console.error('Error accepting connection request:', error);
+      alert('Failed to accept connection request. Please try again.');
+    }
   };
 
-  const handleRejectRequest = (requestId: number) => {
-    // Remove from requests
-    setRequests(prev => prev.filter(req => req.id !== requestId));
-    console.log(`Rejected connection request ${requestId}`);
-    // TODO: Implement API call to reject connection request
+  const handleRejectRequest = async (requestId: number) => {
+    try {
+      if (mode === "mock") {
+        // Mock mode - just remove from UI
+        setRequests(prev => prev.filter(req => req.id !== requestId));
+        console.log(`Rejected connection request ${requestId} (mock mode)`);
+      } else {
+        // Real API call
+        await connectionsApi.rejectConnection(String(requestId));
+        // Remove from requests after successful API call
+        setRequests(prev => prev.filter(req => req.id !== requestId));
+        console.log(`Rejected connection request ${requestId}`);
+      }
+    } catch (error) {
+      console.error('Error rejecting connection request:', error);
+      alert('Failed to reject connection request. Please try again.');
+    }
   };
 
   const handleViewProfile = (requestId: number) => {
@@ -450,19 +474,29 @@ export default function ConnectionRequestsPage() {
                       <div className="flex items-start space-x-4">
                         {/* Profile Picture */}
                         <div className="relative">
-                          {request.profilePicture && request.profilePicture.startsWith('/') ? (
-                            <Image
-                              src={request.profilePicture}
-                              alt={`${request.firstName} ${request.lastName}`}
-                              width={60}
-                              height={60}
-                              className="rounded-full border-2 border-white shadow-sm"
-                            />
-                          ) : (
-                            <div className="w-[60px] h-[60px] rounded-full border-2 border-white shadow-sm bg-gray-200 flex items-center justify-center text-2xl">
-                              {request.profilePicture || '👤'}
-                            </div>
-                          )}
+                          {(() => {
+                            const profilePicSrc = request.profilePicture && request.profilePicture.startsWith('http')
+                              ? request.profilePicture
+                              : request.profilePicture && request.profilePicture.startsWith('/uploads')
+                              ? `http://localhost:8080${request.profilePicture}`
+                              : request.profilePicture && request.profilePicture.startsWith('/')
+                              ? request.profilePicture
+                              : "/sitefiles/default-profile-picture.png";
+                            
+                            return (
+                              <Image
+                                src={profilePicSrc}
+                                alt={`${request.firstName} ${request.lastName}`}
+                                width={60}
+                                height={60}
+                                className="rounded-full border-2 border-white shadow-sm"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = "/sitefiles/default-profile-picture.png";
+                                }}
+                              />
+                            );
+                          })()}
                           {/* Online Status Indicator */}
                           {request.isOnline && (
                             <div className="absolute bottom-1 right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
