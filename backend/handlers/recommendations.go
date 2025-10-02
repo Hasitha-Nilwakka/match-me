@@ -4,9 +4,11 @@ import (
 	"backend/db"
 	"backend/middleware"
 	"backend/models"
+	"fmt"
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -51,6 +53,15 @@ func GetRecommendationsHandler(c *gin.Context) {
 	// Get all potential matches (exclude current user, dismissed users, and existing connections)
 	excludedUserIDs := getExcludedUserIDs(userID)
 
+	// DEBUG: Log debugging information
+	fmt.Printf("DEBUG: User ID %d requesting recommendations\n", userID)
+	fmt.Printf("DEBUG: Excluded user IDs: %v\n", excludedUserIDs)
+
+	// Count total active users first
+	var totalActiveUsers int64
+	db.DB.Model(&models.User{}).Where("is_active = ?", true).Count(&totalActiveUsers)
+	fmt.Printf("DEBUG: Total active users in database: %d\n", totalActiveUsers)
+
 	// Get potential matches with spatial filtering if user has location data
 	var potentialMatches []models.User
 	var query *gorm.DB
@@ -59,41 +70,61 @@ func GetRecommendationsHandler(c *gin.Context) {
 	if user.Location != nil && user.Location.Latitude != nil && user.Location.Longitude != nil &&
 		user.SeekingPreference != nil && user.SeekingPreference.LocationPreference == "define_radius" {
 
+		fmt.Printf("DEBUG: Using spatial filtering with radius %d km\n", user.SeekingPreference.MaxDistanceKm)
 		// Get nearby users using bounding box pre-filtering
 		potentialMatches = getNearbyUsers(*user.Location.Latitude, *user.Location.Longitude,
 			user.SeekingPreference.MaxDistanceKm, excludedUserIDs)
 	} else {
+		fmt.Printf("DEBUG: Using fallback query (loading all users)\n")
 		// Fallback to loading all users (original behavior)
-		// Filter out seeded users (those with @example.com emails) to show only real users
-		query = db.DB.Where("id NOT IN ? AND is_active = ? AND email NOT LIKE ?",
-			excludedUserIDs, true, "%@example.com").
+		query = db.DB.Where("id NOT IN ? AND is_active = ?",
+			excludedUserIDs, true).
 			Preload("Profile").Preload("Location").
 			Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
 			Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
 			Preload("UserLanguages").Find(&potentialMatches)
 
 		if query.Error != nil {
+			fmt.Printf("DEBUG: Query error: %v\n", query.Error)
 			c.JSON(500, gin.H{"error": "Failed to fetch potential matches"})
 			return
 		}
 	}
 
+	fmt.Printf("DEBUG: Found %d potential matches after filtering\n", len(potentialMatches))
+
 	// Calculate match scores for each potential match
 	var scoredMatches []ScoredMatch
+	var skippedIncomplete = 0
+	var zeroScored = 0
+
 	for _, match := range potentialMatches {
 		// Skip users without complete profiles
 		if match.Profile == nil || match.Profile.FirstName == "" {
+			skippedIncomplete++
+			fmt.Printf("DEBUG: Skipping user %d - incomplete profile (Profile: %v, FirstName: %v)\n",
+				match.ID, match.Profile != nil, match.Profile != nil && match.Profile.FirstName != "")
 			continue
 		}
 
 		score := calculateMatchScore(user, match)
+		if score > 0 {
+			fmt.Printf("DEBUG: User %d (%s %s) scored: %.2f\n",
+				match.ID, match.Profile.FirstName, match.Profile.LastName, score)
+		}
+
 		if score > 0 { // Only include matches with positive scores
 			scoredMatches = append(scoredMatches, ScoredMatch{
 				User:  match,
 				Score: score,
 			})
+		} else {
+			zeroScored++
 		}
 	}
+
+	fmt.Printf("DEBUG: Scoring summary - Total potential: %d, Skipped incomplete: %d, Zero scored: %d, Valid matches: %d\n",
+		len(potentialMatches), skippedIncomplete, zeroScored, len(scoredMatches))
 
 	// Sort by score (highest first)
 	sort.Slice(scoredMatches, func(i, j int) bool {
@@ -106,33 +137,33 @@ func GetRecommendationsHandler(c *gin.Context) {
 		scoredMatches = scoredMatches[:maxRecommendations]
 	}
 
-    // Minimal mode: only return IDs
-    if c.Query("minimal") == "true" {
-        ids := make([]gin.H, 0, len(scoredMatches))
-        for _, match := range scoredMatches {
-            ids = append(ids, gin.H{"id": match.User.ID})
-        }
-        c.JSON(200, ids)
-        return
-    }
+	// Minimal mode: only return IDs
+	if c.Query("minimal") == "true" {
+		ids := make([]gin.H, 0, len(scoredMatches))
+		for _, match := range scoredMatches {
+			ids = append(ids, gin.H{"id": match.User.ID})
+		}
+		c.JSON(200, ids)
+		return
+	}
 
-    // Build full response
-    var recommendations []RecommendationResponse
-    for _, match := range scoredMatches {
-        recommendations = append(recommendations, RecommendationResponse{
-            ID:    match.User.ID,
-            Score: match.Score,
-        })
-    }
+	// Build full response
+	var recommendations []RecommendationResponse
+	for _, match := range scoredMatches {
+		recommendations = append(recommendations, RecommendationResponse{
+			ID:    match.User.ID,
+			Score: match.Score,
+		})
+	}
 
-    if recommendations == nil {
-        recommendations = []RecommendationResponse{}
-    }
+	if recommendations == nil {
+		recommendations = []RecommendationResponse{}
+	}
 
-    c.JSON(200, gin.H{
-        "recommendations": recommendations,
-        "total":           len(recommendations),
-    })
+	c.JSON(200, gin.H{
+		"recommendations": recommendations,
+		"total":           len(recommendations),
+	})
 }
 
 // ScoredMatch represents a user with their match score
@@ -193,21 +224,31 @@ func calculateMatchScore(userA, userB models.User) float64 {
 		return 0.0
 	}
 
-	// Check gender preference
+	// Check gender preference (case-insensitive) - flexible scoring
 	if preferences.GenderPreference != nil && userB.Profile.Gender != nil {
-		if *preferences.GenderPreference != *userB.Profile.Gender {
-			return 0.0 // Gender doesn't match preference
+		wantGender := strings.ToLower(*preferences.GenderPreference)
+		foundGender := strings.ToLower(*userB.Profile.Gender)
+		if wantGender == foundGender {
+			// Perfect match - full score
+			score += float64(preferences.GenderWeight)
+		} else {
+			// Mismatch - reduced score (25% of weight)
+			score += float64(preferences.GenderWeight) * 0.25
 		}
-		score += float64(preferences.GenderWeight)
 		totalWeight += float64(preferences.GenderWeight)
 	}
 
-	// Check status preference
+	// Check status preference (case-insensitive) - flexible scoring
 	if preferences.StatusPreference != nil && userB.Profile.Status != nil {
-		if *preferences.StatusPreference != *userB.Profile.Status {
-			return 0.0 // Status doesn't match preference
+		wantStatus := strings.ToLower(*preferences.StatusPreference)
+		foundStatus := strings.ToLower(*userB.Profile.Status)
+		if wantStatus == foundStatus {
+			// Perfect match - full score
+			score += float64(preferences.StatusWeight)
+		} else {
+			// Mismatch - reduced score (25% of weight)
+			score += float64(preferences.StatusWeight) * 0.25
 		}
-		score += float64(preferences.StatusWeight)
 		totalWeight += float64(preferences.StatusWeight)
 	}
 
@@ -536,13 +577,12 @@ func getNearbyUsers(userLat, userLon float64, radiusKm int, excludedUserIDs []ui
 	maxLon := userLon + lonDelta
 
 	// Query users within bounding box first (much faster than Haversine for all users)
-	// Filter out seeded users (those with @example.com emails) to show only real users
 	var nearbyUsers []models.User
 	query := db.DB.Where(`
-		id NOT IN ? AND is_active = ? AND email NOT LIKE ? AND
+		id NOT IN ? AND is_active = ? AND
 		latitude IS NOT NULL AND longitude IS NOT NULL AND
 		latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?
-	`, excludedUserIDs, true, "%@example.com", minLat, maxLat, minLon, maxLon).
+	`, excludedUserIDs, true, minLat, maxLat, minLon, maxLon).
 		Preload("Profile").Preload("Location").
 		Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
 		Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
@@ -550,10 +590,9 @@ func getNearbyUsers(userLat, userLon float64, radiusKm int, excludedUserIDs []ui
 
 	if query.Error != nil {
 		// If spatial query fails, fallback to loading all users
-		// Filter out seeded users (those with @example.com emails) to show only real users
 		var allUsers []models.User
-		db.DB.Where("id NOT IN ? AND is_active = ? AND email NOT LIKE ?",
-			excludedUserIDs, true, "%@example.com").
+		db.DB.Where("id NOT IN ? AND is_active = ?",
+			excludedUserIDs, true).
 			Preload("Profile").Preload("Location").
 			Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
 			Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
