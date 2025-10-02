@@ -42,29 +42,7 @@ func GetMeHandler(c *gin.Context) {
 	})
 }
 
-// GetUserHandler returns a specific user's basic info (public data only)
-func GetUserHandler(c *gin.Context) {
-	userIDStr := c.Param("id")
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		c.JSON(400, gin.H{"error": "Invalid user ID"})
-		return
-	}
-
-	var user models.User
-	if err := db.DB.Select("id, created_at, updated_at, is_active").First(&user, uint(userID)).Error; err != nil {
-		c.JSON(404, gin.H{"error": "User not found"})
-		return
-	}
-
-	// Only return public data
-	c.JSON(200, gin.H{
-		"id":        user.ID,
-		"createdAt": user.CreatedAt,
-		"updatedAt": user.UpdatedAt,
-		"isActive":  user.IsActive,
-	})
-}
+// GetUserHandler moved to users.go to enforce access control
 
 // GetUserProfileHandler returns a specific user's profile information
 func GetUserProfileHandler(c *gin.Context) {
@@ -80,6 +58,19 @@ func GetUserProfileHandler(c *gin.Context) {
 	if err := db.DB.Where("id = ? AND is_active = ?", uint(userID), true).First(&user).Error; err != nil {
 		c.JSON(404, gin.H{"error": "User not found"})
 		return
+	}
+
+	// Access control: allow self, connection/pending, or currently recommended
+	viewerID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+	if uint(userID) != viewerID {
+		if !(isConnectedOrPending(viewerID, uint(userID)) || isCurrentlyRecommended(viewerID, uint(userID))) {
+			c.JSON(404, gin.H{"error": "User not found"})
+			return
+		}
 	}
 
 	// Get user's profile
@@ -137,6 +128,19 @@ func GetUserBioHandler(c *gin.Context) {
 	if err := db.DB.Where("id = ? AND is_active = ?", uint(userID), true).First(&user).Error; err != nil {
 		c.JSON(404, gin.H{"error": "User not found"})
 		return
+	}
+
+	// Access control: allow self, connection/pending, or currently recommended
+	viewerID, exists := middleware.GetUserIDFromContext(c)
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+	if uint(userID) != viewerID {
+		if !(isConnectedOrPending(viewerID, uint(userID)) || isCurrentlyRecommended(viewerID, uint(userID))) {
+			c.JSON(404, gin.H{"error": "User not found"})
+			return
+		}
 	}
 
 	// Get user's bio data (hobbies, interests, etc.)

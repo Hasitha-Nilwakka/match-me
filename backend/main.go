@@ -106,7 +106,7 @@ func main() {
 		protected.PUT("/me/online-status", handlers.UpdateOnlineStatusHandler)      // Update online status
 
 		// Other user information endpoints
-		protected.GET("/users/:id", handlers.GetUserHandler)                // Get other user basic info
+		protected.GET("/users/:id", handlers.GetUserHandler)                // Get other user basic info (with access control)
 		protected.GET("/users/:id/profile", handlers.GetUserProfileHandler) // Get other user profile
 		protected.GET("/users/:id/bio", handlers.GetUserBioHandler)         // Get other user bio data
 
