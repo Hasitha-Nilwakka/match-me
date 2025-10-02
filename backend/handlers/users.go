@@ -13,10 +13,7 @@ func GetAllUsersHandler(c *gin.Context) {
 	// Fetch all users from database
 	var users []models.User
 
-	// Filter out seeded users (those with @example.com emails) to show only real users
-	if err := db.DB.Where("is_active = ? AND email NOT LIKE ?", true, "%@example.com").
-		Select("id, email, created_at, updated_at, last_login, is_active").
-		Find(&users).Error; err != nil {
+	if err := db.DB.Find(&users).Error; err != nil {
 		log.Printf("Error fetching users: %v", err)
 		c.JSON(500, gin.H{"error": "Failed to fetch users"})
 		return

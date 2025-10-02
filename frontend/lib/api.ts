@@ -4,7 +4,7 @@
 // Get the API base URL from environment variables
 export const getApiUrl = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
-  const defaultUrl = 'http://10.84.226.21:8080';
+  const defaultUrl = 'http://localhost:8080';
   const finalUrl = envUrl || defaultUrl;
   
   console.log('[API] Environment URL:', envUrl);
