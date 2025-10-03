@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { authApi, connectionsApi } from "../lib/api";
+import { connectionsApi } from "../lib/api";
 
 interface User {
   id: number;
@@ -17,7 +17,7 @@ interface UserSearchBoxProps {
   onCreateChat: (userId: number) => void;
 }
 
-export default function UserSearchBox({ onUserSelect, onCreateChat }: UserSearchBoxProps) {
+export default function UserSearchBox({ onUserSelect }: UserSearchBoxProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);

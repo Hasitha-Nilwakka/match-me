@@ -8,7 +8,7 @@ import PendingRequestsIndicator from "../../components/PendingRequestsIndicator"
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab] = useState("profile");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -322,7 +322,7 @@ export default function ProfilePage() {
           languages: profile.languages || [],
         });
         setSelectedLanguages(profile.languages || []);
-      } catch (error) {
+      } catch {
         console.log('No existing profile found, starting fresh');
         // Profile doesn't exist yet, that's okay
       }
@@ -342,7 +342,7 @@ export default function ProfilePage() {
         if (location.country) {
           loadCities(location.country);
         }
-      } catch (error) {
+      } catch {
         console.log('No existing location found, starting fresh');
         // Location doesn't exist yet, that's okay
       }
@@ -356,7 +356,7 @@ export default function ProfilePage() {
         setSelectedMusicGenres(biographicalData.musicGenres || []);
         setSelectedMovieGenres(biographicalData.movieGenres || []);
         setSelectedTravelTypes(biographicalData.travelTypes || []);
-      } catch (error) {
+      } catch {
         console.log('No existing biographical data found, starting fresh');
         // Biographical data doesn't exist yet, that's okay
       }
@@ -852,6 +852,7 @@ export default function ProfilePage() {
       
       // Save profile data
       console.log('Saving profile data:', profileData);
+      console.log('API URL being used:', process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.118:8080');
       await profileApi.updateMyProfile(profileData);
       console.log('Profile saved successfully');
       
@@ -902,6 +903,7 @@ export default function ProfilePage() {
         };
         
         console.log('Saving biographical data:', biographicalData);
+        console.log('API URL for biographical data:', process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.118:8080');
         const response = await profileApi.updateBiographicalData(biographicalData);
         console.log('Biographical data saved successfully:', response);
       } catch (bioError) {
@@ -951,6 +953,7 @@ export default function ProfilePage() {
         };
         
         console.log('Saving seeking preferences:', seekingData);
+        console.log('API URL for seeking preferences:', process.env.NEXT_PUBLIC_API_URL || 'http://192.168.1.118:8080');
         const response = await profileApi.updateSeekingPreferences(seekingData);
         console.log('Seeking preferences saved successfully:', response);
       } catch (seekingError) {

@@ -5,71 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, connectionsApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
-import { useDataMode } from "../../context/DataModeContext";
 
-// Mock connection request data
-const mockConnectionRequests = [
-  {
-    id: 1,
-    firstName: "Jessica",
-    lastName: "Martinez",
-    city: "Los Angeles",
-    country: "USA",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: true,
-    lastSeen: "5 minutes ago",
-    requestDate: "2024-01-20",
-    message: "Hi! I saw we have similar interests in photography and travel. Would love to connect!"
-  },
-  {
-    id: 2,
-    firstName: "Alex",
-    lastName: "Thompson",
-    city: "Seattle",
-    country: "USA",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: false,
-    lastSeen: "2 hours ago",
-    requestDate: "2024-01-19",
-    message: "Hey there! We both love hiking and outdoor adventures. Let's connect!"
-  },
-  {
-    id: 3,
-    firstName: "Sophie",
-    lastName: "Anderson",
-    city: "Melbourne",
-    country: "Australia",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: true,
-    lastSeen: "1 minute ago",
-    requestDate: "2024-01-18",
-    message: "Hello! I noticed we share a passion for cooking and music. Would be great to chat!"
-  },
-  {
-    id: 4,
-    firstName: "James",
-    lastName: "Wilson",
-    city: "Vancouver",
-    country: "Canada",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: false,
-    lastSeen: "1 day ago",
-    requestDate: "2024-01-17",
-    message: "Hi! We both enjoy reading and coffee. Let's connect and share book recommendations!"
-  },
-  {
-    id: 5,
-    firstName: "Maria",
-    lastName: "Rodriguez",
-    city: "Madrid",
-    country: "Spain",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: true,
-    lastSeen: "10 minutes ago",
-    requestDate: "2024-01-16",
-    message: "Hola! I love your profile and we have so much in common. Let's be friends!"
-  }
-];
 
 interface Request {
   id: number;
@@ -92,21 +28,17 @@ export default function ConnectionRequestsPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const { mode } = useDataMode();
 
   // Load connection requests based on data mode
   const loadRequests = useCallback(async () => {
     try {
       setIsLoading(true);
       
-      if (mode === "mock") {
-        setRequests(mockConnectionRequests);
-      } else {
-        // Real API call
-        const payload = await connectionsApi.getConnectionRequests();
-        const data = Array.isArray(payload) ? payload : (payload?.requests ?? []);
-        // Transform backend data to match frontend interface
-        const transformedRequests: Request[] = data.map((req: { id: number; userId: number; firstName: string; lastName: string; city?: string; country?: string; profilePicture?: string; requestDate: string; status: string }) => ({
+      // Real API call
+      const payload = await connectionsApi.getConnectionRequests();
+      const data = Array.isArray(payload) ? payload : (payload?.requests ?? []);
+      // Transform backend data to match frontend interface
+      const transformedRequests: Request[] = data.map((req: { id: number; userId: number; firstName: string; lastName: string; city?: string; country?: string; profilePicture?: string; requestDate: string; status: string }) => ({
           id: req.id,
           firstName: req.firstName,
           lastName: req.lastName,
@@ -117,21 +49,16 @@ export default function ConnectionRequestsPage() {
           lastSeen: "Recently",
           requestDate: req.requestDate,
           message: "Would like to connect with you!"
-        }));
-        setRequests(transformedRequests);
-      }
+      }));
+      setRequests(transformedRequests);
     } catch (error) {
       console.error('Error loading connection requests:', error);
-      // Only fallback to mock data if in mock mode, otherwise show empty list
-      if (mode === "mock") {
-        setRequests(mockConnectionRequests);
-      } else {
-        setRequests([]);
-      }
+      // Show empty list on error
+      setRequests([]);
     } finally {
       setIsLoading(false);
     }
-  }, [mode]);
+  }, []);
 
   // Check authentication on page load
   useEffect(() => {
@@ -154,17 +81,11 @@ export default function ConnectionRequestsPage() {
 
   const handleAcceptRequest = async (requestId: number) => {
     try {
-      if (mode === "mock") {
-        // Mock mode - just remove from UI
-        setRequests(prev => prev.filter(req => req.id !== requestId));
-        console.log(`Accepted connection request ${requestId} (mock mode)`);
-      } else {
-        // Real API call
-        await connectionsApi.acceptConnection(String(requestId));
-        // Remove from requests after successful API call
-        setRequests(prev => prev.filter(req => req.id !== requestId));
-        console.log(`Accepted connection request ${requestId}`);
-      }
+      // Real API call
+      await connectionsApi.acceptConnection(String(requestId));
+      // Remove from requests after successful API call
+      setRequests(prev => prev.filter(req => req.id !== requestId));
+      console.log(`Accepted connection request ${requestId}`);
     } catch (error) {
       console.error('Error accepting connection request:', error);
       alert('Failed to accept connection request. Please try again.');
@@ -173,17 +94,11 @@ export default function ConnectionRequestsPage() {
 
   const handleRejectRequest = async (requestId: number) => {
     try {
-      if (mode === "mock") {
-        // Mock mode - just remove from UI
-        setRequests(prev => prev.filter(req => req.id !== requestId));
-        console.log(`Rejected connection request ${requestId} (mock mode)`);
-      } else {
-        // Real API call
-        await connectionsApi.rejectConnection(String(requestId));
-        // Remove from requests after successful API call
-        setRequests(prev => prev.filter(req => req.id !== requestId));
-        console.log(`Rejected connection request ${requestId}`);
-      }
+      // Real API call
+      await connectionsApi.rejectConnection(String(requestId));
+      // Remove from requests after successful API call
+      setRequests(prev => prev.filter(req => req.id !== requestId));
+      console.log(`Rejected connection request ${requestId}`);
     } catch (error) {
       console.error('Error rejecting connection request:', error);
       alert('Failed to reject connection request. Please try again.');

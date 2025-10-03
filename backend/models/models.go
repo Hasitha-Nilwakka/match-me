@@ -214,6 +214,10 @@ type Chat struct {
 
 	Connection Connection `gorm:"foreignKey:ConnectionID"`
 	Messages   []Message  `gorm:"foreignKey:ChatID"`
+	// Per-user deletion markers: when set, hide chat for that user and only show
+	// messages created after this timestamp to that user.
+	RequesterDeletedAt *time.Time `gorm:"column:requester_deleted_at"`
+	ReceiverDeletedAt  *time.Time `gorm:"column:receiver_deleted_at"`
 }
 
 // Message model for chat messages

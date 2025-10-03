@@ -4,7 +4,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { authApi, chatApi } from "../../lib/api";
-import { useDataMode } from "../../context/DataModeContext";
 import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
 import ChatSidebar from "../../components/ChatSidebar";
 import UserSearchBox from "../../components/UserSearchBox";
@@ -41,7 +40,6 @@ function ChatsPageContent() {
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [chats, setChats] = useState<Chat[]>([]);
-  const { mode } = useDataMode();
   const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
   const [currentUser, setCurrentUser] = useState<{ id: number; email: string } | null>(null);
   const [messages, setMessages] = useState<Array<{
@@ -85,56 +83,7 @@ function ChatsPageContent() {
     try {
       setIsLoading(true);
       
-      if (mode === "mock") {
-        // Mock data for now
-        const mockChats: Chat[] = [
-          {
-            id: 1,
-            connectionId: 1,
-            createdAt: "2024-01-15T10:30:00Z",
-            updatedAt: "2024-01-15T14:45:00Z",
-            unreadCount: 2,
-            lastMessage: {
-              id: 5,
-              content: "Hey! How's your day going?",
-              senderId: 2,
-              createdAt: "2024-01-15T14:45:00Z",
-              isRead: false,
-              isDelivered: true,
-            },
-            otherUser: {
-              id: 2,
-              name: "Sarah Johnson",
-              profilePicture: "/sitefiles/default-profile-picture.png",
-              isOnline: true
-            }
-          },
-          {
-            id: 2,
-            connectionId: 2,
-            createdAt: "2024-01-14T09:15:00Z",
-            updatedAt: "2024-01-14T16:20:00Z",
-            unreadCount: 0,
-            lastMessage: {
-              id: 8,
-              content: "Thanks for the recommendation!",
-              senderId: 1,
-              createdAt: "2024-01-14T16:20:00Z",
-              isRead: true,
-              isDelivered: true,
-            },
-            otherUser: {
-              id: 3,
-              name: "Mike Chen",
-              profilePicture: "/sitefiles/default-profile-picture.png",
-              isOnline: false,
-              lastSeen: "2024-01-14T18:30:00Z"
-            }
-          }
-        ];
-        
-        setChats(mockChats);
-      } else {
+      {
         // Real API call to GET /chats
         console.log('Loading real chats...');
         const response = await chatApi.getAllChats();
@@ -153,7 +102,7 @@ function ChatsPageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [mode]);
+  }, []);
 
   // Check authentication on page load
   useEffect(() => {

@@ -7,11 +7,39 @@ import (
 	"log"
 	"math/rand"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
+
+// convertToASCII converts Finnish characters to ASCII equivalents for email addresses
+func convertToASCII(input string) string {
+	replacements := map[string]string{
+		"ä": "a", "Ä": "A",
+		"ö": "o", "Ö": "O",
+		"å": "a", "Å": "A",
+		"ü": "u", "Ü": "U",
+		"é": "e", "É": "E",
+		"è": "e", "È": "E",
+		"ê": "e", "Ê": "E",
+		"ë": "e", "Ë": "E",
+		"à": "a", "À": "A",
+		"á": "a", "Á": "A",
+		"â": "a", "Â": "A",
+		"ã": "a", "Ã": "A",
+		"ç": "c", "Ç": "C",
+		"ñ": "n", "Ñ": "N",
+		"ß": "ss",
+	}
+
+	result := input
+	for finnish, ascii := range replacements {
+		result = strings.ReplaceAll(result, finnish, ascii)
+	}
+	return result
+}
 
 // SeedUsersFast uses goroutines for faster seeding
 func SeedUsersFast(userCount int) error {
@@ -154,7 +182,7 @@ func GenerateRandomUser(index int) (*models.User, *models.Profile, *models.Locat
 	firstName := firstNames[rand.Intn(len(firstNames))]
 	lastName := lastNames[rand.Intn(len(lastNames))]
 	email := fmt.Sprintf("%s.%s%d@example.com",
-		firstName, lastName, rand.Intn(1000))
+		convertToASCII(firstName), convertToASCII(lastName), rand.Intn(1000))
 
 	// Hash a default password
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)

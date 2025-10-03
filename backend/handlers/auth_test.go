@@ -21,6 +21,9 @@ func setupRouter() *gin.Engine {
 	r.POST("/auth/register", RegisterHandler)
 	r.POST("/auth/login", LoginHandler)
 
+	// Create a mock hub for testing
+	hub := NewHub()
+
 	// Add protected routes for testing
 	protected := r.Group("/")
 	protected.Use(func(c *gin.Context) {
@@ -61,7 +64,7 @@ func setupRouter() *gin.Engine {
 	protected.DELETE("/connections/:id", DeleteConnectionHandler)
 
 	// Chat endpoints
-	protected.GET("/chats", GetChatsHandler)
+	protected.GET("/chats", GetChatsHandler(hub))
 	protected.GET("/chats/:chatId/messages", GetChatMessagesHandler)
 	protected.POST("/chats/:chatId/messages", CreateChatHandler)
 	protected.PUT("/chats/:chatId/read", MarkMessagesAsReadHandler)

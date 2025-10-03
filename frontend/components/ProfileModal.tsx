@@ -45,20 +45,30 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
         return;
       }
       if (!userId) return;
+      
+      // Check if user is authenticated before making API calls
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError("Please log in to view profiles");
+        setIsLoading(false);
+        return;
+      }
+      
       try {
         setIsLoading(true);
         setError(null);
         
         // Fetch profile and biographical data
         const [profileData, bioData] = await Promise.all([
-          profileApi.getUserProfile(String(userId)),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://10.84.226.21:8080'}/users/${userId}/bio`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-              'Content-Type': 'application/json',
-            },
-          }).then(res => res.ok ? res.json() : null).catch(() => null)
+          profileApi.getUserProfile(String(userId)).catch(() => null), // Gracefully handle profile fetch failures
+          profileApi.getUserBio(String(userId)).catch(() => null) // Gracefully handle bio fetch failures
         ]);
+        
+        // Handle cases where API calls returned null (due to errors)
+        if (!profileData) {
+          setError("Failed to load profile");
+          return;
+        }
         
         // Merge profile and biographical data
         const combinedProfile = {

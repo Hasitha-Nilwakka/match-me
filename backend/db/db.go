@@ -23,6 +23,9 @@ func InitDB() {
 		log.Println("Warning: Could not load .env file, using system environment variables")
 	}
 
+	// Force UTC for all timestamps used by the app
+	time.Local = time.UTC
+
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		log.Fatal("DATABASE_URL environment variable is not set")
@@ -45,7 +48,17 @@ func InitDB() {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	// Note: Database migrations are handled by Prisma in the frontend
-	// GORM is used only for data operations, not schema management
+	// Lightweight compatibility migrations (safe, additive only)
+	// Ensure per-user chat deletion columns exist
+	// These are idempotent and safe to run at startup
+	if err := DB.Exec(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS requester_deleted_at timestamptz NULL`).Error; err != nil {
+		log.Printf("Warning: failed to ensure requester_deleted_at column: %v", err)
+	}
+	if err := DB.Exec(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS receiver_deleted_at timestamptz NULL`).Error; err != nil {
+		log.Printf("Warning: failed to ensure receiver_deleted_at column: %v", err)
+	}
+
+	// Note: Database migrations are handled by Prisma in the frontend; the
+	// additions above are minimal, backward-compatible safeguards.
 	fmt.Println("Database connection established")
 }

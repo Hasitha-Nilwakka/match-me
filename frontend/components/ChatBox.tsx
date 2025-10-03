@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { chatApi } from "../lib/api";
 import UserSearchBox from "./UserSearchBox";
 
 interface Message {

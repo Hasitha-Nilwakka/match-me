@@ -124,19 +124,24 @@ func main() {
 
 		// Real-time chat system endpoints
 		protected.POST("/chats", handlers.CreateChatHandler)                        // Create a new chat
-		protected.GET("/chats", handlers.GetChatsHandler)                           // Get user's chats
+		protected.GET("/chats", handlers.GetChatsHandler(hub))                      // Get user's chats
 		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)   // Get chat messages
 		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler(hub)) // Send new message
 		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler)    // Mark messages as read
 		protected.DELETE("/chats/:chatId", handlers.DeleteChatHandler)              // Delete chat and messages
-		protected.GET("/chats/:chatId/ws", handlers.WebSocketHandler(hub))          // WebSocket connection
 	}
+
+	// WebSocket endpoint (outside protected group - handles auth internally)
+	r.GET("/chats/:chatId/ws", handlers.WebSocketHandler(hub)) // WebSocket connection
 
 	// Server test.html file
 	r.StaticFile("/test", "./test.html")
 
 	// Serve uploaded profile pictures
 	r.Static("/uploads", "./uploads")
+
+	// Admin endpoints (no authentication required)
+	r.DELETE("/users/:id", handlers.DeleteUserHandler) // Delete user (temporary endpoint)
 
 	// Start the HTTP server on port 8080 (accessible from local network)
 	log.Println("Starting Match-Me server on:")

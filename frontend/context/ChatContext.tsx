@@ -5,6 +5,7 @@ interface ChatContextType {
   isChatOpen: boolean;
   openChat: (targetChatId?: number) => void;
   closeChat: () => void;
+  clearTargetChat: () => void;
   unreadCount: number;
   setUnreadCount: (count: number) => void;
   targetChatId: number | null;
@@ -26,11 +27,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setTargetChatId(null);
   };
 
+  const clearTargetChat = () => {
+    setTargetChatId(null);
+  };
+
   return (
     <ChatContext.Provider value={{
       isChatOpen,
       openChat,
       closeChat,
+      clearTargetChat,
       unreadCount,
       setUnreadCount,
       targetChatId

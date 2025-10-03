@@ -36,28 +36,6 @@ type ConnectionsResponse struct {
 	Total       int                  `json:"total"`
 }
 
-// toConnectionResponse converts a models.Connection to a ConnectionResponse
-func toConnectionResponse(conn models.Connection) ConnectionResponse {
-	response := ConnectionResponse{
-		ID:          conn.ID,
-		RequesterID: conn.RequesterID,
-		ReceiverID:  conn.ReceiverID,
-		Status:      conn.Status,
-		CreatedAt:   conn.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		UpdatedAt:   conn.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-	}
-
-	if conn.Requester.Profile != nil {
-		response.RequesterName = conn.Requester.Profile.FirstName + " " + conn.Requester.Profile.LastName
-		response.RequesterProfilePicture = conn.Requester.Profile.ProfilePictureURL
-	}
-	if conn.Receiver.Profile != nil {
-		response.ReceiverName = conn.Receiver.Profile.FirstName + " " + conn.Receiver.Profile.LastName
-		response.ReceiverProfilePicture = conn.Receiver.Profile.ProfilePictureURL
-	}
-	return response
-}
-
 // GetConnectionsHandler returns all user connections with profile information
 func GetConnectionsHandler(c *gin.Context) {
 	// Get current user ID from JWT middleware
@@ -95,23 +73,23 @@ func GetConnectionsHandler(c *gin.Context) {
 		return
 	}
 
-    // Minimal mode: return just connected user IDs
-    if c.Query("minimal") == "true" {
-        var ids []gin.H
-        for _, conn := range connections {
-            var connectedUserID uint
-            if conn.RequesterID == userID {
-                connectedUserID = conn.ReceiverID
-            } else {
-                connectedUserID = conn.RequesterID
-            }
-            ids = append(ids, gin.H{"id": connectedUserID})
-        }
-        c.JSON(http.StatusOK, ids)
-        return
-    }
+	// Minimal mode: return just connected user IDs
+	if c.Query("minimal") == "true" {
+		var ids []gin.H
+		for _, conn := range connections {
+			var connectedUserID uint
+			if conn.RequesterID == userID {
+				connectedUserID = conn.ReceiverID
+			} else {
+				connectedUserID = conn.RequesterID
+			}
+			ids = append(ids, gin.H{"id": connectedUserID})
+		}
+		c.JSON(http.StatusOK, ids)
+		return
+	}
 
-    // Format connections for frontend
+	// Format connections for frontend
 	var formattedConnections []gin.H
 	for _, conn := range connections {
 		// Determine which user is the connected user (not the current user)

@@ -22,6 +22,9 @@ func setupChatRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 
+	// Create a mock hub for testing
+	hub := NewHub()
+
 	// Add protected routes for testing
 	protected := r.Group("/")
 	protected.Use(func(c *gin.Context) {
@@ -29,7 +32,7 @@ func setupChatRouter() *gin.Engine {
 		c.Set("user_id", uint(1))
 		c.Next()
 	})
-	protected.GET("/chats", GetChatsHandler)
+	protected.GET("/chats", GetChatsHandler(hub))
 	protected.GET("/chats/:chatId/messages", GetChatMessagesHandler)
 	protected.POST("/chats/:chatId/messages", SendMessageTestHandler)
 	protected.PUT("/chats/:chatId/read", MarkMessagesAsReadHandler)

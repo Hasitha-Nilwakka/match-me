@@ -29,6 +29,7 @@ export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<{id: number; email: string; isActive: boolean} | null>(null);
 
+
   // Check for existing authentication on page load
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -110,9 +111,9 @@ export default function Home() {
     try {
       const response = await authApi.login(formData.email, formData.password);
       
-      const data = await response.json();
-      
       if (response.ok) {
+        const data = await response.json();
+        
         // Store token and user data
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
@@ -131,11 +132,28 @@ export default function Home() {
         
         console.log('Login successful:', data);
       } else {
-        setErrors({ general: data.error || 'Login failed' });
+        // Handle different HTTP status codes
+        const data = await response.json().catch(() => ({}));
+        
+        if (response.status === 401) {
+          setErrors({ general: 'Invalid email or password. Please try again.' });
+        } else if (response.status === 400) {
+          setErrors({ general: data.error || 'Invalid request. Please check your input.' });
+        } else if (response.status >= 500) {
+          setErrors({ general: 'Server error. Please try again later.' });
+        } else {
+          setErrors({ general: data.error || 'Login failed. Please try again.' });
+        }
       }
     } catch (error) {
-      setErrors({ general: 'Network error. Please try again.' });
       console.error('Login error:', error);
+      
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setErrors({ general: 'Network error. Please check your connection and try again.' });
+      } else {
+        setErrors({ general: 'Login failed. Please try again.' });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -152,18 +170,34 @@ export default function Home() {
     try {
       const response = await authApi.register(formData.email, formData.password);
       
-      const data = await response.json();
-      
       if (response.ok) {
+        const data = await response.json();
         setSuccessMessage('Account created successfully! You can now login.');
         setIsLogin(true);
         setFormData({ email: "", password: "" });
       } else {
-        setErrors({ general: data.error || 'Registration failed' });
+        // Handle different HTTP status codes
+        const data = await response.json().catch(() => ({}));
+        
+        if (response.status === 400) {
+          setErrors({ general: data.error || 'Invalid request. Please check your input.' });
+        } else if (response.status === 409) {
+          setErrors({ general: 'Email already exists. Please use a different email or try logging in.' });
+        } else if (response.status >= 500) {
+          setErrors({ general: 'Server error. Please try again later.' });
+        } else {
+          setErrors({ general: data.error || 'Registration failed. Please try again.' });
+        }
       }
     } catch (error) {
-      setErrors({ general: 'Network error. Please try again.' });
       console.error('Registration error:', error);
+      
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setErrors({ general: 'Network error. Please check your connection and try again.' });
+      } else {
+        setErrors({ general: 'Registration failed. Please try again.' });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -195,6 +229,7 @@ export default function Home() {
       {/* Login panel overlay on the right */}
       <div className="relative z-10 min-h-screen flex items-center justify-end px-8 py-12">
         <div className="w-full max-w-md">
+
 
           {/* Form Container */}
           <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-2xl p-8 border border-white/20">

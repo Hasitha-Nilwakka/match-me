@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { authApi, chatApi } from "../lib/api";
-import { useDataMode } from "../context/DataModeContext";
 import { useChat } from "../context/ChatContext";
 
 interface Message {
@@ -31,29 +30,41 @@ interface Chat {
     createdAt: string;
   };
   otherUser: ChatUser;
+  isTyping?: boolean;
 }
 
 interface ChatPopupProps {
   isOpen: boolean;
   onClose: () => void;
+  onChatDeleted?: (chatId: number) => void;
 }
 
-export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
+export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
   const [activeChat, setActiveChat] = useState<number | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
   const wsRef = useRef<WebSocket | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recentWsAtRef = useRef<number>(0);
   const currentUser = authApi.getCurrentUser();
-  const { mode } = useDataMode();
-  const { targetChatId } = useChat();
+  const mode = "real" as const;
+  const { targetChatId, clearTargetChat } = useChat();
 
   // Debug mode changes for chat popup
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.log('[ChatPopup] Data mode is', mode);
   }, [mode]);
 
@@ -83,6 +94,13 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
     }
   }, [messages]);
 
+  // Auto-scroll when typing indicator appears/disappears
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [otherUserTyping]);
+
   // Live refresh of chats (and online indicators) while popup is open
   useEffect(() => {
     if (!isOpen) return;
@@ -95,9 +113,12 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
 
   // Auto-open target chat when chats are loaded and targetChatId is set
   useEffect(() => {
+    console.log('[ChatPopup] Auto-open useEffect triggered, targetChatId:', targetChatId, 'chats.length:', chats.length);
     if (targetChatId && chats.length > 0) {
       const targetChat = chats.find(chat => chat.id === targetChatId);
+      console.log('[ChatPopup] Found target chat:', targetChat);
       if (targetChat) {
+        console.log('[ChatPopup] Setting activeChat to:', targetChatId);
         setActiveChat(targetChatId);
         loadChatMessages(targetChatId);
       }
@@ -107,120 +128,55 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   // Load user's chats
   const loadChats = async () => {
     try {
-      // eslint-disable-next-line no-console
-      console.log('[ChatPopup] loadChats in mode:', mode);
-      if (mode === "mock") {
-        // eslint-disable-next-line no-console
-        console.log('[ChatPopup] Using MOCK chats');
-        const mockChats: Chat[] = [
-          {
-            id: 1,
-            connectionId: 1,
-            unreadCount: 2,
-            lastMessage: {
-              content: "Hey! How's your day going?",
-              createdAt: "2024-01-15T14:45:00Z"
-            },
-            otherUser: {
-              id: 2,
-              name: "Sarah Johnson",
-              profilePicture: "👤",
-              isOnline: true
-            }
-          },
-          {
-            id: 2,
-            connectionId: 2,
-            unreadCount: 0,
-            lastMessage: {
-              content: "Thanks for the recommendation!",
-              createdAt: "2024-01-14T16:20:00Z"
-            },
-            otherUser: {
-              id: 3,
-              name: "Mike Chen",
-              profilePicture: "👤",
-              isOnline: false,
-              lastSeen: "2024-01-14T18:30:00Z"
-            }
-          }
-        ];
-        setChats(mockChats);
-      } else {
-        // Real API call
-        // eslint-disable-next-line no-console
-        console.log('[ChatPopup] Fetching REAL chats via API');
-        const data = await chatApi.getAllChats();
-        const chatsData = Array.isArray(data) ? data : (data?.chats || []);
-        setChats(chatsData);
+      // Check if user is authenticated before making API calls
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('[ChatPopup] User not authenticated, skipping chat load');
+        setChats([]);
+        return;
       }
+
+      // Real API call
+      const data = await chatApi.getAllChats();
+      console.log('[ChatPopup] Raw API response:', data);
+      const chatsData = Array.isArray(data) ? data : (data?.chats || []);
+      console.log('[ChatPopup] Processed chats data:', chatsData);
+      setChats(chatsData);
     } catch (error) {
       console.error('[ChatPopup] Error loading chats:', error);
-      // In live mode, do not fallback to mock data
-      if (mode === "mock") {
-        const mockChats: Chat[] = [];
-        setChats(mockChats);
-      } else {
-        setChats([]);
-      }
+      // Show empty chats on error
+      setChats([]);
     }
   };
 
   // Load messages for a specific chat
   const loadChatMessages = async (chatId: number) => {
     try {
-      if (mode === "mock") {
-        const mockMessages: Message[] = [
-          {
-            id: 1,
-            chatId: chatId,
-            senderId: 2,
-            content: "Hi there! Nice to meet you!",
-            isRead: true,
-            createdAt: "2024-01-15T10:30:00Z",
-            senderName: "Sarah Johnson"
-          },
-          {
-            id: 2,
-            chatId: chatId,
-            senderId: currentUser?.id || 1,
-            content: "Hey! Nice to meet you too. How are you doing?",
-            isRead: true,
-            createdAt: "2024-01-15T10:32:00Z",
-            senderName: "You"
-          },
-          {
-            id: 3,
-            chatId: chatId,
-            senderId: 2,
-            content: "I'm doing great! Just got back from a hiking trip.",
-            isRead: true,
-            createdAt: "2024-01-15T10:35:00Z",
-            senderName: "Sarah Johnson"
-          }
-        ];
-        setMessages(mockMessages);
-      } else {
-        // Real API call
-        const data = await chatApi.getChatMessages(chatId.toString());
-        const messagesData = Array.isArray(data) ? data : (data?.messages || []);
-        setMessages(messagesData);
-      }
+      // Real API call
+      const data = await chatApi.getChatMessages(chatId.toString());
+      console.log('[ChatPopup] Raw messages API response for chat', chatId, ':', data);
+      const messagesData = Array.isArray(data) ? data : (data?.messages || []);
+      console.log('[ChatPopup] Processed messages data:', messagesData);
+      // Sort messages by creation time (oldest first)
+      const sortedMessages = messagesData.sort((a: { createdAt: string }, b: { createdAt: string }) => 
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      console.log('[ChatPopup] Sorted messages:', sortedMessages);
+      setMessages(sortedMessages);
     } catch (error) {
       console.error('Error loading messages:', error);
-      if (mode === "mock") {
-        setMessages([]);
-      } else {
-        setMessages([]);
-      }
+      setMessages([]);
     }
   };
 
   // Open a specific chat
   const openChat = (chatId: number) => {
+    console.log('[ChatPopup] openChat called with chatId:', chatId);
     setActiveChat(chatId);
     setIsMinimized(false);
     loadChatMessages(chatId);
+    // Refresh chat list to ensure new chats appear
+    loadChats();
     // Mark as read immediately when opening and zero unread locally
     chatApi.markAsRead(chatId.toString())
       .then(() => {
@@ -231,39 +187,90 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
 
   // WebSocket connection for active chat
   useEffect(() => {
+    console.log('[ChatPopup] WebSocket useEffect triggered, activeChat:', activeChat);
+    console.log('[ChatPopup] isOpen:', isOpen);
+    console.log('[ChatPopup] chats.length:', chats.length);
+    
     // Cleanup any existing connection
     if (wsRef.current) {
       try { wsRef.current.close(); } catch { /* noop */ }
       wsRef.current = null;
     }
 
-    if (!activeChat) return;
+    if (!activeChat) {
+      console.log('[ChatPopup] No active chat, skipping WebSocket setup');
+      return;
+    }
+    
+    console.log('[ChatPopup] Setting up WebSocket for chat:', activeChat);
+    console.log('[ChatPopup] Current user ID:', currentUser?.id);
+    console.log('[ChatPopup] Token exists:', !!localStorage.getItem('token'));
+    
     try {
-      const ws = chatApi.createWebSocketConnection(activeChat.toString(), (incoming: unknown) => {
-        // Expecting ChatMessage shape
-        const msg = incoming as Message;
-        if (!msg || typeof msg !== 'object') return;
-        setMessages(prev => [...prev, {
-          id: (msg as any).id,
-          chatId: activeChat,
-          senderId: (msg as any).senderId,
-          content: (msg as any).content,
-          isRead: Boolean((msg as any).isRead),
-          createdAt: (msg as any).createdAt,
-          senderName: (msg as any).senderName,
-        }]);
+      const ws = chatApi.createWebSocketConnection(
+        activeChat.toString(), 
+        (incoming: unknown) => {
+          console.log('[ChatPopup] WebSocket message received:', incoming);
+          console.log('[ChatPopup] WebSocket connection state:', ws?.readyState);
+          
+          // Expecting ChatMessage shape
+          const msg = incoming as Message;
+          if (!msg || typeof msg !== 'object') {
+            console.log('[ChatPopup] Invalid message format:', msg);
+            return;
+          }
+          
+          console.log('[ChatPopup] Adding message to state:', msg);
+          setMessages(prev => {
+            // Check if message already exists to avoid duplicates
+            const exists = prev.some(m => m.id === msg.id);
+            if (exists) {
+              console.log('[ChatPopup] Message already exists, skipping:', msg.id);
+              return prev;
+            }
+            const newMessage = {
+              id: msg.id,
+              chatId: activeChat,
+              senderId: msg.senderId,
+              content: msg.content,
+              isRead: Boolean(msg.isRead),
+              createdAt: msg.createdAt,
+              senderName: msg.senderName,
+            };
+            // Insert in correct sorted position (oldest first)
+            const updated = [...prev, newMessage];
+            recentWsAtRef.current = Date.now();
+            return updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          });
 
-        // If the incoming message belongs to the active chat and is from the other user,
-        // immediately mark as read and keep unread badge at zero
-        const fromOtherUser = (msg as any).senderId !== currentUser?.id;
-        if (fromOtherUser) {
-          chatApi.markAsRead(activeChat.toString()).catch(() => {});
+          // If the incoming message belongs to the active chat and is from the other user,
+          // immediately mark as read and keep unread badge at zero
+          const fromOtherUser = msg.senderId !== currentUser?.id;
+          if (fromOtherUser) {
+            chatApi.markAsRead(activeChat.toString()).catch(() => {});
+          }
+          setChats(prev => prev.map(c => c.id === activeChat ? { ...c, unreadCount: 0 } : c));
+        },
+        (typingData: unknown) => {
+          const data = typingData as { isTyping: boolean; userId: number; chatId: number };
+          if (data && data.userId !== currentUser?.id) {
+            setOtherUserTyping(data.isTyping);
+            
+            // Update typing status in chat list
+            setChats(prev => {
+              const updated = prev.map(chat => 
+                chat.id === data.chatId 
+                  ? { ...chat, isTyping: data.isTyping }
+                  : chat
+              );
+              return updated;
+            });
+          }
         }
-        setChats(prev => prev.map(c => c.id === activeChat ? { ...c, unreadCount: 0 } : c));
-      });
+      );
       wsRef.current = ws;
     } catch (error) {
-      console.error('Failed to open WebSocket for chat', activeChat, error);
+      console.error('[ChatPopup] Failed to open WebSocket for chat', activeChat, error);
     }
 
     return () => {
@@ -272,7 +279,13 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
         wsRef.current = null;
       }
     };
-  }, [activeChat]);
+  }, [activeChat, currentUser?.id]);
+
+  // Disabled polling - using WebSocket only for real-time updates
+  // useEffect(() => {
+  //   if (!activeChat || !isOpen) return;
+  //   // Polling disabled to prevent message order conflicts
+  // }, [activeChat, isOpen]);
 
   // Delete a chat
   const handleDeleteChat = async (chatId: number, e: React.MouseEvent) => {
@@ -288,11 +301,16 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
       // Remove chat from local state
       setChats(prev => prev.filter(chat => chat.id !== chatId));
       
-      // If this was the active chat, close it
+      // If this was the active chat, close it and clear targetChatId
       if (activeChat === chatId) {
         setActiveChat(null);
         setMessages([]);
+        // Clear the targetChatId from context so new chats can be opened
+        clearTargetChat();
       }
+      
+      // Notify parent component that chat was deleted
+      onChatDeleted?.(chatId);
       
       console.log('Chat deleted successfully');
     } catch (error) {
@@ -305,34 +323,92 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || isSending || !activeChat) return;
 
+    const messageContent = newMessage.trim();
+    setNewMessage(""); // Clear input immediately for better UX
+
+    // Stop typing indicator
+    if (isTyping) {
+      setIsTyping(false);
+      chatApi.sendTypingIndicator(wsRef.current!, false);
+    }
+    
+    // Clear typing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
     try {
       setIsSending(true);
       
-      if (mode === "mock") {
-        const mockMessage: Message = {
-          id: Date.now(),
-          chatId: activeChat,
-          senderId: currentUser?.id || 1,
-          content: newMessage,
-          isRead: false,
-          createdAt: new Date().toISOString(),
-          senderName: "You"
-        };
-        
-        setMessages(prev => [...prev, mockMessage]);
-        setNewMessage("");
-      } else {
-        // Real API call
-        const sentMessage = await chatApi.sendMessage(activeChat.toString(), newMessage);
-        setMessages(prev => [...prev, sentMessage]);
-        setNewMessage("");
+      // Real API call
+      const sentMessage = await chatApi.sendMessage(activeChat.toString(), messageContent);
+      console.log('Message sent successfully:', sentMessage);
+      
+      // Add message to local state immediately with server response data
+      if (sentMessage && sentMessage.data) {
+        const serverMessage = sentMessage.data;
+        setMessages(prev => {
+          // Check if already exists to avoid duplicates
+          const exists = prev.some(m => m.id === serverMessage.id);
+          if (exists) {
+            return prev;
+          }
+          const newMessage = {
+            id: serverMessage.id,
+            chatId: activeChat,
+            senderId: serverMessage.senderId,
+            content: serverMessage.content,
+            isRead: Boolean(serverMessage.isRead),
+            createdAt: serverMessage.createdAt,
+            senderName: serverMessage.senderName,
+          };
+          // Insert in correct sorted position (oldest first)
+          const updated = [...prev, newMessage];
+          return updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        });
       }
       
     } catch (error) {
       console.error('Error sending message:', error);
+      // Restore message if sending failed
+      setNewMessage(messageContent);
+      alert('Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
     }
+  };
+
+  // Handle typing indicator
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    
+    if (!isTyping && e.target.value.trim()) {
+      console.log('[ChatPopup] Starting typing indicator');
+      setIsTyping(true);
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        chatApi.sendTypingIndicator(wsRef.current, true);
+        console.log('[ChatPopup] Sent typing start via WebSocket');
+      } else {
+        console.log('[ChatPopup] WebSocket not ready, cannot send typing indicator');
+      }
+    }
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set timeout to stop typing indicator
+    typingTimeoutRef.current = setTimeout(() => {
+      if (isTyping) {
+        console.log('[ChatPopup] Stopping typing indicator (timeout)');
+        setIsTyping(false);
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          chatApi.sendTypingIndicator(wsRef.current, false);
+          console.log('[ChatPopup] Sent typing stop via WebSocket');
+        }
+      }
+    }, 1000);
   };
 
   // Handle Enter key
@@ -343,48 +419,38 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
     }
   };
 
-  // Format time for message timestamps
-  const formatTime = (dateString: string) => {
-    if (!dateString) return "Just now";
-    
-    const date = new Date(dateString);
-    
-    // Check if the date is valid
-    if (isNaN(date.getTime())) {
-      return "Just now";
-    }
-    
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 1) {
-      return "Just now";
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
+
+  // Robust date parsing: respect provided timezone; if none, treat as local
+  const parseServerDate = (dateString: string) => {
+    if (!dateString) return null as unknown as Date;
+    // If backend includes timezone (Z or +hh:mm) use it; otherwise parse as local time
+    return new Date(dateString);
   };
 
   // Format time for clock display (HH:MM)
   const formatClockTime = (dateString: string) => {
     if (!dateString) return "";
     
-    const date = new Date(dateString);
+    const date = parseServerDate(dateString);
     
     // Check if the date is valid
     if (isNaN(date.getTime())) {
       return "";
     }
     
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    // Use local timezone instead of 'en-US' to get correct timezone
+    return date.toLocaleTimeString(undefined, { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false // Use 24-hour format
+    });
   };
 
   // Format date for date separators
   const formatDateSeparator = (dateString: string) => {
     if (!dateString) return "";
     
-    const date = new Date(dateString);
+    const date = parseServerDate(dateString);
     
     // Check if the date is valid
     if (isNaN(date.getTime())) {
@@ -402,7 +468,7 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
     } else if (messageDate.getTime() === yesterday.getTime()) {
       return "Yesterday";
     } else {
-      return date.toLocaleDateString('en-US', { 
+      return date.toLocaleDateString(undefined, { 
         weekday: 'long', 
         year: 'numeric', 
         month: 'long', 
@@ -415,8 +481,8 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
   const isDifferentDay = (date1: string, date2: string) => {
     if (!date1 || !date2) return true;
     
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
+    const d1 = parseServerDate(date1);
+    const d2 = parseServerDate(date2);
     
     if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return true;
     
@@ -513,7 +579,7 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
                     const safeMessages = Array.isArray(messages) ? messages.filter((m) => !!m) : [];
                     return safeMessages
                       .slice()
-                      .reverse() // Reverse to show oldest first
+                      // Don't reverse - show newest at bottom (oldest first)
                       .map((message, index, reversedMessages) => {
                       const isOwnMessage = message.senderId === currentUser?.id;
                       const clockTime = formatClockTime(message.createdAt);
@@ -571,6 +637,23 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
                       );
                     });
                   })()}
+                  
+                  {/* Typing Indicator */}
+                  {otherUserTyping && (
+                    <div className="flex justify-start mb-2">
+                      <div className="bg-gray-200 rounded-lg px-3 py-2 max-w-xs">
+                        <div className="flex items-center space-x-1">
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                          </div>
+                          <span className="text-xs text-gray-500 ml-2">typing...</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -580,7 +663,7 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
                     <input
                       type="text"
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                      onChange={handleTyping}
                       onKeyPress={handleKeyPress}
                       placeholder="Type a message..."
                       className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -653,11 +736,15 @@ export default function ChatPopup({ isOpen, onClose }: ChatPopupProps) {
                                 </button>
                               </div>
                             </div>
-                            {chat.lastMessage && (
+                            {chat.isTyping ? (
+                              <p className="text-xs text-blue-600 italic">
+                                {chat.otherUser.name} is typing...
+                              </p>
+                            ) : chat.lastMessage ? (
                               <p className="text-xs text-gray-600 truncate">
                                 {chat.lastMessage.content}
                               </p>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </div>

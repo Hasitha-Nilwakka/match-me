@@ -114,7 +114,8 @@ func LoginHandler(c *gin.Context) {
 	// Set user as online
 	var onlineStatus models.OnlineStatus
 	err = db.DB.Where("user_id = ?", user.ID).First(&onlineStatus).Error
-	if err == gorm.ErrRecordNotFound {
+	switch err {
+	case gorm.ErrRecordNotFound:
 		// Create new online status record
 		onlineStatus = models.OnlineStatus{
 			UserID:   user.ID,
@@ -124,14 +125,14 @@ func LoginHandler(c *gin.Context) {
 		if err := db.DB.Create(&onlineStatus).Error; err != nil {
 			log.Printf("Error creating online status: %v", err)
 		}
-	} else if err == nil {
+	case nil:
 		// Update existing online status
 		onlineStatus.IsOnline = true
 		onlineStatus.LastSeen = now
 		if err := db.DB.Save(&onlineStatus).Error; err != nil {
 			log.Printf("Error updating online status: %v", err)
 		}
-	} else {
+	default:
 		log.Printf("Error fetching online status: %v", err)
 	}
 

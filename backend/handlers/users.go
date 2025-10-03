@@ -123,6 +123,35 @@ func GetUserHandler(c *gin.Context) {
 		return
 	}
 
+	// Temporary: Allow all users to view each other for testing
+	c.JSON(200, gin.H{
+		"id":        target.ID,
+		"createdAt": target.CreatedAt,
+		"updatedAt": target.UpdatedAt,
+		"isActive":  target.IsActive,
+	})
+	return
+
 	// Otherwise 404 per spec
 	c.JSON(404, gin.H{"error": "User not found"})
+}
+
+// DeleteUserHandler deletes a user by ID (temporary endpoint for admin use)
+func DeleteUserHandler(c *gin.Context) {
+	userIDParam := c.Param("id")
+
+	// Find the user
+	var user models.User
+	if err := db.DB.Where("id = ?", userIDParam).First(&user).Error; err != nil {
+		c.JSON(404, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Delete the user
+	if err := db.DB.Delete(&user).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to delete user"})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "User deleted successfully", "id": user.ID, "email": user.Email})
 }

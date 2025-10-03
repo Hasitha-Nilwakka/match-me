@@ -3,25 +3,10 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, profileApi, recommendationsApi, getApiUrl, connectionsApi } from "../../lib/api";
+import { authApi, profileApi, recommendationsApi, connectionsApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
 import DataModeToggle from "../../components/DataModeToggle";
-import { useDataMode } from "../../context/DataModeContext";
 
-type Profile = {
-  firstName?: string;
-  lastName?: string;
-  aboutMe?: string;
-  gender?: string;
-  status?: string;
-  relationshipStatus?: string;
-  languages?: string[];
-  hobbies?: string[];
-  interests?: string[];
-  city?: string;
-  country?: string;
-  profilePictureURL?: string;
-};
 
 interface Recommendation {
   id: number;
@@ -52,7 +37,7 @@ interface Recommendation {
 }
 
 export default function FrontPage() {
-  const { mode } = useDataMode();
+  const mode = "real" as const;
   
   // Debug: Log mode changes
   useEffect(() => {
@@ -73,7 +58,6 @@ export default function FrontPage() {
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [selectedProfileInitial, setSelectedProfileInitial] = useState<Profile | null>(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -149,44 +133,37 @@ export default function FrontPage() {
     };
   }, [isAuthenticated]);
 
-  // Reload recommendations when data mode changes
+  // Reload recommendations when authenticated and profile available
   useEffect(() => {
     if (isAuthenticated && userProfile) {
       loadRecommendations();
     }
-  }, [mode, isAuthenticated, userProfile]);
+  }, [isAuthenticated, userProfile]);
 
 
   // Load recommendations
   const loadRecommendations = async () => {
     try {
+      // Check if user is authenticated before making API calls
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('[FrontPage] User not authenticated, skipping recommendations load');
+        setRecommendations([]);
+        return;
+      }
+
       setIsLoadingRecommendations(true);
       console.log('Loading recommendations in mode:', mode);
       console.log('Mode type:', typeof mode, 'Mode value:', mode);
+      
       let recData: { recommendations: { id: number; score: number }[] };
-      if (mode === "mock") {
-        console.log('✅ TAKING MOCK BRANCH - Using mock recommendations data');
-        // simple mock set - using high IDs to avoid conflicts with real users
-        recData = {
-          recommendations: [
-            { id: 99991, score: 92 },
-            { id: 99992, score: 88 },
-          ],
-        };
-        console.log('Mock recData:', recData);
-      } else {
-        console.log('✅ TAKING REAL BRANCH - Fetching real recommendations from API');
+      try {
         recData = await recommendationsApi.getRecommendations();
-        console.log('Real recommendations data:', recData);
-        console.log('Number of real recommendations:', recData.recommendations?.length || 0);
-        console.log('Real recommendation IDs:', recData.recommendations?.map((r: {id: number; score: number}) => r.id) || []);
-        
-        // Check if real API is returning mock IDs (this would be a backend issue)
-        const mockIds = [99991, 99992];
-        const hasMockIds = recData.recommendations?.some((r: {id: number; score: number}) => mockIds.includes(r.id));
-        if (hasMockIds) {
-          console.error('🚨 BACKEND ISSUE: Real API is returning mock IDs!', recData.recommendations);
-        }
+      } catch (error) {
+        console.error('Failed to fetch recommendations:', error);
+        setRecommendations([]);
+        setCurrentRecommendationIndex(0);
+        return;
       }
     
     // Check if we have any recommendations to process
@@ -203,27 +180,28 @@ export default function FrontPage() {
           try {
             let userInfo, userProfile, userBio;
             
-            if (mode === "mock") {
-              console.log(`🔵 MOCK USER DETAILS for user ${rec.id}`);
-              userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
-              userProfile = { firstName: "Mock", lastName: `User ${rec.id}`, aboutMe: "This is a mock profile for testing purposes", gender: "N/A", status: "mock" };
-              userBio = { interests: ["music"], hobbies: ["hiking"], musicGenres: ["rock"], movieGenres: ["drama"], foodPreferences: ["vegan"], travelTypes: ["roadtrip"], languages: ["English"] };
-            } else {
+            {
               console.log(`🔴 REAL USER DETAILS for user ${rec.id}`);
               console.log(`Fetching real user details for user ${rec.id}`);
               try {
+                // Use proper API functions instead of direct fetch calls
                 [userInfo, userProfile, userBio] = await Promise.all([
-                  fetch(`${getApiUrl()}/users/${rec.id}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                  }).then(r => r.json()),
-                  fetch(`${getApiUrl()}/users/${rec.id}/profile`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                  }).then(r => r.json()),
-                  fetch(`${getApiUrl()}/users/${rec.id}/bio`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                  }).then(r => r.json())
+                  authApi.getUserById(String(rec.id)).catch(() => null), // Gracefully handle user fetch failures
+                  profileApi.getUserProfile(String(rec.id)).catch(() => null), // Gracefully handle profile fetch failures
+                  profileApi.getUserBio(String(rec.id)).catch(() => null) // Gracefully handle bio fetch failures
                 ]);
                 console.log(`Successfully fetched details for user ${rec.id}:`, { userInfo, userProfile, userBio });
+                
+                // Handle cases where API calls returned null (due to errors)
+                if (!userInfo) {
+                  userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
+                }
+                if (!userProfile) {
+                  userProfile = { firstName: "Error", lastName: `User ${rec.id}`, aboutMe: "Failed to load profile", gender: "N/A", status: "error" };
+                }
+                if (!userBio) {
+                  userBio = { interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] };
+                }
               } catch (fetchError) {
                 console.error(`Failed to fetch details for user ${rec.id}:`, fetchError);
                 // Fallback to mock data if real fetch fails
@@ -354,7 +332,7 @@ export default function FrontPage() {
         userId={mode === "real" ? selectedUserId : null}
         isOpen={isProfileOpen}
         onClose={() => setIsProfileOpen(false)}
-        initialProfile={mode === "mock" ? selectedProfileInitial : null}
+        initialProfile={null}
       />
       {/* Top Navigation Menu */}
       <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
@@ -769,23 +747,8 @@ export default function FrontPage() {
                   onClick={() => {
                     const currentRec = recommendations[currentRecommendationIndex];
                     if (!currentRec) return;
-                    if (mode === "mock") {
-                      setSelectedProfileInitial({
-                        firstName: currentRec.profile?.firstName,
-                        lastName: currentRec.profile?.lastName,
-                        aboutMe: currentRec.profile?.aboutMe,
-                        gender: currentRec.profile?.gender,
-                        status: currentRec.profile?.status,
-                        languages: currentRec.bio?.languages ?? [],
-                        hobbies: currentRec.bio?.hobbies ?? [],
-                        interests: currentRec.bio?.interests ?? [],
-                        profilePictureURL: currentRec.profilePictureURL || "/sitefiles/default-profile-picture.png",
-                      });
-                      setIsProfileOpen(true);
-                    } else {
-                      setSelectedUserId(currentRec.id);
-                      setIsProfileOpen(true);
-                    }
+                    setSelectedUserId(currentRec.id);
+                    setIsProfileOpen(true);
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition mb-6"
                 >

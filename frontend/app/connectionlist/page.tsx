@@ -3,69 +3,10 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, connectionsApi } from "../../lib/api";
+import { authApi, connectionsApi, chatApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
-import { useDataMode } from "../../context/DataModeContext";
 import { useChat } from "../../context/ChatContext";
 
-// Mock connection data
-const mockConnections = [
-  {
-    id: 1,
-    firstName: "Sarah",
-    lastName: "Johnson",
-    city: "San Francisco",
-    country: "USA",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: true,
-    lastSeen: "2 minutes ago",
-    connectionDate: "2024-01-15"
-  },
-  {
-    id: 2,
-    firstName: "Michael",
-    lastName: "Chen",
-    city: "New York",
-    country: "USA",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: false,
-    lastSeen: "1 hour ago",
-    connectionDate: "2024-01-10"
-  },
-  {
-    id: 3,
-    firstName: "Emma",
-    lastName: "Williams",
-    city: "London",
-    country: "UK",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: true,
-    lastSeen: "5 minutes ago",
-    connectionDate: "2024-01-08"
-  },
-  {
-    id: 4,
-    firstName: "David",
-    lastName: "Brown",
-    city: "Toronto",
-    country: "Canada",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: false,
-    lastSeen: "3 hours ago",
-    connectionDate: "2024-01-05"
-  },
-  {
-    id: 5,
-    firstName: "Lisa",
-    lastName: "Garcia",
-    city: "Barcelona",
-    country: "Spain",
-    profilePicture: "/sitefiles/default-profile-picture.png",
-    isOnline: true,
-    lastSeen: "1 minute ago",
-    connectionDate: "2024-01-03"
-  }
-];
 
 interface Connection {
   id: number;
@@ -90,19 +31,17 @@ export default function ConnectionListPage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [startingChatId, setStartingChatId] = useState<number | null>(null);
-  const { mode } = useDataMode();
   const { openChat } = useChat();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const currentUser = authApi.getCurrentUser();
+
 
   // Load connections based on data mode
   const loadConnections = useCallback(async () => {
     try {
       setIsLoading(true);
       
-      if (mode === "mock") {
-        setConnections(mockConnections);
-      } else {
-        // Real API call
+      // Real API call
         const response = await connectionsApi.getConnections();
         console.log('Connections API response:', response);
         
@@ -131,6 +70,8 @@ export default function ConnectionListPage() {
           const transformedConnections: Connection[] = connectionsData.map((conn: {
             id: number;
             userId?: number;
+            requesterId?: number;
+            receiverId?: number;
             requesterName?: string;
             receiverName?: string;
             firstName?: string;
@@ -143,11 +84,24 @@ export default function ConnectionListPage() {
             createdAt?: string;
             connectionDate?: string;
             chatId?: number;
-            requester?: { profile?: { city?: string; country?: string; profilePictureURL?: string } };
-            receiver?: { profile?: { city?: string; country?: string; profilePictureURL?: string } };
+            requester?: { id?: number; profile?: { city?: string; country?: string; profilePictureURL?: string } };
+            receiver?: { id?: number; profile?: { city?: string; country?: string; profilePictureURL?: string } };
           }) => ({
             id: conn.id,
-            userId: conn.userId, // This is the actual user ID for chat creation
+            // Determine counterpart userId robustly
+            userId: (() => {
+              // If API already provides userId, prefer it
+              if (conn.userId) return conn.userId;
+              // Try nested requester/receiver with IDs
+              const meId = currentUser?.id;
+              const reqId = conn.requester?.id ?? conn.requesterId;
+              const recId = conn.receiver?.id ?? conn.receiverId;
+              if (meId && reqId && recId) {
+                return meId === reqId ? recId : reqId;
+              }
+              // Fallback: undefined
+              return undefined;
+            })(),
             firstName: conn.requesterName || conn.receiverName || conn.firstName || "Unknown",
             lastName: conn.lastName || "",
             city: conn.requester?.profile?.city || conn.receiver?.profile?.city || conn.city || "Unknown",
@@ -164,19 +118,14 @@ export default function ConnectionListPage() {
           console.log('No connections found in response');
           setConnections([]);
         }
-      }
     } catch (error) {
       console.error('Error loading connections:', error);
-      // Only fallback to mock data if in mock mode, otherwise show empty list
-      if (mode === "mock") {
-        setConnections(mockConnections);
-      } else {
-        setConnections([]);
-      }
+      // Show empty list on error
+      setConnections([]);
     } finally {
       setIsLoading(false);
     }
-  }, [mode]);
+  }, []);
 
   // Check authentication on page load
   useEffect(() => {
@@ -186,7 +135,7 @@ export default function ConnectionListPage() {
       setIsAuthenticated(true);
       loadConnections();
     }
-  }, [router, mode, loadConnections]);
+  }, [router, loadConnections]);
 
   const handleLogout = async () => {
     await authApi.logout();
@@ -198,23 +147,40 @@ export default function ConnectionListPage() {
   };
 
   const handleStartChat = async (connection: Connection) => {
+    console.log('[ConnectionList] handleStartChat called with:', connection);
     try {
+      console.log('[ConnectionList] Inside try block, setting startingChatId...');
       setStartingChatId(connection.id);
       
-      if (mode === "mock") {
-        // For mock mode, just open the chat popup
-        openChat();
-      } else {
-        // For real mode, we need to find the chat ID for this connection
-        // Since the backend doesn't return chatId yet, we'll use a workaround
-        // We'll open the chat popup and let the user select the chat
-        // TODO: Once backend returns chatId, we can pass it directly
-        openChat();
+      // Always create a new chat to ensure it works after deletion
+      console.log('[ConnectionList] Always creating new chat (ignoring existing chatId if any)');
+
+      // Otherwise, create (or fetch existing) chat with this user, then open it
+      console.log('[ConnectionList] StartChat clicked, connection:', connection);
+      console.log('[ConnectionList] Checking userId...', connection.userId);
+      if (!connection.userId) {
+        console.error('[ConnectionList] Missing userId for connection', connection.id);
+        alert('Cannot start chat: missing user id for this connection. Please refresh and try again.');
+        return;
       }
+      console.log('[ConnectionList] userId check passed, proceeding...');
+
+      console.log('[ConnectionList] Creating chat with userId:', connection.userId);
+      console.log('[ConnectionList] About to call chatApi.createChat...');
+      const res = await chatApi.createChat(connection.userId);
+      console.log('[ConnectionList] Create chat response:', res);
+      const newChatId = res?.data?.chat?.id ?? res?.chat?.id ?? res?.id;
+      if (!newChatId) {
+        console.error('Create chat response did not include id:', res);
+        throw new Error('Failed to create or fetch chat (no id in response)');
+      }
+
+      openChat(newChatId);
       
     } catch (error: unknown) {
-      console.error('Error starting chat:', error);
-      alert('Failed to start chat. Please try again.');
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('Error starting chat:', message, error);
+      alert(`Failed to start chat: ${message}`);
     } finally {
       setStartingChatId(null);
     }
@@ -568,7 +534,15 @@ export default function ConnectionListPage() {
                         </button>
                         
                         <button
-                          onClick={() => handleStartChat(connection)}
+                          onClick={() => {
+                            console.log('[ConnectionList] BUTTON CLICKED!');
+                            console.log('[ConnectionList] DEBUG: Starting chat with connection:', connection);
+                            console.log('[ConnectionList] DEBUG: connection.userId:', connection.userId);
+                            console.log('[ConnectionList] DEBUG: startingChatId:', startingChatId);
+                            console.log('[ConnectionList] DEBUG: connection.id:', connection.id);
+                            console.log('[ConnectionList] DEBUG: disabled?', startingChatId === connection.id);
+                            handleStartChat(connection);
+                          }}
                           disabled={startingChatId === connection.id}
                           className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1 order-1 sm:order-2"
                         >
