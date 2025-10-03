@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { chatApi } from "../lib/api";
 
 interface ChatUser {
@@ -42,6 +42,7 @@ export default function ChatSidebar({
   currentUserId
 }: ChatSidebarProps) {
   const [deletingChatId, setDeletingChatId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleDeleteChat = async (chatId: number, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent chat selection when clicking delete
@@ -77,23 +78,74 @@ export default function ChatSidebar({
     return message.substring(0, maxLength) + "...";
   };
 
+  // Filter chats based on search query
+  const filteredChats = useMemo(() => {
+    if (!searchQuery.trim()) return chats;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return chats.filter(chat => {
+      // Search in user name
+      const userNameMatch = chat.otherUser.name.toLowerCase().includes(query);
+      
+      // Search in last message content
+      const messageMatch = chat.lastMessage?.content.toLowerCase().includes(query) || false;
+      
+      return userNameMatch || messageMatch;
+    });
+  }, [chats, searchQuery]);
+
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">Chats</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Chats</h2>
+        
+        {/* Search Box */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            placeholder="Search chats..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto">
-        {chats.length === 0 ? (
+        {filteredChats.length === 0 ? (
           <div className="p-4 text-center text-gray-500">
-            <p>No chats yet</p>
-            <p className="text-sm mt-1">Start a conversation with someone!</p>
+            {searchQuery ? (
+              <>
+                <p>No chats found</p>
+                <p className="text-sm mt-1">Try a different search term</p>
+              </>
+            ) : (
+              <>
+                <p>No chats yet</p>
+                <p className="text-sm mt-1">Start a conversation with someone!</p>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-1 p-2">
-            {chats.map((chat) => (
+            {filteredChats.map((chat) => (
               <div
                 key={chat.id}
                 onClick={() => onChatSelect(chat.id)}

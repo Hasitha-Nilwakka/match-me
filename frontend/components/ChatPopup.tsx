@@ -48,6 +48,10 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
   const [isMinimized, setIsMinimized] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [messageSearchQuery, setMessageSearchQuery] = useState("");
+  const [showMessageSearch, setShowMessageSearch] = useState(false);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -121,9 +125,11 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
         console.log('[ChatPopup] Setting activeChat to:', targetChatId);
         setActiveChat(targetChatId);
         loadChatMessages(targetChatId);
+        // Clear the targetChatId after opening to prevent auto-opening on subsequent popup opens
+        clearTargetChat();
       }
     }
-  }, [targetChatId, chats]);
+  }, [targetChatId, chats, clearTargetChat]);
 
   // Load user's chats
   const loadChats = async () => {
@@ -286,6 +292,103 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
   //   if (!activeChat || !isOpen) return;
   //   // Polling disabled to prevent message order conflicts
   // }, [activeChat, isOpen]);
+
+  // Filter chats based on search query
+  const filteredChats = React.useMemo(() => {
+    if (!chatSearchQuery.trim()) return chats;
+    
+    const query = chatSearchQuery.toLowerCase().trim();
+    return chats.filter(chat => {
+      // Search in user name
+      const userNameMatch = chat.otherUser.name.toLowerCase().includes(query);
+      
+      // Search in last message content
+      const messageMatch = chat.lastMessage?.content.toLowerCase().includes(query) || false;
+      
+      return userNameMatch || messageMatch;
+    });
+  }, [chats, chatSearchQuery]);
+
+  // Filter messages based on search query
+  const filteredMessages = React.useMemo(() => {
+    if (!messageSearchQuery.trim()) return messages;
+    
+    const query = messageSearchQuery.toLowerCase().trim();
+    return messages.filter(message => 
+      message.content.toLowerCase().includes(query)
+    );
+  }, [messages, messageSearchQuery]);
+
+  // Find all message indices that match the search query
+  const searchMatches = React.useMemo(() => {
+    if (!messageSearchQuery.trim()) return [];
+    
+    const query = messageSearchQuery.toLowerCase().trim();
+    const matches: number[] = [];
+    
+    messages.forEach((message, index) => {
+      if (message.content.toLowerCase().includes(query)) {
+        matches.push(index);
+      }
+    });
+    
+    return matches;
+  }, [messages, messageSearchQuery]);
+
+  // Handle search navigation
+  const navigateSearch = (direction: 'next' | 'prev') => {
+    if (searchMatches.length === 0) return;
+    
+    if (direction === 'next') {
+      setCurrentSearchIndex(prev => 
+        prev === -1 ? 0 : (prev + 1) % searchMatches.length
+      );
+    } else {
+      setCurrentSearchIndex(prev => 
+        prev === -1 ? searchMatches.length - 1 : (prev - 1 + searchMatches.length) % searchMatches.length
+      );
+    }
+  };
+
+  // Highlight search terms in message content
+  const highlightSearchTerm = (text: string, searchTerm: string) => {
+    if (!searchTerm.trim()) return text;
+    
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 px-1 rounded">
+          {part}
+        </mark>
+      ) : part
+    );
+  };
+
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F to open message search
+      if (e.ctrlKey && e.key === 'f' && activeChat && isOpen) {
+        e.preventDefault();
+        setShowMessageSearch(true);
+        setMessageSearchQuery("");
+      }
+      
+      // Escape to close search
+      if (e.key === 'Escape') {
+        setShowMessageSearch(false);
+        setMessageSearchQuery("");
+        setCurrentSearchIndex(-1);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [activeChat, isOpen]);
 
   // Delete a chat
   const handleDeleteChat = async (chatId: number, e: React.MouseEvent) => {
@@ -489,8 +592,8 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     return d1.toDateString() !== d2.toDateString();
   };
 
-  // Normalize chats to an array to avoid runtime errors
-  const chatsArray: Chat[] = Array.isArray(chats) ? chats : [];
+  // Normalize chats to an array to avoid runtime errors and apply search filter
+  const chatsArray: Chat[] = Array.isArray(filteredChats) ? filteredChats : [];
 
   // Get total unread count
   const totalUnreadCount = chatsArray.reduce((total, chat) => total + chat.unreadCount, 0);
@@ -573,14 +676,114 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
           <div className="h-80 flex flex-col">
             {activeChat ? (
               <>
+                {/* Chat Header with Search */}
+                <div className="p-3 border-b border-gray-200 bg-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setActiveChat(null)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <span className="font-medium text-gray-900">
+                        {currentChatUser?.name || 'Chat'}
+                      </span>
+                    </div>
+                    
+                    {/* Message Search Button */}
+                    <button
+                      onClick={() => setShowMessageSearch(!showMessageSearch)}
+                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Search messages (Ctrl+F)"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Message Search Bar */}
+                  {showMessageSearch && (
+                    <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            placeholder="Search messages..."
+                            value={messageSearchQuery}
+                            onChange={(e) => {
+                              setMessageSearchQuery(e.target.value);
+                              setCurrentSearchIndex(-1);
+                            }}
+                            className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                            autoFocus
+                          />
+                        </div>
+                        
+                        {messageSearchQuery && searchMatches.length > 0 && (
+                          <div className="flex items-center space-x-1">
+                            <span className="text-xs text-gray-500">
+                              {currentSearchIndex + 1} of {searchMatches.length}
+                            </span>
+                            <button
+                              onClick={() => navigateSearch('prev')}
+                              className="p-1 text-gray-400 hover:text-gray-600"
+                              title="Previous match"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => navigateSearch('next')}
+                              className="p-1 text-gray-400 hover:text-gray-600"
+                              title="Next match"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
+                        
+                        <button
+                          onClick={() => {
+                            setShowMessageSearch(false);
+                            setMessageSearchQuery("");
+                            setCurrentSearchIndex(-1);
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                          title="Close search"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      {messageSearchQuery && searchMatches.length === 0 && (
+                        <p className="text-xs text-gray-500 mt-1">No messages found</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2">
                   {(() => {
-                    const safeMessages = Array.isArray(messages) ? messages.filter((m) => !!m) : [];
+                    const safeMessages = Array.isArray(messageSearchQuery ? filteredMessages : messages) ? 
+                      (messageSearchQuery ? filteredMessages : messages).filter((m) => !!m) : [];
                     return safeMessages
                       .slice()
                       // Don't reverse - show newest at bottom (oldest first)
                       .map((message, index, reversedMessages) => {
+                        const originalIndex = messages.findIndex(m => m.id === message.id);
+                        const isHighlighted = messageSearchQuery && 
+                          currentSearchIndex >= 0 && 
+                          searchMatches[currentSearchIndex] === originalIndex;
                       const isOwnMessage = message.senderId === currentUser?.id;
                       const clockTime = formatClockTime(message.createdAt);
                       
@@ -600,7 +803,9 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                           )}
                           
                           {/* Message */}
-                          <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} items-end space-x-2`}>
+                          <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} items-end space-x-2 ${
+                            isHighlighted ? 'bg-yellow-100 rounded-lg p-2' : ''
+                          }`}>
                             {!isOwnMessage && (
                               <div className="text-xs text-gray-500 mb-1 min-w-[40px]">
                                 {clockTime}
@@ -614,7 +819,12 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                                   : 'bg-gray-100 text-gray-900'
                               }`}
                             >
-                              <p>{message.content}</p>
+                              <p>
+                                {messageSearchQuery ? 
+                                  highlightSearchTerm(message.content, messageSearchQuery) : 
+                                  message.content
+                                }
+                              </p>
                               {isOwnMessage && (
                                 <div className="text-xs mt-1 text-blue-100 flex items-center justify-between">
                                   <span>
@@ -685,8 +895,37 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
               </>
             ) : (
               /* Chat List */
-              <div className="h-full overflow-y-auto">
-                {chats.length === 0 ? (
+              <div className="h-full flex flex-col">
+                {/* Chat List Search */}
+                <div className="p-3 border-b border-gray-200">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search chats..."
+                      value={chatSearchQuery}
+                      onChange={(e) => setChatSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    />
+                    {chatSearchQuery && (
+                      <button
+                        onClick={() => setChatSearchQuery("")}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                      >
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                  {chatsArray.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-center p-4">
                     <div>
                       <div className="text-gray-400 mb-2">
@@ -694,7 +933,12 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                           <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <p className="text-sm text-gray-600">No conversations yet</p>
+                      <p className="text-sm text-gray-600">
+                        {chatSearchQuery ? "No chats found" : "No conversations yet"}
+                      </p>
+                      {chatSearchQuery && (
+                        <p className="text-xs text-gray-500 mt-1">Try a different search term</p>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -751,6 +995,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                     ))}
                   </div>
                 )}
+                </div>
               </div>
             )}
           </div>

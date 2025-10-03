@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import UserSearchBox from "./UserSearchBox";
 
@@ -48,6 +48,9 @@ export default function ChatBox({
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showUserSearch, setShowUserSearch] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState("");
+  const [showMessageSearch, setShowMessageSearch] = useState(false);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -104,6 +107,85 @@ export default function ChatBox({
     setShowUserSearch(false);
   };
 
+  // Filter messages based on search query
+  const filteredMessages = useMemo(() => {
+    if (!messageSearchQuery.trim()) return messages;
+    
+    const query = messageSearchQuery.toLowerCase().trim();
+    return messages.filter(message => 
+      message.content.toLowerCase().includes(query)
+    );
+  }, [messages, messageSearchQuery]);
+
+  // Find all message indices that match the search query
+  const searchMatches = useMemo(() => {
+    if (!messageSearchQuery.trim()) return [];
+    
+    const query = messageSearchQuery.toLowerCase().trim();
+    const matches: number[] = [];
+    
+    messages.forEach((message, index) => {
+      if (message.content.toLowerCase().includes(query)) {
+        matches.push(index);
+      }
+    });
+    
+    return matches;
+  }, [messages, messageSearchQuery]);
+
+  // Handle search navigation
+  const navigateSearch = (direction: 'next' | 'prev') => {
+    if (searchMatches.length === 0) return;
+    
+    if (direction === 'next') {
+      setCurrentSearchIndex(prev => 
+        prev === -1 ? 0 : (prev + 1) % searchMatches.length
+      );
+    } else {
+      setCurrentSearchIndex(prev => 
+        prev === -1 ? searchMatches.length - 1 : (prev - 1 + searchMatches.length) % searchMatches.length
+      );
+    }
+  };
+
+  // Highlight search terms in message content
+  const highlightSearchTerm = (text: string, searchTerm: string) => {
+    if (!searchTerm.trim()) return text;
+    
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 px-1 rounded">
+          {part}
+        </mark>
+      ) : part
+    );
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F to open message search
+      if (e.ctrlKey && e.key === 'f' && selectedChat) {
+        e.preventDefault();
+        setShowMessageSearch(true);
+        setMessageSearchQuery("");
+      }
+      
+      // Escape to close search
+      if (e.key === 'Escape') {
+        setShowMessageSearch(false);
+        setMessageSearchQuery("");
+        setCurrentSearchIndex(-1);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedChat]);
+
   // Cleanup typing timeout on unmount
   useEffect(() => {
     return () => {
@@ -119,32 +201,110 @@ export default function ChatBox({
         <>
           {/* Chat Header */}
           <div className="p-4 border-b border-gray-200 bg-white">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                {selectedChat.otherUser.profilePicture && selectedChat.otherUser.profilePicture.startsWith('/') ? (
-                  <Image
-                    src={selectedChat.otherUser.profilePicture}
-                    alt={selectedChat.otherUser.name}
-                    width={40}
-                    height={40}
-                    className="rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-lg">
-                    {selectedChat.otherUser.profilePicture || '👤'}
-                  </div>
-                )}
-                {selectedChat.otherUser.isOnline && (
-                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  {selectedChat.otherUser.profilePicture && selectedChat.otherUser.profilePicture.startsWith('/') ? (
+                    <Image
+                      src={selectedChat.otherUser.profilePicture}
+                      alt={selectedChat.otherUser.name}
+                      width={40}
+                      height={40}
+                      className="rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-lg">
+                      {selectedChat.otherUser.profilePicture || '👤'}
+                    </div>
+                  )}
+                  {selectedChat.otherUser.isOnline && (
+                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">{selectedChat.otherUser.name}</h3>
+                  <p className="text-sm text-gray-500">
+                    {selectedChat.otherUser.isOnline ? "Online" : "Offline"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-medium text-gray-900">{selectedChat.otherUser.name}</h3>
-                <p className="text-sm text-gray-500">
-                  {selectedChat.otherUser.isOnline ? "Online" : "Offline"}
-                </p>
-              </div>
+              
+              {/* Search Button */}
+              <button
+                onClick={() => setShowMessageSearch(!showMessageSearch)}
+                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                title="Search messages (Ctrl+F)"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
             </div>
+
+            {/* Message Search Bar */}
+            {showMessageSearch && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="Search messages..."
+                      value={messageSearchQuery}
+                      onChange={(e) => {
+                        setMessageSearchQuery(e.target.value);
+                        setCurrentSearchIndex(-1);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                      autoFocus
+                    />
+                  </div>
+                  
+                  {messageSearchQuery && searchMatches.length > 0 && (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-sm text-gray-500">
+                        {currentSearchIndex + 1} of {searchMatches.length}
+                      </span>
+                      <button
+                        onClick={() => navigateSearch('prev')}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        title="Previous match"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => navigateSearch('next')}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        title="Next match"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  
+                  <button
+                    onClick={() => {
+                      setShowMessageSearch(false);
+                      setMessageSearchQuery("");
+                      setCurrentSearchIndex(-1);
+                    }}
+                    className="p-1 text-gray-400 hover:text-gray-600"
+                    title="Close search"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {messageSearchQuery && searchMatches.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-2">No messages found</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Messages Area */}
@@ -155,32 +315,46 @@ export default function ChatBox({
                 <p className="text-sm mt-1">Start the conversation!</p>
               </div>
             ) : (
-              messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}
-                >
+              (messageSearchQuery ? filteredMessages : messages).map((message, index) => {
+                const originalIndex = messages.findIndex(m => m.id === message.id);
+                const isHighlighted = messageSearchQuery && 
+                  currentSearchIndex >= 0 && 
+                  searchMatches[currentSearchIndex] === originalIndex;
+                
+                return (
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      message.senderId === currentUserId
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-200 text-gray-900'
+                    key={message.id}
+                    className={`flex ${message.senderId === currentUserId ? 'justify-end' : 'justify-start'} ${
+                      isHighlighted ? 'bg-yellow-100 rounded-lg p-2' : ''
                     }`}
                   >
-                    <p className="text-sm">{message.content}</p>
-                    <div className={`flex items-center justify-end mt-1 space-x-1 ${
-                      message.senderId === currentUserId ? 'text-blue-100' : 'text-gray-500'
-                    }`}>
-                      <span className="text-xs">{formatMessageTime(message.createdAt)}</span>
-                      {message.senderId === currentUserId && (
-                        <span className="text-xs">
-                          {message.isRead ? '✓✓' : '✓'}
-                        </span>
-                      )}
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        message.senderId === currentUserId
+                          ? 'bg-blue-500 text-white'
+                          : 'bg-gray-200 text-gray-900'
+                      }`}
+                    >
+                      <p className="text-sm">
+                        {messageSearchQuery ? 
+                          highlightSearchTerm(message.content, messageSearchQuery) : 
+                          message.content
+                        }
+                      </p>
+                      <div className={`flex items-center justify-end mt-1 space-x-1 ${
+                        message.senderId === currentUserId ? 'text-blue-100' : 'text-gray-500'
+                      }`}>
+                        <span className="text-xs">{formatMessageTime(message.createdAt)}</span>
+                        {message.senderId === currentUserId && (
+                          <span className="text-xs">
+                            {message.isRead ? '✓✓' : '✓'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
 
             {/* Typing Indicator */}
