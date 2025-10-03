@@ -467,16 +467,17 @@ func CreateChatHandler(c *gin.Context) {
 			return
 		} else {
 			// Chat is deleted for this user but not for the other user
-			// Clear the deletion marker to "restart" the chat for this user
-			log.Printf("Restarting chat %d for user %d by clearing deletion marker", anyChat.ID, userID)
+			// Set a new deletion timestamp to "restart" the chat for this user (fresh start)
+			log.Printf("Restarting chat %d for user %d by setting new deletion timestamp", anyChat.ID, userID)
+			now := time.Now()
 			updates := make(map[string]interface{})
 			if connection.RequesterID == userID {
-				updates["requester_deleted_at"] = nil
+				updates["requester_deleted_at"] = now
 			} else {
-				updates["receiver_deleted_at"] = nil
+				updates["receiver_deleted_at"] = now
 			}
 			if err := db.DB.Model(&anyChat).Updates(updates).Error; err != nil {
-				log.Printf("Error clearing deletion marker: %v", err)
+				log.Printf("Error setting new deletion timestamp: %v", err)
 				c.JSON(500, gin.H{"error": "Failed to restart chat"})
 				return
 			}
@@ -539,8 +540,8 @@ func GetChatsHandler(hub *Hub) gin.HandlerFunc {
 			Joins("JOIN connections ON chats.connection_id = connections.id").
 			Where("connections.requester_id = ? OR connections.receiver_id = ?", userID, userID).
 			Where("connections.status = ?", "accepted").
-			// Filter out chats deleted by the current user
-			Where("(connections.requester_id = ? AND chats.requester_deleted_at IS NULL) OR (connections.receiver_id = ? AND chats.receiver_deleted_at IS NULL)", userID, userID).
+			// Filter out chats deleted by the current user, but show restarted chats (deletion within last 5 minutes)
+			Where("(connections.requester_id = ? AND (chats.requester_deleted_at IS NULL OR chats.requester_deleted_at > NOW() - INTERVAL '5 minutes')) OR (connections.receiver_id = ? AND (chats.receiver_deleted_at IS NULL OR chats.receiver_deleted_at > NOW() - INTERVAL '5 minutes'))", userID, userID).
 			Order("chats.updated_at DESC").
 			Find(&chats).Error; err != nil {
 			log.Printf("Error fetching chats for user %d: %v", userID, err)
