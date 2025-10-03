@@ -6,6 +6,7 @@ import Link from "next/link";
 import { authApi, profileApi, recommendationsApi, getApiUrl, connectionsApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
 import DataModeToggle from "../../components/DataModeToggle";
+import Navigation from "../../components/Navigation";
 import { useDataMode } from "../../context/DataModeContext";
 
 type Profile = {
@@ -60,7 +61,6 @@ export default function FrontPage() {
     console.log('🔄 localStorage value:', localStorage.getItem('MM_DATA_MODE'));
   }, [mode]);
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("frontpage");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userProfile, setUserProfile] = useState({
@@ -74,8 +74,6 @@ export default function FrontPage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedProfileInitial, setSelectedProfileInitial] = useState<Profile | null>(null);
-  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Get current recommendation
   const currentRec = recommendations[currentRecommendationIndex];
@@ -128,26 +126,6 @@ export default function FrontPage() {
     }
   }, [router, loadUserProfile]);
 
-  // Poll pending connection requests count while authenticated
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    let mounted = true;
-    const fetchCount = async () => {
-      try {
-        const data = await connectionsApi.getConnectionRequests();
-        const list = Array.isArray(data) ? data : (data?.requests || []);
-        if (mounted) setPendingRequestsCount(list.length || 0);
-      } catch {
-        if (mounted) setPendingRequestsCount(0);
-      }
-    };
-    fetchCount();
-    const id = setInterval(fetchCount, 15000);
-    return () => {
-      mounted = false;
-      clearInterval(id);
-    };
-  }, [isAuthenticated]);
 
   // Reload recommendations when data mode changes
   useEffect(() => {
@@ -319,16 +297,7 @@ export default function FrontPage() {
     }
   };
 
-  const handleLogout = async () => {
-    await authApi.logout();
-    router.push('/');
-  };
-
   // Removed test online status utility
-
-  const handleNavigation = (tab: string) => {
-    setActiveTab(tab);
-  };
 
   // Show loading screen while checking authentication
   if (isLoading) {
@@ -357,169 +326,7 @@ export default function FrontPage() {
         initialProfile={mode === "mock" ? selectedProfileInitial : null}
       />
       {/* Top Navigation Menu */}
-      <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex-shrink-0">
-              <Image
-                src="/sitefiles/site-logo-web.png"
-                alt="Site Logo"
-                width={120}
-                height={40}
-                className="h-10 w-auto"
-              />
-            </div>
-
-            {/* Navigation Items */}
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                <button
-                  onClick={() => handleNavigation("frontpage")}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "frontpage"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Front Page
-                </button>
-                <Link
-                  href="/profile"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "profile"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Profile
-                </Link>
-                <Link
-                  href="/connectionlist"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "connections"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Connection List
-                </Link>
-                <Link
-                  href="/connectionrequests"
-                  className={`relative px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "requests"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Connection Requests
-                  {pendingRequestsCount > 0 && (
-                    <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs rounded-full px-2 py-0.5 min-w-[18px] text-center">
-                      {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
-                    </span>
-                  )}
-                </Link>
-              </div>
-            </div>
-
-            {/* Data Mode Toggle + Test Button + Logout */}
-            <div className="flex items-center gap-4">
-              <DataModeToggle />
-              {/* Test Online Status button removed */}
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition"
-              >
-                Log out
-              </button>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                type="button"
-                className="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                aria-controls="mobile-menu"
-                aria-expanded={isMobileMenuOpen}
-                onClick={() => setIsMobileMenuOpen(prev => !prev)}
-              >
-                <span className="sr-only">Open main menu</span>
-                <svg
-                  className="block h-6 w-6"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile menu */}
-        {isMobileMenuOpen && (
-        <div className="md:hidden" id="mobile-menu">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
-            <button
-              onClick={() => { handleNavigation("frontpage"); setIsMobileMenuOpen(false); }}
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "frontpage"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              Front Page
-            </button>
-            <Link
-              href="/profile"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "profile"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              Profile
-            </Link>
-            <Link
-              href="/connectionlist"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "connections"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              Connection List
-            </Link>
-            <Link
-              href="/connectionrequests"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`relative block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "requests"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              Connection Requests
-              {pendingRequestsCount > 0 && (
-                <span className="absolute top-2 right-4 bg-red-600 text-white text-xs rounded-full px-2 py-0.5 min-w-[18px] text-center">
-                  {pendingRequestsCount > 99 ? '99+' : pendingRequestsCount}
-                </span>
-              )}
-            </Link>
-          </div>
-        </div>
-        )}
-      </nav>
+      <Navigation />
 
       {/* Main Content Area - Recommendations Focus */}
       <main className="max-w-6xl mx-auto py-6 sm:px-6 lg:px-8">

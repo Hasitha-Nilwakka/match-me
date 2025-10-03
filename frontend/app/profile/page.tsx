@@ -4,12 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, profileApi, referenceApi, externalApi } from "../../lib/api";
-import PendingRequestsIndicator from "../../components/PendingRequestsIndicator";
+import Navigation from "../../components/Navigation";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("profile");
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -437,10 +435,6 @@ export default function ProfilePage() {
   };
 
 
-  const handleLogout = async () => {
-    await authApi.logout();
-    router.push('/');
-  };
 
 
   // Handle input changes
@@ -1035,160 +1029,7 @@ export default function ProfilePage() {
       )}
 
       {/* Top Navigation Menu */}
-      <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <div className="flex-shrink-0">
-              <Image
-                src="/sitefiles/site-logo-web.png"
-                alt="Site Logo"
-                width={120}
-                height={40}
-                className="h-10 w-auto"
-              />
-            </div>
-
-            {/* Navigation Items */}
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                <Link
-                  href="/frontpage"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "frontpage"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Front Page
-                </Link>
-                <Link
-                  href="/profile"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "profile"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Profile
-                </Link>
-                <Link
-                  href="/connectionlist"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                    activeTab === "connections"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Connection List
-                </Link>
-                <Link
-                  href="/connectionrequests"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition relative ${
-                    activeTab === "requests"
-                      ? "bg-blue-100 text-blue-700"
-                      : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                  }`}
-                >
-                  Connection Requests
-                  <PendingRequestsIndicator className="absolute -top-1 -right-1" />
-                </Link>
-              </div>
-            </div>
-
-            {/* Logout Button */}
-            <div className="flex items-center">
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition"
-              >
-                Log out
-              </button>
-            </div>
-
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <button
-                type="button"
-                className="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                aria-controls="mobile-menu"
-                aria-expanded={isMobileMenuOpen}
-                onClick={() => setIsMobileMenuOpen(prev => !prev)}
-              >
-                <span className="sr-only">Open main menu</span>
-                <svg
-                  className="block h-6 w-6"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile menu */}
-        {isMobileMenuOpen && (
-        <div className="md:hidden" id="mobile-menu">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50">
-            <Link
-              href="/frontpage"
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "frontpage"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Front Page
-            </Link>
-            <Link
-              href="/profile"
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "profile"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Profile
-            </Link>
-            <Link
-              href="/connectionlist"
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "connections"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Connection List
-            </Link>
-            <Link
-              href="/connectionrequests"
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left relative ${
-                activeTab === "requests"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Connection Requests
-              <PendingRequestsIndicator className="absolute top-1 right-1" />
-            </Link>
-          </div>
-        </div>
-        )}
-      </nav>
+      <Navigation />
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
