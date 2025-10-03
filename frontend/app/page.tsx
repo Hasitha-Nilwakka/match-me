@@ -127,8 +127,24 @@ export default function Home() {
           console.error('[Login] Failed to set user online after login:', error);
         }
 
-        // Redirect to frontpage after ensuring online status update request fired
-        router.push('/frontpage');
+        // Check if user has a profile to determine redirect destination
+        try {
+          const { profileApi } = await import('../lib/api');
+          const profile = await profileApi.getMyProfile();
+          
+          // If user has no profile or profile is incomplete (no firstName), redirect to profile page
+          if (!profile || !profile.firstName || !profile.firstName.trim()) {
+            console.log('[Login] User has no profile, redirecting to profile page');
+            router.push('/profile');
+          } else {
+            console.log('[Login] User has profile, redirecting to frontpage');
+            router.push('/frontpage');
+          }
+        } catch (profileError) {
+          // If profile check fails, assume no profile exists and redirect to profile page
+          console.log('[Login] Profile check failed, redirecting to profile page');
+          router.push('/profile');
+        }
         
         console.log('Login successful:', data);
       } else {
@@ -171,10 +187,46 @@ export default function Home() {
       const response = await authApi.register(formData.email, formData.password);
       
       if (response.ok) {
-        const data = await response.json();
-        setSuccessMessage('Account created successfully! You can now login.');
-        setIsLogin(true);
-        setFormData({ email: "", password: "" });
+        // After successful registration, automatically log in the user
+        console.log('[Registration] Registration successful, auto-logging in user');
+        
+        try {
+          // Auto-login after registration
+          const loginResponse = await authApi.login(formData.email, formData.password);
+          const loginData = await loginResponse.json();
+          
+          if (loginResponse.ok) {
+            // Store token and user data
+            localStorage.setItem('token', loginData.token);
+            localStorage.setItem('user', JSON.stringify(loginData.user));
+            
+            // Mark user as online
+            console.log('[Registration] Setting user online after auto-login');
+            try {
+              await authApi.updateOnlineStatus(true);
+              console.log('[Registration] Successfully set user online after auto-login');
+            } catch (error) {
+              console.error('[Registration] Failed to set user online after auto-login:', error);
+            }
+
+            // New users always go to profile page to set up their profile
+            console.log('[Registration] New user, redirecting to profile page');
+            router.push('/profile');
+            
+            console.log('Registration and auto-login successful:', loginData);
+          } else {
+            // If auto-login fails, show success message and switch to login form
+            setSuccessMessage('Account created successfully! Please login.');
+            setIsLogin(true);
+            setFormData({ email: "", password: "" });
+          }
+        } catch (loginError) {
+          // If auto-login fails, show success message and switch to login form
+          console.error('[Registration] Auto-login failed:', loginError);
+          setSuccessMessage('Account created successfully! Please login.');
+          setIsLogin(true);
+          setFormData({ email: "", password: "" });
+        }
       } else {
         // Handle different HTTP status codes
         const data = await response.json().catch(() => ({}));
@@ -252,10 +304,17 @@ export default function Home() {
 
                 <div className="space-y-3">
                   <button
-                    onClick={() => {/* Add navigation to profile page */}}
+                    onClick={() => router.push('/profile')}
                     className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
                   >
                     Go to Profile
+                  </button>
+                  
+                  <button
+                    onClick={() => router.push('/frontpage')}
+                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200"
+                  >
+                    Go to App
                   </button>
                   
                   <button
