@@ -95,6 +95,7 @@ func main() {
 		protected.PUT("/me/profile", handlers.UpdateMeProfileHandler)               // Update current user profile
 		protected.POST("/me/profile-picture", handlers.UploadProfilePictureHandler) // Upload profile picture
 		protected.POST("/me/change-password", handlers.ChangePasswordHandler)       // Change password
+		protected.DELETE("/me/delete-profile", handlers.DeleteProfileHandler)       // Delete profile
 		protected.GET("/me/bio", handlers.GetMeBioHandler)                          // Get current user bio data
 		protected.PUT("/me/bio", handlers.UpdateMeBioHandler)                       // Update current user bio data
 		protected.GET("/me/preferences", handlers.GetMePreferencesHandler)          // Get seeking preferences

@@ -59,13 +59,9 @@ export default function FrontPage() {
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-<<<<<<< HEAD
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-=======
   const [selectedProfileInitial, setSelectedProfileInitial] = useState<Profile | null>(null);
->>>>>>> aac9926bc6708761b9f31a9ffbbd38c89d8e3b61
-
   // Get current recommendation
   const currentRec = recommendations[currentRecommendationIndex];
 

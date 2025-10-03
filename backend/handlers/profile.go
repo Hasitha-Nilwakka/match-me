@@ -1998,3 +1998,64 @@ func ChangePasswordHandler(c *gin.Context) {
 	fmt.Println("Password changed successfully for user:", userID)
 	c.JSON(200, gin.H{"message": "Password changed successfully"})
 }
+
+// DeleteProfileHandler handles profile deletion
+func DeleteProfileHandler(c *gin.Context) {
+	fmt.Println("DeleteProfileHandler called")
+
+	// Get user ID from JWT token
+	userID, exists := c.Get("user_id")
+	if !exists {
+		fmt.Println("User not authenticated")
+		c.JSON(401, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	fmt.Printf("User ID: %v\n", userID)
+
+	// Parse request body
+	var requestData struct {
+		Password string `json:"password" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&requestData); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid request body", "details": err.Error()})
+		return
+	}
+
+	// Get user from database
+	var user models.User
+	if err := db.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		c.JSON(404, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(requestData.Password)); err != nil {
+		c.JSON(400, gin.H{"error": "Password is incorrect"})
+		return
+	}
+
+	// Start transaction for cascading deletion
+	tx := db.DB.Begin()
+	if tx.Error != nil {
+		c.JSON(500, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+
+	// Delete user and all related data (cascading delete)
+	if err := tx.Delete(&user).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to delete profile"})
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to commit deletion"})
+		return
+	}
+
+	fmt.Println("Profile deleted successfully for user:", userID)
+	c.JSON(200, gin.H{"message": "Profile deleted successfully"})
+}

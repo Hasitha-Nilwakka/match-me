@@ -18,13 +18,20 @@ export default function ProfilePage() {
   const [saveError, setSaveError] = useState('');
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [showDeleteProfileModal, setShowDeleteProfileModal] = useState(false);
   const [changePasswordData, setChangePasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
+  const [deleteProfileData, setDeleteProfileData] = useState({
+    password: '',
+    confirmText: ''
+  });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [profileData, setProfileData] = useState({
     firstName: '',
     lastName: '',
@@ -841,6 +848,62 @@ export default function ProfilePage() {
     setPasswordError('');
   };
 
+  // Handle delete profile
+  const handleDeleteProfile = async () => {
+    // Validate form
+    if (!deleteProfileData.password) {
+      setDeleteError('Password is required');
+      return;
+    }
+
+    if (deleteProfileData.confirmText !== 'DELETE') {
+      setDeleteError('Please type DELETE to confirm');
+      return;
+    }
+
+    setIsDeletingProfile(true);
+    setDeleteError('');
+
+    try {
+      const response = await fetch('http://localhost:8080/me/delete-profile', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          password: deleteProfileData.password
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete profile');
+      }
+
+      // Clear local storage and redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      router.push('/');
+      showSuccessMessage('Profile deleted successfully. Goodbye! 👋');
+
+    } catch (error) {
+      console.error('Error deleting profile:', error);
+      setDeleteError(error instanceof Error ? error.message : 'Failed to delete profile. Please try again.');
+    } finally {
+      setIsDeletingProfile(false);
+    }
+  };
+
+  // Reset delete profile form
+  const resetDeleteProfileForm = () => {
+    setDeleteProfileData({
+      password: '',
+      confirmText: ''
+    });
+    setDeleteError('');
+  };
+
   // Save profile data
   const handleSaveProfile = async () => {
     try {
@@ -1118,6 +1181,12 @@ export default function ProfilePage() {
                     className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm"
                   >
                     Change Password
+                  </button>
+                  <button 
+                    onClick={() => setShowDeleteProfileModal(true)}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm"
+                  >
+                    Delete Profile
                   </button>
                 </div>
               </div>
@@ -2354,6 +2423,92 @@ export default function ProfilePage() {
                 }`}
               >
                 {isChangingPassword ? 'Changing...' : 'Change Password'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Profile Modal */}
+      {showDeleteProfileModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-red-600 mb-4">Delete Profile</h3>
+            
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              <p className="font-semibold">⚠️ This action cannot be undone!</p>
+              <p className="text-sm mt-1">
+                Deleting your profile will permanently remove:
+              </p>
+              <ul className="text-sm mt-2 ml-4 list-disc">
+                <li>Your profile and personal information</li>
+                <li>All your connections and chats</li>
+                <li>All your messages and data</li>
+              </ul>
+            </div>
+            
+            {deleteError && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  value={deleteProfileData.password}
+                  onChange={(e) => setDeleteProfileData(prev => ({
+                    ...prev,
+                    password: e.target.value
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Enter your password to confirm"
+                />
+              </div>
+
+              {/* Confirmation Text */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Type <span className="font-mono bg-gray-100 px-1 rounded">DELETE</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  value={deleteProfileData.confirmText}
+                  onChange={(e) => setDeleteProfileData(prev => ({
+                    ...prev,
+                    confirmText: e.target.value
+                  }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Type DELETE"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowDeleteProfileModal(false);
+                  resetDeleteProfileForm();
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteProfile}
+                disabled={isDeletingProfile}
+                className={`flex-1 px-4 py-2 text-white rounded-md ${
+                  isDeletingProfile
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {isDeletingProfile ? 'Deleting...' : 'Delete Profile'}
               </button>
             </div>
           </div>
