@@ -14,6 +14,8 @@ interface Recommendation {
   id: number;
   score: number;
   profilePictureURL?: string;
+  isOnline?: boolean;
+  lastSeen?: string;
   userInfo?: {
     id: number;
     createdAt: string;
@@ -61,7 +63,6 @@ export default function FrontPage() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [selectedProfileInitial, setSelectedProfileInitial] = useState<Profile | null>(null);
   // Get current recommendation
   const currentRec = recommendations[currentRecommendationIndex];
 
@@ -158,48 +159,56 @@ export default function FrontPage() {
     // Get detailed user info for each recommendation
     const detailedRecs = await Promise.all(
       recData.recommendations.map(async (rec: {id: number; score: number}) => {
-          try {
-            let userInfo, userProfile, userBio;
-            
-            {
-              console.log(`🔴 REAL USER DETAILS for user ${rec.id}`);
-              console.log(`Fetching real user details for user ${rec.id}`);
-              try {
-                // Use proper API functions instead of direct fetch calls
-                [userInfo, userProfile, userBio] = await Promise.all([
-                  authApi.getUserById(String(rec.id)).catch(() => null), // Gracefully handle user fetch failures
-                  profileApi.getUserProfile(String(rec.id)).catch(() => null), // Gracefully handle profile fetch failures
-                  profileApi.getUserBio(String(rec.id)).catch(() => null) // Gracefully handle bio fetch failures
-                ]);
-                console.log(`Successfully fetched details for user ${rec.id}:`, { userInfo, userProfile, userBio });
-                
-                // Handle cases where API calls returned null (due to errors)
-                if (!userInfo) {
+            try {
+              let userInfo, userProfile, userBio, onlineStatus;
+              
+              {
+                console.log(`🔴 REAL USER DETAILS for user ${rec.id}`);
+                console.log(`Fetching real user details for user ${rec.id}`);
+                try {
+                  // Use proper API functions instead of direct fetch calls
+                  [userInfo, userProfile, userBio, onlineStatus] = await Promise.all([
+                    authApi.getUserById(String(rec.id)).catch(() => null), // Gracefully handle user fetch failures
+                    profileApi.getUserProfile(String(rec.id)).catch(() => null), // Gracefully handle profile fetch failures
+                    profileApi.getUserBio(String(rec.id)).catch(() => null), // Gracefully handle bio fetch failures
+                    authApi.getUserOnlineStatus(String(rec.id)).catch(() => null) // Gracefully handle online status fetch failures
+                  ]);
+                  console.log(`Successfully fetched details for user ${rec.id}:`, { userInfo, userProfile, userBio, onlineStatus });
+                  
+                  // Handle cases where API calls returned null (due to errors)
+                  if (!userInfo) {
+                    userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
+                  }
+                  if (!userProfile) {
+                    userProfile = { firstName: "Error", lastName: `User ${rec.id}`, aboutMe: "Failed to load profile", gender: "N/A", status: "error" };
+                  }
+                  if (!userBio) {
+                    userBio = { interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] };
+                  }
+                  if (!onlineStatus) {
+                    onlineStatus = { userId: rec.id, isOnline: false, lastSeen: new Date().toISOString() };
+                  }
+                } catch (fetchError) {
+                  console.error(`Failed to fetch details for user ${rec.id}:`, fetchError);
+                  // Fallback to mock data if real fetch fails
                   userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
-                }
-                if (!userProfile) {
                   userProfile = { firstName: "Error", lastName: `User ${rec.id}`, aboutMe: "Failed to load profile", gender: "N/A", status: "error" };
-                }
-                if (!userBio) {
                   userBio = { interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] };
+                  onlineStatus = { userId: rec.id, isOnline: false, lastSeen: new Date().toISOString() };
                 }
-              } catch (fetchError) {
-                console.error(`Failed to fetch details for user ${rec.id}:`, fetchError);
-                // Fallback to mock data if real fetch fails
-                userInfo = { id: rec.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), isActive: true };
-                userProfile = { firstName: "Error", lastName: `User ${rec.id}`, aboutMe: "Failed to load profile", gender: "N/A", status: "error" };
-                userBio = { interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] };
               }
-            }
-            
-            console.log(`Profile picture URL for user ${rec.id}:`, userProfile?.profilePictureURL);
-            return {
-              ...rec,
-              userInfo,
-              profile: userProfile,
-              bio: userBio,
-              profilePictureURL: userProfile?.profilePictureURL || '/sitefiles/default-profile-picture.png'
-            };
+              
+              console.log(`Profile picture URL for user ${rec.id}:`, userProfile?.profilePictureURL);
+              console.log(`Online status for user ${rec.id}:`, onlineStatus);
+              return {
+                ...rec,
+                userInfo,
+                profile: userProfile,
+                bio: userBio,
+                profilePictureURL: userProfile?.profilePictureURL || '/sitefiles/default-profile-picture.png',
+                isOnline: onlineStatus?.isOnline || false,
+                lastSeen: onlineStatus?.lastSeen
+              };
           } catch (error) {
             console.error(`Error loading details for user ${rec.id}:`, error);
             return rec;
@@ -377,11 +386,11 @@ export default function FrontPage() {
               )}
               
               {/* Online Status */}
-              {recommendations.length > 0 && (
+              {recommendations.length > 0 && currentRec && (
                 <div className="absolute top-6 right-6">
-                  <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                    <div className="w-2 h-2 bg-white rounded-full mr-2"></div>
-                    Online
+                  <div className={`${currentRec.isOnline ? 'bg-green-500' : 'bg-gray-500'} text-white px-3 py-1 rounded-full text-sm font-medium flex items-center`}>
+                    <div className={`w-2 h-2 ${currentRec.isOnline ? 'bg-white' : 'bg-gray-300'} rounded-full mr-2`}></div>
+                    {currentRec.isOnline ? 'Online' : 'Offline'}
                   </div>
                 </div>
               )}

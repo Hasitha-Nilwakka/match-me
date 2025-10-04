@@ -1329,7 +1329,6 @@ export default function ProfilePage() {
                       {cities.map((city) => (
                         <option key={city.name} value={city.name}>
                           {city.name}
-                          {city.population && city.population > 0 && ` (${city.population.toLocaleString()})`}
                         </option>
                       ))}
                     </select>

@@ -202,3 +202,41 @@ func UpdateOnlineStatusHandler(c *gin.Context) {
 		"lastSeen": onlineStatus.LastSeen,
 	})
 }
+
+// GetOnlineStatusHandler gets online status for a specific user
+func GetOnlineStatusHandler(c *gin.Context) {
+	userIDParam := c.Param("id")
+
+	// Convert string to uint
+	var targetUserID uint
+	if _, err := fmt.Sscanf(userIDParam, "%d", &targetUserID); err != nil {
+		c.JSON(400, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	// Check if user exists
+	var user models.User
+	if err := db.DB.Where("id = ? AND is_active = ?", targetUserID, true).First(&user).Error; err != nil {
+		c.JSON(404, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Get online status
+	var onlineStatus models.OnlineStatus
+	err := db.DB.Where("user_id = ?", targetUserID).First(&onlineStatus).Error
+
+	isOnline := false
+	lastSeen := time.Now()
+
+	if err == nil {
+		isOnline = onlineStatus.IsOnline
+		lastSeen = onlineStatus.LastSeen
+	}
+	// If no online status record exists, user is considered offline
+
+	c.JSON(200, gin.H{
+		"userId":   targetUserID,
+		"isOnline": isOnline,
+		"lastSeen": lastSeen,
+	})
+}

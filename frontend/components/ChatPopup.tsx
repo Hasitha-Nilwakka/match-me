@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { authApi, chatApi } from "../lib/api";
 import { useChat } from "../context/ChatContext";
 
@@ -147,6 +148,15 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       console.log('[ChatPopup] Raw API response:', data);
       const chatsData = Array.isArray(data) ? data : (data?.chats || []);
       console.log('[ChatPopup] Processed chats data:', chatsData);
+      
+      // Debug profile pictures in the response
+      chatsData.forEach((chat: Chat, index: number) => {
+        console.log(`[ChatPopup] Chat ${index} otherUser:`, chat.otherUser);
+        if (chat.otherUser) {
+          console.log(`[ChatPopup] Chat ${index} profilePicture:`, chat.otherUser.profilePicture);
+        }
+      });
+      
       setChats(chatsData);
     } catch (error) {
       console.error('[ChatPopup] Error loading chats:', error);
@@ -624,13 +634,36 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                 </button>
                 <div className="relative">
                   {(() => {
-                    const profilePicSrc = currentChatUser.profilePicture && currentChatUser.profilePicture.startsWith('http')
-                      ? currentChatUser.profilePicture
-                      : currentChatUser.profilePicture && currentChatUser.profilePicture.startsWith('/uploads')
-                      ? `http://192.168.101.115:8080${currentChatUser.profilePicture}`
-                      : currentChatUser.profilePicture && currentChatUser.profilePicture.startsWith('/')
-                      ? currentChatUser.profilePicture
-                      : "/sitefiles/default-profile-picture.png";
+                    console.log('[ChatPopup] Current chat user profile picture:', currentChatUser.profilePicture);
+                    console.log('[ChatPopup] Current chat user:', currentChatUser);
+                    
+                    // Handle different profile picture formats
+                    let profilePicSrc = "/sitefiles/default-profile-picture.png"; // Default fallback
+                    
+                    if (currentChatUser.profilePicture) {
+                      // Check if it's an emoji (like 👤) or empty string
+                      if (currentChatUser.profilePicture === '👤' || currentChatUser.profilePicture.trim() === '') {
+                        profilePicSrc = "/sitefiles/default-profile-picture.png";
+                      }
+                      // Check if it's a full HTTP URL
+                      else if (currentChatUser.profilePicture.startsWith('http')) {
+                        profilePicSrc = currentChatUser.profilePicture;
+                      }
+                      // Check if it's an upload path
+                      else if (currentChatUser.profilePicture.startsWith('/uploads')) {
+                        profilePicSrc = `http://192.168.101.115:8080${currentChatUser.profilePicture}`;
+                      }
+                      // Check if it's a local path
+                      else if (currentChatUser.profilePicture.startsWith('/')) {
+                        profilePicSrc = currentChatUser.profilePicture;
+                      }
+                      // For any other case, use default
+                      else {
+                        profilePicSrc = "/sitefiles/default-profile-picture.png";
+                      }
+                    }
+                    
+                    console.log('[ChatPopup] Final profile picture src:', profilePicSrc);
                     
                     return (
                       <Image
@@ -973,9 +1006,47 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                       >
                         <div className="flex items-center space-x-3">
                           <div className="relative">
-                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-sm">
-                              {chat.otherUser.profilePicture}
-                            </div>
+                            {(() => {
+                              // Handle different profile picture formats for chat list
+                              let profilePicSrc = "/sitefiles/default-profile-picture.png"; // Default fallback
+                              
+                              if (chat.otherUser.profilePicture) {
+                                // Check if it's an emoji (like 👤) or empty string
+                                if (chat.otherUser.profilePicture === '👤' || chat.otherUser.profilePicture.trim() === '') {
+                                  profilePicSrc = "/sitefiles/default-profile-picture.png";
+                                }
+                                // Check if it's a full HTTP URL
+                                else if (chat.otherUser.profilePicture.startsWith('http')) {
+                                  profilePicSrc = chat.otherUser.profilePicture;
+                                }
+                                // Check if it's an upload path
+                                else if (chat.otherUser.profilePicture.startsWith('/uploads')) {
+                                  profilePicSrc = `http://192.168.101.115:8080${chat.otherUser.profilePicture}`;
+                                }
+                                // Check if it's a local path
+                                else if (chat.otherUser.profilePicture.startsWith('/')) {
+                                  profilePicSrc = chat.otherUser.profilePicture;
+                                }
+                                // For any other case, use default
+                                else {
+                                  profilePicSrc = "/sitefiles/default-profile-picture.png";
+                                }
+                              }
+                              
+                              return (
+                                <Image
+                                  src={profilePicSrc}
+                                  alt={chat.otherUser.name}
+                                  width={32}
+                                  height={32}
+                                  className="w-8 h-8 rounded-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = "/sitefiles/default-profile-picture.png";
+                                  }}
+                                />
+                              );
+                            })()}
                             {chat.otherUser.isOnline && (
                               <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-green-500 border border-white rounded-full"></div>
                             )}

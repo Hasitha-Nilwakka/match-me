@@ -482,204 +482,142 @@ export const recommendationsApi = {
 
 // External API functions for countries and cities
 export const externalApi = {
-  // Get all countries from REST Countries API
+  // Get Nordic countries only
   getCountries: async (): Promise<{ name: string; code: string }[]> => {
-    try {
-      console.log('Fetching countries from REST Countries API...');
-      const response = await fetch('https://restcountries.com/v3.1/all?fields=name,cca2');
-      if (!response.ok) {
-        throw new Error('Failed to fetch countries');
-      }
-      const data = await response.json();
-      console.log('REST Countries API response:', data.length, 'countries');
-      const countries = data.map((country: { name: { common: string }; cca2: string }) => ({
-        name: country.name.common,
-        code: country.cca2
-      })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
-      console.log('Processed countries:', countries.length);
-      return countries;
-    } catch (error) {
-      console.error('Error fetching countries from API:', error);
-      console.log('Using fallback countries list...');
-      // Fallback to a comprehensive list of countries
-      return [
-        { name: 'Afghanistan', code: 'AF' },
-        { name: 'Albania', code: 'AL' },
-        { name: 'Algeria', code: 'DZ' },
-        { name: 'Argentina', code: 'AR' },
-        { name: 'Armenia', code: 'AM' },
-        { name: 'Australia', code: 'AU' },
-        { name: 'Austria', code: 'AT' },
-        { name: 'Azerbaijan', code: 'AZ' },
-        { name: 'Bangladesh', code: 'BD' },
-        { name: 'Belarus', code: 'BY' },
-        { name: 'Belgium', code: 'BE' },
-        { name: 'Brazil', code: 'BR' },
-        { name: 'Bulgaria', code: 'BG' },
-        { name: 'Cambodia', code: 'KH' },
-        { name: 'Canada', code: 'CA' },
-        { name: 'Chile', code: 'CL' },
-        { name: 'China', code: 'CN' },
-        { name: 'Colombia', code: 'CO' },
-        { name: 'Croatia', code: 'HR' },
-        { name: 'Czech Republic', code: 'CZ' },
-        { name: 'Denmark', code: 'DK' },
-        { name: 'Egypt', code: 'EG' },
-        { name: 'Estonia', code: 'EE' },
-        { name: 'Finland', code: 'FI' },
-        { name: 'France', code: 'FR' },
-        { name: 'Georgia', code: 'GE' },
-        { name: 'Germany', code: 'DE' },
-        { name: 'Greece', code: 'GR' },
-        { name: 'Hungary', code: 'HU' },
-        { name: 'Iceland', code: 'IS' },
-        { name: 'India', code: 'IN' },
-        { name: 'Indonesia', code: 'ID' },
-        { name: 'Ireland', code: 'IE' },
-        { name: 'Israel', code: 'IL' },
-        { name: 'Italy', code: 'IT' },
-        { name: 'Japan', code: 'JP' },
-        { name: 'Kazakhstan', code: 'KZ' },
-        { name: 'Kenya', code: 'KE' },
-        { name: 'Latvia', code: 'LV' },
-        { name: 'Lithuania', code: 'LT' },
-        { name: 'Luxembourg', code: 'LU' },
-        { name: 'Malaysia', code: 'MY' },
-        { name: 'Mexico', code: 'MX' },
-        { name: 'Netherlands', code: 'NL' },
-        { name: 'New Zealand', code: 'NZ' },
-        { name: 'Norway', code: 'NO' },
-        { name: 'Pakistan', code: 'PK' },
-        { name: 'Philippines', code: 'PH' },
-        { name: 'Poland', code: 'PL' },
-        { name: 'Portugal', code: 'PT' },
-        { name: 'Romania', code: 'RO' },
-        { name: 'Russia', code: 'RU' },
-        { name: 'Saudi Arabia', code: 'SA' },
-        { name: 'Singapore', code: 'SG' },
-        { name: 'Slovakia', code: 'SK' },
-        { name: 'Slovenia', code: 'SI' },
-        { name: 'South Africa', code: 'ZA' },
-        { name: 'South Korea', code: 'KR' },
-        { name: 'Spain', code: 'ES' },
-        { name: 'Sweden', code: 'SE' },
-        { name: 'Switzerland', code: 'CH' },
-        { name: 'Thailand', code: 'TH' },
-        { name: 'Turkey', code: 'TR' },
-        { name: 'Ukraine', code: 'UA' },
-        { name: 'United Arab Emirates', code: 'AE' },
-        { name: 'United Kingdom', code: 'GB' },
-        { name: 'United States', code: 'US' },
-        { name: 'Vietnam', code: 'VN' }
-      ];
-    }
+    console.log('Loading Nordic countries...');
+    // Return only Nordic countries
+    const nordicCountries = [
+      { name: 'Denmark', code: 'DK' },
+      { name: 'Finland', code: 'FI' },
+      { name: 'Iceland', code: 'IS' },
+      { name: 'Norway', code: 'NO' },
+      { name: 'Sweden', code: 'SE' }
+    ];
+    console.log('Loaded Nordic countries:', nordicCountries.length);
+    return nordicCountries;
   },
 
-  // Get cities for a specific country using GeoNames API
+  // Get cities for Nordic countries (hardcoded)
   getCitiesByCountry: async (countryCode: string): Promise<{ name: string; population?: number }[]> => {
-    try {
-      console.log('Attempting to fetch cities from GeoNames API for country:', countryCode);
-      // Using GeoNames API with username 'demo' (free tier)
-      // In production, you should register for your own username
-      const response = await fetch(
-        `https://secure.geonames.org/searchJSON?country=${countryCode}&featureClass=P&maxRows=100&username=demo&orderby=population`
-      );
-      
-      console.log('GeoNames API response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`GeoNames API failed with status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('GeoNames API response data:', data);
-      
-      // Check if API returned an error (like rate limit exceeded)
-      if (data.status && data.status.value !== 0) {
-        console.log('GeoNames API returned error:', data.status.message);
-        throw new Error(`GeoNames API error: ${data.status.message}`);
-      }
-      
-      if (data.geonames && data.geonames.length > 0) {
-        const cities = data.geonames.map((city: { name: string; population?: number }) => ({
-          name: city.name,
-          population: city.population
-        })).sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
-        console.log('GeoNames cities loaded:', cities.length);
-        return cities;
-      }
-      
-      console.log('No cities found in GeoNames response, using fallback');
-      throw new Error('No cities found in GeoNames response');
-    } catch (error) {
-      console.error('GeoNames API error:', error);
-      console.log('Using fallback cities for country:', countryCode);
-      
-      // Fallback to major cities for common countries
-      const fallbackCities: { [key: string]: string[] } = {
-        'US': ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia', 'San Antonio', 'San Diego', 'Dallas', 'San Jose', 'Austin', 'Jacksonville', 'Fort Worth', 'Columbus', 'Charlotte', 'San Francisco', 'Indianapolis', 'Seattle', 'Denver', 'Washington', 'Boston', 'El Paso', 'Nashville', 'Detroit', 'Oklahoma City', 'Portland', 'Las Vegas', 'Memphis', 'Louisville', 'Baltimore', 'Milwaukee', 'Albuquerque', 'Tucson', 'Fresno', 'Sacramento', 'Mesa', 'Kansas City', 'Atlanta', 'Long Beach', 'Colorado Springs', 'Raleigh', 'Miami', 'Virginia Beach', 'Omaha', 'Oakland', 'Minneapolis', 'Tulsa', 'Arlington', 'Tampa'],
-        'CA': ['Toronto', 'Montreal', 'Vancouver', 'Calgary', 'Edmonton', 'Ottawa', 'Winnipeg', 'Quebec City', 'Hamilton', 'Kitchener', 'London', 'Victoria', 'Halifax', 'Oshawa', 'Windsor', 'Saskatoon', 'Regina', 'Sherbrooke', 'Kelowna', 'Barrie', 'Abbotsford', 'Sudbury', 'Kingston', 'Trois-Rivières', 'Guelph', 'Cambridge', 'Whitby', 'Ajax', 'Langley', 'Saanich', 'Thunder Bay', 'Terrebonne', 'Saint-Jean-sur-Richelieu', 'Richmond', 'Burnaby', 'Saguenay', 'Laval', 'Surrey', 'Brampton', 'Mississauga'],
-        'GB': ['London', 'Birmingham', 'Manchester', 'Glasgow', 'Liverpool', 'Leeds', 'Sheffield', 'Edinburgh', 'Bristol', 'Leicester', 'Coventry', 'Bradford', 'Cardiff', 'Belfast', 'Nottingham', 'Hull', 'Newcastle', 'Stoke-on-Trent', 'Southampton', 'Derby', 'Portsmouth', 'Brighton', 'Plymouth', 'Northampton', 'Reading', 'Luton', 'Wolverhampton', 'Bolton', 'Bournemouth', 'Norwich', 'Swindon', 'Southend-on-Sea', 'Middlesbrough', 'Peterborough', 'Huddersfield', 'York', 'Blackpool', 'Milton Keynes', 'Stockport', 'West Bromwich'],
-        'AU': ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide', 'Gold Coast', 'Newcastle', 'Canberra', 'Wollongong', 'Hobart', 'Geelong', 'Townsville', 'Cairns', 'Toowoomba', 'Darwin', 'Ballarat', 'Bendigo', 'Albury', 'Launceston', 'Mackay', 'Rockhampton', 'Bunbury', 'Coffs Harbour', 'Wagga Wagga', 'Hervey Bay', 'Port Macquarie', 'Gladstone', 'Mildura', 'Shepparton', 'Traralgon', 'Kalgoorlie', 'Warrnambool', 'Albany', 'Devonport', 'Burnie', 'Whyalla', 'Mount Gambier', 'Geraldton', 'Broken Hill', 'Karratha'],
-        'DE': ['Berlin', 'Hamburg', 'Munich', 'Cologne', 'Frankfurt', 'Stuttgart', 'Düsseldorf', 'Dortmund', 'Essen', 'Leipzig', 'Bremen', 'Dresden', 'Hannover', 'Nuremberg', 'Duisburg', 'Bochum', 'Wuppertal', 'Bielefeld', 'Bonn', 'Münster', 'Karlsruhe', 'Mannheim', 'Augsburg', 'Wiesbaden', 'Gelsenkirchen', 'Mönchengladbach', 'Braunschweig', 'Chemnitz', 'Kiel', 'Aachen', 'Halle', 'Magdeburg', 'Freiburg', 'Krefeld', 'Lübeck', 'Oberhausen', 'Erfurt', 'Mainz', 'Rostock', 'Kassel'],
-        'FR': ['Paris', 'Marseille', 'Lyon', 'Toulouse', 'Nice', 'Nantes', 'Strasbourg', 'Montpellier', 'Bordeaux', 'Lille', 'Rennes', 'Reims', 'Le Havre', 'Saint-Étienne', 'Toulon', 'Angers', 'Grenoble', 'Dijon', 'Nîmes', 'Aix-en-Provence', 'Saint-Denis', 'Le Mans', 'Amiens', 'Tours', 'Limoges', 'Annecy', 'Perpignan', 'Boulogne-Billancourt', 'Orléans', 'Mulhouse', 'Rouen', 'Caen', 'Nancy', 'Argenteuil', 'Montreuil', 'Roubaix', 'Tourcoing', 'Nanterre', 'Avignon'],
-        'IT': ['Rome', 'Milan', 'Naples', 'Turin', 'Palermo', 'Genoa', 'Bologna', 'Florence', 'Bari', 'Catania', 'Venice', 'Verona', 'Messina', 'Padua', 'Trieste', 'Taranto', 'Brescia', 'Prato', 'Parma', 'Modena', 'Reggio Calabria', 'Reggio Emilia', 'Perugia', 'Livorno', 'Ravenna', 'Cagliari', 'Foggia', 'Rimini', 'Salerno', 'Ferrara', 'Sassari', 'Monza', 'Syracuse', 'Bergamo', 'Forlì', 'Trento', 'Vicenza', 'Terni', 'Bolzano', 'Novara'],
-        'ES': ['Madrid', 'Barcelona', 'Valencia', 'Seville', 'Zaragoza', 'Málaga', 'Murcia', 'Palma', 'Las Palmas', 'Bilbao', 'Alicante', 'Córdoba', 'Valladolid', 'Vigo', 'Gijón', 'Hospitalet', 'A Coruña', 'Granada', 'Vitoria', 'Elche', 'Santa Cruz', 'Oviedo', 'Badalona', 'Cartagena', 'Terrassa', 'Jerez', 'Sabadell', 'Móstoles', 'Alcalá de Henares', 'Pamplona', 'Fuenlabrada', 'Almería', 'Leganés', 'Santander', 'Castellón', 'Burgos', 'Albacete', 'Getafe', 'Salamanca', 'Huelva'],
-        'BR': ['São Paulo', 'Rio de Janeiro', 'Brasília', 'Salvador', 'Fortaleza', 'Belo Horizonte', 'Manaus', 'Curitiba', 'Recife', 'Goiânia', 'Belém', 'Porto Alegre', 'Guarulhos', 'Campinas', 'São Luís', 'São Gonçalo', 'Maceió', 'Duque de Caxias', 'Natal', 'Teresina', 'Campo Grande', 'Nova Iguaçu', 'São Bernardo do Campo', 'João Pessoa', 'Santo André', 'Jaboatão dos Guararapes', 'São José dos Campos', 'Ribeirão Preto', 'Uberlândia', 'Sorocaba', 'Contagem', 'Aracaju', 'Feira de Santana', 'Cuiabá', 'Joinville', 'Aparecida de Goiânia', 'Londrina', 'Ananindeua', 'Serra', 'Niterói'],
-        'IN': ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Ahmedabad', 'Chennai', 'Kolkata', 'Surat', 'Pune', 'Jaipur', 'Lucknow', 'Kanpur', 'Nagpur', 'Indore', 'Thane', 'Bhopal', 'Visakhapatnam', 'Pimpri-Chinchwad', 'Patna', 'Vadodara', 'Ghaziabad', 'Ludhiana', 'Agra', 'Nashik', 'Faridabad', 'Meerut', 'Rajkot', 'Kalyan-Dombivali', 'Vasai-Virar', 'Varanasi', 'Srinagar', 'Aurangabad', 'Navi Mumbai', 'Solapur', 'Vijayawada', 'Kolhapur', 'Amritsar', 'Nashik', 'Sangli', 'Malegaon'],
-        'CN': ['Shanghai', 'Beijing', 'Chongqing', 'Tianjin', 'Guangzhou', 'Shenzhen', 'Wuhan', 'Dongguan', 'Chengdu', 'Nanjing', 'Xi\'an', 'Hangzhou', 'Foshan', 'Shenyang', 'Harbin', 'Qingdao', 'Dalian', 'Jinan', 'Zhengzhou', 'Changsha', 'Kunming', 'Changchun', 'Taiyuan', 'Shijiazhuang', 'Nanning', 'Hefei', 'Ningbo', 'Fuzhou', 'Xiamen', 'Nanchang', 'Guiyang', 'Haikou', 'Lanzhou', 'Yinchuan', 'Xining', 'Hohhot', 'Urumqi', 'Lhasa', 'Macau', 'Hong Kong'],
-        'JP': ['Tokyo', 'Yokohama', 'Osaka', 'Nagoya', 'Sapporo', 'Fukuoka', 'Kobe', 'Kawasaki', 'Kyoto', 'Saitama', 'Hiroshima', 'Sendai', 'Kitakyushu', 'Chiba', 'Sakai', 'Niigata', 'Hamamatsu', 'Okayama', 'Sagamihara', 'Kumamoto', 'Shizuoka', 'Kagoshima', 'Funabashi', 'Hachioji', 'Matsuyama', 'Matsudo', 'Nishinomiya', 'Kawaguchi', 'Kanazawa', 'Ichikawa', 'Oita', 'Fukuyama', 'Amagasaki', 'Nagasaki', 'Toyonaka', 'Toyohashi', 'Toyota', 'Takamatsu', 'Hirakata', 'Fujisawa'],
-        'KR': ['Seoul', 'Busan', 'Incheon', 'Daegu', 'Daejeon', 'Gwangju', 'Suwon', 'Ulsan', 'Changwon', 'Goyang', 'Yongin', 'Bucheon', 'Ansan', 'Anyang', 'Namyangju', 'Hwaseong', 'Cheongju', 'Jeonju', 'Cheonan', 'Gimhae', 'Jeju', 'Pyeongtaek', 'Siheung', 'Wonju', 'Jinju', 'Gumi', 'Jeongeup', 'Gunsan', 'Iksan', 'Yeosu', 'Mokpo', 'Gunsan', 'Jeonju', 'Andong', 'Gyeongju', 'Gangneung', 'Chuncheon', 'Hongcheon', 'Wonju', 'Chungju'],
-        'MX': ['Mexico City', 'Guadalajara', 'Monterrey', 'Puebla', 'Tijuana', 'León', 'Juárez', 'Zapopan', 'Nezahualcóyotl', 'Chihuahua', 'Mérida', 'Naucalpan', 'Álvaro Obregón', 'Guadalupe', 'Acapulco', 'Tlalnepantla', 'Cancún', 'Saltillo', 'Aguascalientes', 'Hermosillo', 'Mexicali', 'San Luis Potosí', 'Culiacán', 'Querétaro', 'Morelia', 'Chimalhuacán', 'Reynosa', 'Torreón', 'Tlaquepaque', 'Tuxtla Gutiérrez', 'Durango', 'Cuautitlán Izcalli', 'Veracruz', 'Ciudad López Mateos', 'Irapuato', 'Ensenada', 'Matamoros', 'Tonalá', 'Xalapa', 'Nuevo Laredo'],
-        'RU': ['Moscow', 'Saint Petersburg', 'Novosibirsk', 'Yekaterinburg', 'Kazan', 'Nizhny Novgorod', 'Chelyabinsk', 'Samara', 'Omsk', 'Rostov-on-Don', 'Ufa', 'Krasnoyarsk', 'Perm', 'Voronezh', 'Volgograd', 'Krasnodar', 'Saratov', 'Tyumen', 'Tolyatti', 'Izhevsk', 'Barnaul', 'Ulyanovsk', 'Irkutsk', 'Vladivostok', 'Yaroslavl', 'Habarovsk', 'Makhachkala', 'Tomsk', 'Orenburg', 'Kemerovo', 'Ryazan', 'Astrakhan', 'Naberezhnye Chelny', 'Penza', 'Lipetsk', 'Tula', 'Kirov', 'Cheboksary', 'Kaliningrad', 'Bryansk'],
-        // Additional European countries
-        'NL': ['Amsterdam', 'Rotterdam', 'The Hague', 'Utrecht', 'Eindhoven', 'Tilburg', 'Groningen', 'Almere', 'Breda', 'Nijmegen', 'Enschede', 'Haarlem', 'Arnhem', 'Zaanstad', 'Amersfoort', 'Apeldoorn', 'Hoofddorp', 'Maastricht', 'Leiden', 'Dordrecht'],
-        'BE': ['Brussels', 'Antwerp', 'Ghent', 'Charleroi', 'Liège', 'Bruges', 'Namur', 'Leuven', 'Mons', 'Aalst', 'Mechelen', 'La Louvière', 'Kortrijk', 'Hasselt', 'Ostend', 'Tournai', 'Genk', 'Seraing', 'Roeselare', 'Verviers'],
-        'CH': ['Zurich', 'Geneva', 'Basel', 'Bern', 'Lausanne', 'Winterthur', 'Lucerne', 'St. Gallen', 'Lugano', 'Biel', 'Thun', 'Köniz', 'La Chaux-de-Fonds', 'Fribourg', 'Schaffhausen', 'Chur', 'Vernier', 'Neuchâtel', 'Uster', 'Sion'],
-        'AT': ['Vienna', 'Graz', 'Linz', 'Salzburg', 'Innsbruck', 'Klagenfurt', 'Villach', 'Wels', 'Sankt Pölten', 'Dornbirn', 'Steyr', 'Wiener Neustadt', 'Feldkirch', 'Bregenz', 'Leonding', 'Wolfsberg', 'Baden', 'Klosterneuburg', 'Leoben', 'Krems'],
-        'SE': ['Stockholm', 'Gothenburg', 'Malmö', 'Uppsala', 'Västerås', 'Örebro', 'Linköping', 'Helsingborg', 'Jönköping', 'Norrköping', 'Lund', 'Umeå', 'Gävle', 'Borås', 'Södertälje', 'Eskilstuna', 'Halmstad', 'Växjö', 'Karlstad', 'Östersund'],
-        'NO': ['Oslo', 'Bergen', 'Trondheim', 'Stavanger', 'Kristiansand', 'Fredrikstad', 'Tromsø', 'Drammen', 'Skien', 'Ålesund', 'Tønsberg', 'Moss', 'Haugesund', 'Sandefjord', 'Arendal', 'Hamar', 'Steinkjer', 'Larvik', 'Kongsberg', 'Horten'],
-        'DK': ['Copenhagen', 'Aarhus', 'Odense', 'Aalborg', 'Esbjerg', 'Randers', 'Kolding', 'Horsens', 'Vejle', 'Roskilde', 'Herning', 'Silkeborg', 'Næstved', 'Fredericia', 'Viborg', 'Køge', 'Holstebro', 'Taastrup', 'Slagelse', 'Hillerød'],
-        'FI': ['Helsinki', 'Espoo', 'Tampere', 'Vantaa', 'Turku', 'Oulu', 'Jyväskylä', 'Lahti', 'Kuopio', 'Pori', 'Kouvola', 'Joensuu', 'Lappeenranta', 'Hämeenlinna', 'Vaasa', 'Seinäjoki', 'Rovaniemi', 'Mikkeli', 'Kotka', 'Salo'],
-        'PL': ['Warsaw', 'Kraków', 'Łódź', 'Wrocław', 'Poznań', 'Gdańsk', 'Szczecin', 'Bydgoszcz', 'Lublin', 'Białystok', 'Katowice', 'Gdynia', 'Częstochowa', 'Radom', 'Sosnowiec', 'Toruń', 'Kielce', 'Gliwice', 'Zabrze', 'Bytom'],
-        'CZ': ['Prague', 'Brno', 'Ostrava', 'Plzeň', 'Liberec', 'Olomouc', 'Budějovice', 'Hradec Králové', 'Ústí nad Labem', 'Pardubice', 'Zlín', 'Havířov', 'Kladno', 'Most', 'Opava', 'Frýdek-Místek', 'Karviná', 'Jihlava', 'Teplice', 'Děčín'],
-        'HU': ['Budapest', 'Debrecen', 'Szeged', 'Miskolc', 'Pécs', 'Győr', 'Nyíregyháza', 'Kecskemét', 'Székesfehérvár', 'Szombathely', 'Szolnok', 'Tatabánya', 'Kaposvár', 'Békéscsaba', 'Zalaegerszeg', 'Érd', 'Sopron', 'Veszprém', 'Baja', 'Szekszárd'],
-        'RO': ['Bucharest', 'Cluj-Napoca', 'Timișoara', 'Iași', 'Constanța', 'Craiova', 'Galați', 'Ploiești', 'Brașov', 'Brăila', 'Arad', 'Pitești', 'Sibiu', 'Bacău', 'Târgu Mureș', 'Baia Mare', 'Buzău', 'Satu Mare', 'Piatra Neamț', 'Râmnicu Vâlcea'],
-        'BG': ['Sofia', 'Plovdiv', 'Varna', 'Burgas', 'Ruse', 'Stara Zagora', 'Pleven', 'Sliven', 'Dobrich', 'Shumen', 'Pernik', 'Haskovo', 'Yambol', 'Pazardzhik', 'Blagoevgrad', 'Veliko Tarnovo', 'Vratsa', 'Gabrovo', 'Asenovgrad', 'Kazanlak'],
-        'GR': ['Athens', 'Thessaloniki', 'Patras', 'Piraeus', 'Larissa', 'Heraklion', 'Peristeri', 'Kallithea', 'Acharnes', 'Kalamaria', 'Nikaia', 'Glyfada', 'Volos', 'Ilion', 'Ilioupoli', 'Keratsini', 'Khalandrion', 'Nea Smyrni', 'Marousi', 'Agios Dimitrios'],
-        'PT': ['Lisbon', 'Porto', 'Vila Nova de Gaia', 'Amadora', 'Braga', 'Funchal', 'Coimbra', 'Setúbal', 'Almada', 'Agualva-Cacém', 'Queluz', 'Rio Tinto', 'Barreiro', 'Aveiro', 'Corroios', 'Leiria', 'Faro', 'Évora', 'Viseu', 'Guimarães'],
-        'IE': ['Dublin', 'Cork', 'Limerick', 'Galway', 'Waterford', 'Drogheda', 'Swords', 'Dundalk', 'Bray', 'Navan', 'Ennis', 'Kilkenny', 'Carlow', 'Tralee', 'Newbridge', 'Naas', 'Athlone', 'Portlaoise', 'Mullingar', 'Wexford'],
-        // Additional countries from other continents
-        'NZ': ['Auckland', 'Wellington', 'Christchurch', 'Hamilton', 'Tauranga', 'Napier', 'Hastings', 'Dunedin', 'Palmerston North', 'Nelson', 'Rotorua', 'New Plymouth', 'Whangarei', 'Invercargill', 'Whanganui', 'Gisborne', 'Pukekohe', 'Timaru', 'Masterton', 'Levin'],
-        'ZA': ['Johannesburg', 'Cape Town', 'Durban', 'Pretoria', 'Port Elizabeth', 'Bloemfontein', 'East London', 'Pietermaritzburg', 'Benoni', 'Tembisa', 'Vereeniging', 'Soweto', 'Boksburg', 'Welkom', 'Klerksdorp', 'Potchefstroom', 'Rustenburg', 'Carletonville', 'Midrand', 'Centurion'],
-        'EG': ['Cairo', 'Alexandria', 'Giza', 'Shubra El Kheima', 'Port Said', 'Suez', 'Luxor', 'Mansoura', 'El Mahalla El Kubra', 'Tanta', 'Asyut', 'Ismailia', 'Faiyum', 'Zagazig', 'Aswan', 'Damietta', 'Minya', 'Beni Suef', 'Hurghada', 'Qena'],
-        'NG': ['Lagos', 'Kano', 'Ibadan', 'Benin City', 'Port Harcourt', 'Jos', 'Ilorin', 'Abuja', 'Kaduna', 'Maiduguri', 'Zaria', 'Aba', 'Ilesa', 'Onitsha', 'Iwo', 'Ado Ekiti', 'Akure', 'Osogbo', 'Katsina', 'Bauchi'],
-        'KE': ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Malindi', 'Kitale', 'Garissa', 'Kakamega', 'Nyeri', 'Meru', 'Thika', 'Machakos', 'Embu', 'Narok', 'Kericho', 'Kisii', 'Bungoma', 'Busia', 'Homa Bay'],
-        'GH': ['Accra', 'Kumasi', 'Tamale', 'Sekondi-Takoradi', 'Sunyani', 'Cape Coast', 'Koforidua', 'Ho', 'Techiman', 'Tema', 'Ashaiman', 'Bolgatanga', 'Tarkwa', 'Wa', 'Nkawkaw', 'Aflao', 'Suhum', 'Prestea', 'Bibiani', 'Konongo'],
-        'MA': ['Casablanca', 'Rabat', 'Fez', 'Marrakech', 'Agadir', 'Tangier', 'Meknes', 'Oujda', 'Kenitra', 'Tetouan', 'Safi', 'Mohammedia', 'Khouribga', 'Beni Mellal', 'El Jadida', 'Taza', 'Nador', 'Settat', 'Larache', 'Ksar El Kebir'],
-        'TN': ['Tunis', 'Sfax', 'Sousse', 'Kairouan', 'Bizerte', 'Gabès', 'Ariana', 'Gafsa', 'Monastir', 'Ben Arous', 'Kasserine', 'Medenine', 'Nabeul', 'Tataouine', 'Béja', 'Jendouba', 'Kef', 'Mahdia', 'Manouba', 'Siliana'],
-        'DZ': ['Algiers', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Batna', 'Djelfa', 'Sétif', 'Sidi Bel Abbès', 'Biskra', 'Tébessa', 'El Oued', 'Skikda', 'Tiaret', 'Béjaïa', 'Tlemcen', 'Ouargla', 'Guelma', 'Mostaganem', 'M\'Sila'],
-        'LY': ['Tripoli', 'Benghazi', 'Misrata', 'Tarhuna', 'Khoms', 'Zawiya', 'Zuwara', 'Ajdabiya', 'Sirte', 'Tobruk', 'Sabha', 'Derna', 'Kufra', 'Gharyan', 'Murzuq', 'Bani Walid', 'Zliten', 'Tajura', 'Yafran', 'Nalut'],
-        'SD': ['Khartoum', 'Omdurman', 'Port Sudan', 'Kassala', 'El Obeid', 'Nyala', 'Wad Madani', 'El Fasher', 'Kosti', 'Gedaref', 'Sennar', 'Atbara', 'El Geneina', 'Rabak', 'Singa', 'El Daein', 'Umm Ruwaba', 'Shendi', 'El Damazin', 'Kadugli'],
-        'ET': ['Addis Ababa', 'Dire Dawa', 'Mekelle', 'Gondar', 'Awassa', 'Bahir Dar', 'Jimma', 'Dessie', 'Jijiga', 'Shashamane', 'Bishoftu', 'Arba Minch', 'Hosaena', 'Harar', 'Dila', 'Nekemte', 'Debre Birhan', 'Asella', 'Goba', 'Kebri Dehar'],
-        'UG': ['Kampala', 'Gulu', 'Lira', 'Mbarara', 'Jinja', 'Bwizibwera', 'Mbale', 'Mukono', 'Kasese', 'Masaka', 'Entebbe', 'Njeru', 'Kitgum', 'Arua', 'Iganga', 'Soroti', 'Fort Portal', 'Lugazi', 'Mityana', 'Nebbi'],
-        'TZ': ['Dar es Salaam', 'Mwanza', 'Arusha', 'Dodoma', 'Mbeya', 'Morogoro', 'Tanga', 'Kahama', 'Tabora', 'Singida', 'Musoma', 'Iringa', 'Katumba', 'Shinyanga', 'Moshi', 'Unguja', 'Kigoma', 'Mpanda', 'Bukoba', 'Sumbawanga'],
-        'ZW': ['Harare', 'Bulawayo', 'Chitungwiza', 'Mutare', 'Gweru', 'Kwekwe', 'Kadoma', 'Masvingo', 'Chinhoyi', 'Marondera', 'Norton', 'Chegutu', 'Bindura', 'Zvishavane', 'Victoria Falls', 'Hwange', 'Redcliff', 'Rusape', 'Chiredzi', 'Kariba'],
-        'BW': ['Gaborone', 'Francistown', 'Molepolole', 'Selebi-Phikwe', 'Maun', 'Serowe', 'Kanye', 'Mahalapye', 'Mochudi', 'Mogoditshane', 'Palapye', 'Lobatse', 'Ramotswa', 'Thamaga', 'Moshupa', 'Tlokweng', 'Orapa', 'Jwaneng', 'Sowa', 'Letlhakane'],
-        'NA': ['Windhoek', 'Rundu', 'Walvis Bay', 'Oshakati', 'Swakopmund', 'Katima Mulilo', 'Grootfontein', 'Rehoboth', 'Otjiwarongo', 'Okahandja', 'Keetmanshoop', 'Lüderitz', 'Mariental', 'Gobabis', 'Tsumeb', 'Omaruru', 'Usakos', 'Karibib', 'Outjo', 'Khorixas'],
-        'ZM': ['Lusaka', 'Kitwe', 'Ndola', 'Kabwe', 'Chingola', 'Mufulira', 'Luanshya', 'Livingstone', 'Kasama', 'Chipata', 'Solwezi', 'Mazabuka', 'Chililabombwe', 'Mongu', 'Kafue', 'Choma', 'Mansa', 'Kapiri Mposhi', 'Nchelenge', 'Samfya'],
-        'MW': ['Lilongwe', 'Blantyre', 'Mzuzu', 'Zomba', 'Kasungu', 'Mangochi', 'Karonga', 'Salima', 'Nkhotakota', 'Liwonde', 'Nsanje', 'Rumphi', 'Mzimba', 'Balaka', 'Mchinji', 'Dedza', 'Ntcheu', 'Chitipa', 'Thyolo', 'Phalombe'],
-        'MZ': ['Maputo', 'Matola', 'Beira', 'Nampula', 'Chimoio', 'Nacala', 'Quelimane', 'Tete', 'Pemba', 'Xai-Xai', 'Inhambane', 'Maxixe', 'Lichinga', 'Angoche', 'Cuamba', 'Montepuez', 'Chokwe', 'Mocuba', 'Gurue', 'Mocimboa da Praia'],
-        'MG': ['Antananarivo', 'Toamasina', 'Antsirabe', 'Fianarantsoa', 'Mahajanga', 'Toliara', 'Antsiranana', 'Ambalavao', 'Ambovombe', 'Andoany', 'Ankazoabo', 'Antalaha', 'Antanifotsy', 'Antsohihy', 'Arivonimamo', 'Bealanana', 'Befandriana', 'Brickaville', 'Farafangana', 'Fort Dauphin'],
-        'MU': ['Port Louis', 'Beau Bassin-Rose Hill', 'Vacoas-Phoenix', 'Curepipe', 'Quatre Bornes', 'Triolet', 'Goodlands', 'Centre de Flacq', 'Bel Air', 'Mahebourg', 'Saint Pierre', 'Bambous', 'Cascavelle', 'Grand Baie', 'Flic en Flac', 'Le Morne', 'Trou aux Biches', 'Pamplemousses', 'Rivière du Rempart', 'Savanne'],
-        'SC': ['Victoria', 'Anse Boileau', 'Anse Royale', 'Au Cap', 'Baie Lazare', 'Baie Sainte Anne', 'Beau Vallon', 'Bel Air', 'Bel Ombre', 'Cascade', 'Glacis', 'Grand Anse', 'La Digue', 'La Rivière Anglaise', 'Mont Buxton', 'Mont Fleuri', 'Plaisance', 'Pointe La Rue', 'Port Glaud', 'Takamaka'],
-        'CV': ['Praia', 'Mindelo', 'Santa Maria', 'Cova Figueira', 'Pedra Badejo', 'São Filipe', 'Assomada', 'Tarrafal', 'Espargos', 'Porto Novo', 'Ribeira Brava', 'Vila do Maio', 'Picos', 'Calheta', 'Vila Nova Sintra', 'Mosteiros', 'São Domingos', 'Ribeira Grande', 'Pombas', 'Ponta do Sol']
-      };
-      
-      const fallbackResult = fallbackCities[countryCode]?.map(city => ({ name: city })) || [];
-      console.log('Fallback cities result:', fallbackResult.length, 'cities for', countryCode);
-      return fallbackResult;
-    }
+    console.log('Loading cities for Nordic country:', countryCode);
+    
+    // Hardcoded cities for Nordic countries
+    const nordicCities: { [key: string]: { name: string; population?: number }[] } = {
+      'DK': [
+        { name: 'Copenhagen', population: 632340 },
+        { name: 'Aarhus', population: 285273 },
+        { name: 'Odense', population: 180863 },
+        { name: 'Aalborg', population: 119862 },
+        { name: 'Esbjerg', population: 72330 },
+        { name: 'Randers', population: 62804 },
+        { name: 'Kolding', population: 61021 },
+        { name: 'Horsens', population: 61074 },
+        { name: 'Vejle', population: 58059 },
+        { name: 'Roskilde', population: 51285 },
+        { name: 'Herning', population: 50032 },
+        { name: 'Silkeborg', population: 44426 },
+        { name: 'Næstved', population: 43234 },
+        { name: 'Fredericia', population: 40890 },
+        { name: 'Viborg', population: 40122 },
+        { name: 'Køge', population: 38069 },
+        { name: 'Holstebro', population: 36020 },
+        { name: 'Taastrup', population: 33333 },
+        { name: 'Slagelse', population: 33000 },
+        { name: 'Hillerød', population: 32000 }
+      ],
+      'FI': [
+        { name: 'Helsinki', population: 656229 },
+        { name: 'Espoo', population: 293017 },
+        { name: 'Tampere', population: 244223 },
+        { name: 'Vantaa', population: 238857 },
+        { name: 'Turku', population: 194244 },
+        { name: 'Oulu', population: 208939 },
+        { name: 'Jyväskylä', population: 143400 },
+        { name: 'Lahti', population: 120112 },
+        { name: 'Kuopio', population: 120306 },
+        { name: 'Pori', population: 83768 },
+        { name: 'Kouvola', population: 80840 },
+        { name: 'Joensuu', population: 76000 },
+        { name: 'Lappeenranta', population: 73000 },
+        { name: 'Hämeenlinna', population: 68000 },
+        { name: 'Vaasa', population: 67000 },
+        { name: 'Seinäjoki', population: 65000 },
+        { name: 'Rovaniemi', population: 64000 },
+        { name: 'Mikkeli', population: 54000 },
+        { name: 'Kotka', population: 53000 },
+        { name: 'Salo', population: 52000 }
+      ],
+      'IS': [
+        { name: 'Reykjavík', population: 131136 },
+        { name: 'Kópavogur', population: 37000 },
+        { name: 'Hafnarfjörður', population: 29000 },
+        { name: 'Akureyri', population: 19000 },
+        { name: 'Reykjanesbær', population: 18000 },
+        { name: 'Garðabær', population: 16000 },
+        { name: 'Mosfellsbær', population: 12000 },
+        { name: 'Árborg', population: 10000 },
+        { name: 'Akranes', population: 7000 },
+        { name: 'Fjarðabyggð', population: 5000 },
+        { name: 'Seltjarnarnes', population: 4500 },
+        { name: 'Fljótsdalshérað', population: 4000 },
+        { name: 'Vestmannaeyjar', population: 4000 },
+        { name: 'Skagafjörður', population: 4000 },
+        { name: 'Ísafjarðarbær', population: 4000 },
+        { name: 'Dalvík', population: 1400 },
+        { name: 'Sauðárkrókur', population: 2600 },
+        { name: 'Húsavík', population: 2300 },
+        { name: 'Egilsstaðir', population: 2500 },
+        { name: 'Selfoss', population: 7000 }
+      ],
+      'NO': [
+        { name: 'Oslo', population: 697010 },
+        { name: 'Bergen', population: 286930 },
+        { name: 'Trondheim', population: 205332 },
+        { name: 'Stavanger', population: 144699 },
+        { name: 'Kristiansand', population: 112000 },
+        { name: 'Fredrikstad', population: 83000 },
+        { name: 'Tromsø', population: 77000 },
+        { name: 'Drammen', population: 68000 },
+        { name: 'Skien', population: 55000 },
+        { name: 'Ålesund', population: 52000 },
+        { name: 'Tønsberg', population: 43000 },
+        { name: 'Moss', population: 35000 },
+        { name: 'Haugesund', population: 37000 },
+        { name: 'Sandefjord', population: 45000 },
+        { name: 'Arendal', population: 45000 },
+        { name: 'Hamar', population: 30000 },
+        { name: 'Steinkjer', population: 22000 },
+        { name: 'Larvik', population: 46000 },
+        { name: 'Kongsberg', population: 28000 },
+        { name: 'Horten', population: 27000 }
+      ],
+      'SE': [
+        { name: 'Stockholm', population: 975551 },
+        { name: 'Gothenburg', population: 579281 },
+        { name: 'Malmö', population: 347949 },
+        { name: 'Uppsala', population: 230767 },
+        { name: 'Västerås', population: 150564 },
+        { name: 'Örebro', population: 156381 },
+        { name: 'Linköping', population: 164616 },
+        { name: 'Helsingborg', population: 149280 },
+        { name: 'Jönköping', population: 141081 },
+        { name: 'Norrköping', population: 143171 },
+        { name: 'Lund', population: 121893 },
+        { name: 'Umeå', population: 130224 },
+        { name: 'Gävle', population: 102904 },
+        { name: 'Borås', population: 111154 },
+        { name: 'Södertälje', population: 100000 },
+        { name: 'Eskilstuna', population: 107579 },
+        { name: 'Halmstad', population: 70000 },
+        { name: 'Växjö', population: 90000 },
+        { name: 'Karlstad', population: 95000 },
+        { name: 'Östersund', population: 65000 }
+      ]
+    };
+    
+    const cities = nordicCities[countryCode] || [];
+    console.log('Loaded cities for', countryCode + ':', cities.length);
+    return cities;
   }
 };
 
@@ -754,6 +692,15 @@ export const authApi = {
     const response = await authenticatedApiRequest(API_ENDPOINTS.USERS.GET_BY_ID(userId));
     if (!response.ok) {
       throw new Error('Failed to fetch user');
+    }
+    return response.json();
+  },
+
+  // Get user online status
+  getUserOnlineStatus: async (userId: string) => {
+    const response = await authenticatedApiRequest(`/users/${userId}/online-status`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch user online status');
     }
     return response.json();
   },
