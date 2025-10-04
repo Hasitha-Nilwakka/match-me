@@ -6,7 +6,7 @@ export const getApiUrlNew = (): string => {
   console.log('[API] getApiUrlNew called at:', new Date().toISOString());
   
   // Always return the network IP for now
-  const apiUrl = 'http://192.168.1.118:8080';
+  const apiUrl = 'http://192.168.101.115:8080';
   console.log('[API] NEW FUNCTION: Returning network IP:', apiUrl);
   return apiUrl;
 };

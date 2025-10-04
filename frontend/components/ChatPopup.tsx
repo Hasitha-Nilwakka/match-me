@@ -623,7 +623,29 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                   </svg>
                 </button>
                 <div className="relative">
-                  <span className="text-lg">{currentChatUser.profilePicture}</span>
+                  {(() => {
+                    const profilePicSrc = currentChatUser.profilePicture && currentChatUser.profilePicture.startsWith('http')
+                      ? currentChatUser.profilePicture
+                      : currentChatUser.profilePicture && currentChatUser.profilePicture.startsWith('/uploads')
+                      ? `http://192.168.101.115:8080${currentChatUser.profilePicture}`
+                      : currentChatUser.profilePicture && currentChatUser.profilePicture.startsWith('/')
+                      ? currentChatUser.profilePicture
+                      : "/sitefiles/default-profile-picture.png";
+                    
+                    return (
+                      <Image
+                        src={profilePicSrc}
+                        alt={currentChatUser.name}
+                        width={24}
+                        height={24}
+                        className="rounded-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/sitefiles/default-profile-picture.png";
+                        }}
+                      />
+                    );
+                  })()}
                   {currentChatUser.isOnline && (
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-green-400 rounded-full"></div>
                   )}

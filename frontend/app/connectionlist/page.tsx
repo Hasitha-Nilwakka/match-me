@@ -317,7 +317,7 @@ export default function ConnectionListPage() {
                             const profilePicSrc = connection.profilePicture && connection.profilePicture.startsWith('http')
                               ? connection.profilePicture
                               : connection.profilePicture && connection.profilePicture.startsWith('/uploads')
-                              ? `http://localhost:8080${connection.profilePicture}`
+                              ? `http://192.168.101.115:8080${connection.profilePicture}`
                               : connection.profilePicture && connection.profilePicture.startsWith('/')
                               ? connection.profilePicture
                               : "/sitefiles/default-profile-picture.png";

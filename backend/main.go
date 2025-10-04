@@ -147,7 +147,7 @@ func main() {
 	// Start the HTTP server on port 8080 (accessible from local network)
 	log.Println("Starting Match-Me server on:")
 	log.Println("  Local:   http://localhost:8080")
-	log.Println("  Network: http://192.168.1.118:8080")
+	log.Println("  Network: http://192.168.101.115:8080")
 	if err := r.Run(":8080"); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}

@@ -137,7 +137,7 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                       const profilePicSrc = profile.profilePictureURL && profile.profilePictureURL.startsWith('http')
                         ? profile.profilePictureURL
                         : profile.profilePictureURL && profile.profilePictureURL.startsWith('/uploads')
-                        ? `http://localhost:8080${profile.profilePictureURL}`
+                        ? `http://192.168.101.115:8080${profile.profilePictureURL}`
                         : profile.profilePictureURL && profile.profilePictureURL.startsWith('/')
                         ? profile.profilePictureURL
                         : "/sitefiles/default-profile-picture.png";

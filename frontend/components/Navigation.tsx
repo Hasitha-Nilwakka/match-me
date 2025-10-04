@@ -66,9 +66,6 @@ export default function Navigation() {
       case "requests":
         router.push("/connectionrequests");
         break;
-      case "chats":
-        router.push("/chats");
-        break;
       default:
         break;
     }
@@ -90,7 +87,6 @@ export default function Navigation() {
     if (pathname === "/profile") return "profile";
     if (pathname === "/connectionlist") return "connections";
     if (pathname === "/connectionrequests") return "requests";
-    if (pathname === "/chats") return "chats";
     return "";
   };
 
@@ -167,23 +163,13 @@ export default function Navigation() {
                 Connection Requests
                 <PendingRequestsIndicator className="absolute -top-1 -right-1" />
               </Link>
-              <Link
-                href="/chats"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                  activeTab === "chats"
-                    ? "bg-blue-100 text-blue-700"
-                    : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-                }`}
-              >
-                Chats
-              </Link>
             </div>
           </div>
 
           {/* User Profile Section */}
           <div className="flex items-center space-x-4">
-            {/* Data Mode Toggle (show on frontpage and chats) */}
-            {(pathname === "/frontpage" || pathname === "/chats") && <DataModeToggle />}
+            {/* Data Mode Toggle (show on frontpage) */}
+            {pathname === "/frontpage" && <DataModeToggle />}
             
             {/* Profile Photo and Name */}
             <div className="flex items-center space-x-2">
@@ -193,7 +179,7 @@ export default function Navigation() {
                   const profilePicSrc = userProfile.profilePictureURL && userProfile.profilePictureURL.startsWith('http')
                     ? userProfile.profilePictureURL
                     : userProfile.profilePictureURL && userProfile.profilePictureURL.startsWith('/uploads')
-                    ? `http://localhost:8080${userProfile.profilePictureURL}`
+                    ? `http://192.168.101.115:8080${userProfile.profilePictureURL}`
                     : userProfile.profilePictureURL && userProfile.profilePictureURL.startsWith('/')
                     ? userProfile.profilePictureURL
                     : "/sitefiles/default-profile-picture.png";
@@ -317,16 +303,6 @@ export default function Navigation() {
             >
               Connection Requests
               <PendingRequestsIndicator className="absolute top-2 right-2" />
-            </button>
-            <button
-              onClick={() => handleNavigation("chats")}
-              className={`block px-3 py-2 rounded-md text-base font-medium w-full text-left ${
-                activeTab === "chats"
-                  ? "bg-blue-100 text-blue-700"
-                  : "text-gray-700 hover:text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              Chats
             </button>
           </div>
         </div>
