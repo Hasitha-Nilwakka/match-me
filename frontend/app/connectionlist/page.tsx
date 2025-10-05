@@ -365,10 +365,10 @@ export default function ConnectionListPage() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex items-center sm:space-x-3 space-x-2 flex-wrap sm:flex-nowrap justify-end">
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3">
                         <button
                           onClick={() => handleViewProfile(connection.id)}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors order-2 sm:order-1"
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors px-2 py-1"
                         >
                           View Profile
                         </button>
@@ -384,7 +384,7 @@ export default function ConnectionListPage() {
                             handleStartChat(connection);
                           }}
                           disabled={startingChatId === connection.id}
-                          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1 order-1 sm:order-2"
+                          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                         >
                           {startingChatId === connection.id ? (
                             <>
@@ -396,14 +396,14 @@ export default function ConnectionListPage() {
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                               </svg>
-                              <span>Start Chat</span>
+                              <span>Chat</span>
                             </>
                           )}
                         </button>
                         
                         <button
                           onClick={() => handleRemoveConnection(connection.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1 order-3"
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />

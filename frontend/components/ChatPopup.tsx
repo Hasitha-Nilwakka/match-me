@@ -614,10 +614,10 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-4 right-4 z-50 transform-gpu">
       {/* Chat Popup Window */}
       <div className={`bg-white rounded-lg shadow-2xl border transition-all duration-300 ${
-        isMinimized ? 'h-14' : 'h-96 w-80'
+        isMinimized ? 'h-14' : 'h-96 w-80 max-w-[calc(100vw-2rem)]'
       }`}>
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b bg-blue-600 text-white rounded-t-lg">
@@ -1109,7 +1109,7 @@ export function ChatToggleButton({
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-4 right-4 z-40 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-300 hover:scale-110"
+      className="fixed bottom-4 right-4 z-40 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg transition-all duration-300 hover:scale-110 transform-gpu"
     >
       <div className="relative">
         <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">

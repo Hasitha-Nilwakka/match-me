@@ -319,15 +319,15 @@ export default function FrontPage() {
       <Navigation />
 
       {/* Main Content Area - Recommendations Focus */}
-      <main className="max-w-6xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <main className="max-w-6xl mx-auto py-4 sm:py-6 px-2 sm:px-6 lg:px-8">
+        <div className="py-4 sm:py-6">
           
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          <div className="text-center mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
               Your Recommendations
             </h1>
-            <p className="text-lg text-gray-600">
+            <p className="text-base sm:text-lg text-gray-600 px-4">
               Discover potential matches based on your preferences
             </p>
             {isLoadingRecommendations && (
@@ -339,12 +339,12 @@ export default function FrontPage() {
           </div>
 
           {/* Recommendation Card / Empty State */}
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden max-w-2xl mx-auto w-full">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl overflow-hidden max-w-2xl mx-auto w-full">
             
             {/* Profile Picture Section (hidden when no recs) */}
             <div className="relative">
               {recommendations.length > 0 ? (
-                <div className="h-64 sm:h-80 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                <div className="h-72 sm:h-80 md:h-96 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center px-4">
                   {(() => {
                     console.log('Current rec profile picture URL:', currentRec?.profilePictureURL);
                     console.log('Current rec profile picture starts with /:', currentRec?.profilePictureURL?.startsWith('/'));
@@ -364,9 +364,9 @@ export default function FrontPage() {
                       <Image
                         src={profilePicSrc}
                         alt="Recommendation Profile"
-                        width={200}
-                        height={200}
-                        className="w-32 h-32 sm:w-48 sm:h-48 rounded-full border-8 border-white shadow-2xl object-cover"
+                        width={300}
+                        height={300}
+                        className="w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 rounded-full border-4 sm:border-6 md:border-8 border-white shadow-2xl object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           console.log('Image failed to load, falling back to default');
@@ -387,10 +387,11 @@ export default function FrontPage() {
               
               {/* Online Status */}
               {recommendations.length > 0 && currentRec && (
-                <div className="absolute top-6 right-6">
-                  <div className={`${currentRec.isOnline ? 'bg-green-500' : 'bg-gray-500'} text-white px-3 py-1 rounded-full text-sm font-medium flex items-center`}>
-                    <div className={`w-2 h-2 ${currentRec.isOnline ? 'bg-white' : 'bg-gray-300'} rounded-full mr-2`}></div>
-                    {currentRec.isOnline ? 'Online' : 'Offline'}
+                <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+                  <div className={`${currentRec.isOnline ? 'bg-green-500' : 'bg-gray-500'} text-white px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium flex items-center`}>
+                    <div className={`w-2 h-2 ${currentRec.isOnline ? 'bg-white' : 'bg-gray-300'} rounded-full mr-1 sm:mr-2`}></div>
+                    <span className="hidden sm:inline">{currentRec.isOnline ? 'Online' : 'Offline'}</span>
+                    <span className="sm:hidden">{currentRec.isOnline ? '●' : '○'}</span>
                   </div>
                 </div>
               )}

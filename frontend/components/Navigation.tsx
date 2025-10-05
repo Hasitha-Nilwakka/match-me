@@ -110,13 +110,15 @@ export default function Navigation() {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Image
-              src="/sitefiles/site-logo-web.png"
-              alt="Site Logo"
-              width={120}
-              height={40}
-              className="h-10 w-auto"
-            />
+            <Link href="/frontpage" className="block">
+              <Image
+                src="/sitefiles/site-logo-web.png"
+                alt="Site Logo"
+                width={120}
+                height={40}
+                className="h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity"
+              />
+            </Link>
           </div>
 
           {/* Navigation Items */}

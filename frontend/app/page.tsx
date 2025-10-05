@@ -265,26 +265,39 @@ export default function Home() {
 
   return (
     <div className="min-h-screen relative">
-      {/* Full screen background image */}
+      {/* Full screen background image - hidden on mobile */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600">
         <Image
           src="/sitefiles/index-image-web.png"
           alt="Match Me"
           fill
-          className="object-cover"
+          className="object-cover hidden sm:block"
           priority
           onError={(e) => console.log('Image failed to load:', e)}
         />
         {/* <div className="absolute inset-0 bg-black bg-opacity-20"></div> */}
       </div>
 
-      {/* Login panel overlay on the right */}
-      <div className="relative z-10 min-h-screen flex items-center justify-end px-8 py-12">
+
+      {/* Login panel overlay - responsive positioning */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center sm:justify-end px-4 sm:px-8 py-8 sm:py-12">
         <div className="w-full max-w-md">
 
 
           {/* Form Container */}
-          <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-2xl p-8 border border-white/20">
+          <div className="bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-lg shadow-2xl p-6 sm:p-8 border border-white/20 mx-2 sm:mx-0">
+            {/* Mobile Logo Header - only visible on mobile */}
+            <div className="text-center mb-6 sm:hidden">
+              <Image
+                src="/sitefiles/site-logo-web.png"
+                alt="Match Me Logo"
+                width={160}
+                height={160}
+                className="mx-auto"
+                priority
+                onError={(e) => console.log('Logo failed to load:', e)}
+              />
+            </div>
             {isAuthenticated ? (
               /* Authenticated User Dashboard */
               <div>
@@ -305,21 +318,21 @@ export default function Home() {
                 <div className="space-y-3">
                   <button
                     onClick={() => router.push('/profile')}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
+                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 text-base font-medium"
                   >
                     Go to Profile
                   </button>
                   
                   <button
                     onClick={() => router.push('/frontpage')}
-                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200"
+                    className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 text-base font-medium"
                   >
                     Go to App
                   </button>
                   
                   <button
                     onClick={handleLogout}
-                    className="w-full bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-200"
+                    className="w-full bg-gray-600 text-white py-3 px-4 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-200 text-base font-medium"
                   >
                     Logout
                   </button>
@@ -345,7 +358,7 @@ export default function Home() {
                 {isLogin ? (
               /* Login Form */
               <div>
-                <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Login</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-6 text-center">Login</h2>
                 
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div>
@@ -357,7 +370,7 @@ export default function Home() {
                       id="login-email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base ${
                         errors.email ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter your email"
@@ -376,7 +389,7 @@ export default function Home() {
                       id="login-password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base ${
                         errors.password ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter your password"
@@ -389,7 +402,7 @@ export default function Home() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-base font-medium"
                   >
                     {isLoading ? 'Logging in...' : 'Login'}
                   </button>
@@ -404,7 +417,7 @@ export default function Home() {
             ) : (
               /* Create Account Form */
               <div>
-                <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Create Account</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-6 text-center">Create Account</h2>
                 
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div>
@@ -416,7 +429,7 @@ export default function Home() {
                       id="signup-email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-base ${
                         errors.email ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Enter your email"
@@ -435,7 +448,7 @@ export default function Home() {
                       id="signup-password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${
+                      className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-base ${
                         errors.password ? 'border-red-500' : 'border-gray-300'
                       }`}
                       placeholder="Create a password (min 6 characters)"
@@ -448,7 +461,7 @@ export default function Home() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-base font-medium"
                   >
                     {isLoading ? 'Creating Account...' : 'Create Account'}
                   </button>
