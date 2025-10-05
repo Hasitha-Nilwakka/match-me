@@ -36,7 +36,7 @@ export default function ProfilePage() {
     firstName: '',
     lastName: '',
     gender: '',
-    // status removed from profile UI
+    status: '',
     aboutMe: '',
     ethnicity: '',
     religion: '',
@@ -77,7 +77,7 @@ export default function ProfilePage() {
   // Seeking preferences and priority levels
   const [seekingPreferences, setSeekingPreferences] = useState({
     gender: '',
-    // status removed from profile UI
+    status: '',
     locationPreference: '',
     ethnicity: '',
     religion: '',
@@ -95,7 +95,7 @@ export default function ProfilePage() {
   
   const [priorityLevels, setPriorityLevels] = useState({
     gender: 2,
-    // status priority removed from UI
+    status: 2,
     locationPreference: 2,
     languages: 2,
     interests: 2,
@@ -321,7 +321,7 @@ export default function ProfilePage() {
           firstName: profile.firstName || '',
           lastName: profile.lastName || '',
           gender: profile.gender || '',
-          // status removed from profile UI
+          status: profile.status || '',
           aboutMe: profile.aboutMe || '',
           ethnicity: profile.ethnicity || '',
           religion: profile.religion || '',
@@ -384,7 +384,7 @@ export default function ProfilePage() {
         
         setSeekingPreferences({
           gender: seekingData.genderPreference || '',
-          // status removed from profile UI
+          status: seekingData.statusPreference || '',
           locationPreference: seekingData.locationPreference || 'within_city',
           ethnicity: seekingData.ethnicityPreference || '',
           religion: seekingData.religionPreference || '',
@@ -406,7 +406,7 @@ export default function ProfilePage() {
         
         setPriorityLevels({
           gender: seekingData.genderWeight || 2,
-          // status weight removed from profile UI
+          status: seekingData.statusWeight || 2,
           locationPreference: seekingData.locationWeight || 2,
           languages: seekingData.languagesWeight || 2,
           interests: seekingData.interestsWeight || 2,
@@ -421,7 +421,7 @@ export default function ProfilePage() {
         
         console.log('Set seeking preferences state:', {
           gender: seekingData.genderPreference || '',
-          // status removed from profile UI
+          status: seekingData.statusPreference || '',
           locationPreference: seekingData.locationPreference || 'within_city',
         });
       } catch (error) {
@@ -977,7 +977,7 @@ export default function ProfilePage() {
       try {
         const seekingData = {
           genderPreference: seekingPreferences.gender || undefined,
-          statusPreference: undefined,
+          statusPreference: seekingPreferences.status || undefined,
           relationshipPreference: undefined, // Removed from UI but keeping for API compatibility
           locationPreference: seekingPreferences.locationPreference || 'within_city',
           maxDistanceKm: seekingPreferences.locationPreference === 'define_radius' ? searchRadius : undefined,
@@ -997,7 +997,7 @@ export default function ProfilePage() {
           
           // Weight values (priority levels)
           genderWeight: priorityLevels.gender,
-          statusWeight: 0,
+          statusWeight: priorityLevels.status,
           relationshipWeight: 2, // Default value since removed from UI
           locationWeight: priorityLevels.locationPreference,
           languagesWeight: priorityLevels.languages,
@@ -1233,7 +1233,21 @@ export default function ProfilePage() {
                     <option value="Other">Other</option>
                   </select>
                 </div>
-                {/* Status removed from profile UI */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select 
+                    value={profileData.status}
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Status</option>
+                    <option value="Student">Student</option>
+                    <option value="Employed">Employed</option>
+                    <option value="Entrepreneur">Entrepreneur</option>
+                    <option value="Unemployed">Unemployed</option>
+                    <option value="Retired">Retired</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Languages</label>
                   <div className="space-y-2">
@@ -1705,7 +1719,38 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Status removed from seeking preferences UI */}
+                {/* Status with Priority */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select 
+                    value={seekingPreferences.status}
+                    onChange={(e) => handleSeekingPreferenceChange('status', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Any</option>
+                    <option value="Student">Student</option>
+                    <option value="Employed">Employed</option>
+                    <option value="Entrepreneur">Entrepreneur</option>
+                    <option value="Unemployed">Unemployed</option>
+                    <option value="Retired">Retired</option>
+                  </select>
+                  <div className="mt-2">
+                    <label className="block text-xs text-gray-600 mb-1">Priority</label>
+                    <input
+                      type="range"
+                      min="1"
+                      max="3"
+                      value={priorityLevels.status}
+                      onChange={(e) => handlePriorityChange('status', parseInt(e.target.value))}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
+                    </div>
+                  </div>
+                </div>
 
 
                 {/* Location with Priority */}
