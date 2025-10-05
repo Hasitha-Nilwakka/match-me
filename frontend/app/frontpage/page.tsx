@@ -54,6 +54,15 @@ export default function FrontPage() {
     lastName: '',
     email: '',
   });
+  const [myBio, setMyBio] = useState<{
+    interests: string[];
+    hobbies: string[];
+    musicGenres: string[];
+    movieGenres: string[];
+    foodPreferences: string[];
+    travelTypes: string[];
+    languages: string[];
+  }>({ interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] });
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [currentRecommendationIndex, setCurrentRecommendationIndex] = useState(0);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
@@ -81,6 +90,21 @@ export default function FrontPage() {
           firstName: profile.firstName || '',
           lastName: profile.lastName || '',
         }));
+        // Load my biographical data for sub-scores
+        try {
+          const bio = await profileApi.getBiographicalData();
+          setMyBio({
+            interests: bio?.interests || [],
+            hobbies: bio?.hobbies || [],
+            musicGenres: bio?.musicGenres || [],
+            movieGenres: bio?.movieGenres || [],
+            foodPreferences: bio?.foodPreferences || [],
+            travelTypes: bio?.travelTypes || [],
+            languages: bio?.languages || [],
+          });
+        } catch (e) {
+          console.warn('Failed to load my biographical data for sub-scores:', e);
+        }
         
         // Only load recommendations if profile is complete
         if (profile.firstName && profile.firstName.trim()) {
@@ -230,6 +254,38 @@ export default function FrontPage() {
       loadRecommendations();
     }
   }, [isAuthenticated, userProfile, loadRecommendations]);
+
+  // --- Sub-score utilities ---
+  const normalize = (arr?: string[]): string[] =>
+    Array.isArray(arr) ? arr.map((s) => (s || '').toLowerCase().trim()).filter(Boolean) : [];
+
+  const overlapScore = (a?: string[], b?: string[]): number => {
+    const A = new Set(normalize(a));
+    const B = new Set(normalize(b));
+    if (A.size === 0 || B.size === 0) return 0;
+    let inter = 0;
+    A.forEach((v) => { if (B.has(v)) inter += 1; });
+    const union = new Set([...A, ...B]).size;
+    const ratio = union === 0 ? 0 : inter / union;
+    return Math.round(ratio * 100);
+  };
+
+  const buildCategoryScores = (rec: Recommendation | undefined) => {
+    if (!rec) return [] as { key: string; label: string; score: number }[];
+    const bio = rec.bio || { interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] };
+    const categories = [
+      { key: 'interests', label: 'Shared Interests', score: overlapScore(myBio.interests, bio.interests) },
+      { key: 'hobbies', label: 'Shared Hobbies', score: overlapScore(myBio.hobbies, bio.hobbies) },
+      { key: 'musicGenres', label: 'Music Compatibility', score: overlapScore(myBio.musicGenres, bio.musicGenres) },
+      { key: 'movieGenres', label: 'Movies Compatibility', score: overlapScore(myBio.movieGenres, bio.movieGenres) },
+      { key: 'foodPreferences', label: 'Food Preferences', score: overlapScore(myBio.foodPreferences, bio.foodPreferences) },
+      { key: 'travelTypes', label: 'Travel Preferences', score: overlapScore(myBio.travelTypes, bio.travelTypes) },
+      { key: 'languages', label: 'Languages', score: overlapScore(myBio.languages, bio.languages) },
+    ];
+    const sorted = categories.sort((a, b) => b.score - a.score);
+    const nonZero = sorted.filter((c) => c.score > 0).slice(0, 4);
+    return (nonZero.length > 0 ? nonZero : sorted.slice(0, 4));
+  };
 
   // Handle like/connect button
   const handleLike = async () => {
@@ -451,73 +507,24 @@ export default function FrontPage() {
                         <span className="text-gray-800 font-medium">Overall Match Score</span>
                       </div>
                       <span className="text-green-600 font-bold text-lg">
-                        {Math.round(currentRec.score || 85)}%
+                        {typeof currentRec.score === 'number' ? Math.round(currentRec.score) : '—'}%
                       </span>
                     </div>
 
-                    {/* Shared Interests */}
-                    {currentRec.bio?.interests && currentRec.bio.interests.length > 0 && (
-                      <div className="flex items-center justify-between bg-blue-50 rounded-lg p-3">
+                    {/* Dynamic top category scores */}
+                    {buildCategoryScores(currentRec).map((c) => (
+                      <div key={c.key} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
                         <div className="flex items-center">
-                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                          <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center mr-3">
                             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                             </svg>
                           </div>
-                          <span className="text-gray-800 font-medium">
-                            Shared Interest: {currentRec.bio?.interests?.[0]}
-                          </span>
+                          <span className="text-gray-800 font-medium">{c.label}</span>
                         </div>
-                        <span className="text-blue-600 font-semibold">95%</span>
+                        <span className="text-gray-700 font-semibold">{c.score}%</span>
                       </div>
-                    )}
-
-                    {/* Shared Hobbies */}
-                    {currentRec.bio?.hobbies && currentRec.bio.hobbies.length > 0 && (
-                      <div className="flex items-center justify-between bg-purple-50 rounded-lg p-3">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-3">
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <span className="text-gray-800 font-medium">
-                            Shared Hobby: {currentRec.bio?.hobbies?.[0]}
-                          </span>
-                        </div>
-                        <span className="text-purple-600 font-semibold">88%</span>
-                      </div>
-                    )}
-
-                    {/* Music Compatibility */}
-                    {currentRec.bio?.musicGenres && currentRec.bio.musicGenres.length > 0 && (
-                      <div className="flex items-center justify-between bg-orange-50 rounded-lg p-3">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <span className="text-gray-800 font-medium">
-                            Music: {currentRec.bio?.musicGenres?.[0]}
-                          </span>
-                        </div>
-                        <span className="text-orange-600 font-semibold">82%</span>
-                      </div>
-                    )}
-
-                    {/* Location Compatibility */}
-                    <div className="flex items-center justify-between bg-pink-50 rounded-lg p-3">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center mr-3">
-                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <span className="text-gray-800 font-medium">Location Compatibility</span>
-                      </div>
-                      <span className="text-pink-600 font-semibold">90%</span>
-                    </div>
+                    ))}
                   </div>
                   </div>
                 );
