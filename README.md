@@ -217,15 +217,27 @@ The Prisma schema mirrors GORM models and includes:
 - **Rich user profiles** with multiple interest categories and multi-select bio data
 - **Connection management** system (send requests, accept/reject, disconnect)
 - **Comprehensive preference system** with both specific values and priority weights
-- **Global floating chat** - Persistent chat access across all pages
+- **Global floating chat (popup)** - All chat functionality (list, messages, typing, unread, delete) lives in a single popup component across all pages
 - **Mobile-responsive design** - Works on desktop and mobile devices
 - **Network access support** - Multi-device testing on local WiFi
 - **Chat deletion** - Delete conversations with confirmation dialogs
 - **Enhanced error handling** - Detailed debugging and user-friendly messages
+ - **Chat search** - Filter chat list by user or last message; search inside a conversation with highlighting and next/prev navigation (Ctrl+F)
 
 ## Recent Updates
 
-### Latest Features (v3.0) - December 2024
+### Latest Features (v3.1) - October 2025
+
+**💬 Chat UX Consolidation:**
+- Removed separate chat pages; everything is handled in the floating popup (`ChatPopup`).
+- Added chat list search and in-conversation search with highlighting and keyboard shortcuts (Ctrl+F, Esc).
+- Fixed auto-opening behavior (no sticky chat after closing the popup).
+
+**🧪 Testing:**
+- Tests run against an in-memory SQLite DB for speed/isolation; production targets PostgreSQL.
+- Two chat tests that exercise Postgres-specific INTERVAL SQL are automatically skipped on SQLite and run on Postgres CI.
+
+### Previous (v3.0) - December 2024
 
 **🎯 Mobile & Network Improvements:**
 - **Mobile-responsive recommendations** - Fixed API URL handling for mobile devices
@@ -315,4 +327,23 @@ The app includes 120 Finnish test profiles for realistic testing:
 - **Seed data**: `npm run db:seed`
 - **Reset database**: `npx prisma migrate reset`
 - **Location-based matching**: Finnish municipalities with real coordinates
+
+## Testing (Backend)
+
+Run the full handler test suite (uses in-memory SQLite for speed):
+
+```bash
+cd backend
+./run-tests.sh
+```
+
+Notes:
+- Production DB is PostgreSQL. Some handler queries use Postgres-specific features (e.g. `INTERVAL`).
+- Tests that rely on those features are automatically skipped on SQLite and will run on Postgres-backed CI.
+
+## Chat Usage Quick Tips
+
+- Open the floating chat from any page (bottom-right button).
+- Use the search box at the top of the list to filter chats by user or last message.
+- Inside a chat, click the magnifier or press `Ctrl+F` to search messages; use arrows to navigate matches; `Esc` to close.
 
