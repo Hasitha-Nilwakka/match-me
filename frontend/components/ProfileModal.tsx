@@ -199,12 +199,7 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                           <div className="text-gray-800">{profile?.status}</div>
                         </div>
                       ) : null}
-                      {profile?.relationshipStatus ? (
-                        <div>
-                          <div className="text-sm text-gray-500">Relationship</div>
-                          <div className="text-gray-800">{profile?.relationshipStatus}</div>
-                        </div>
-                      ) : null}
+                      {/* Relationship removed from modal */}
         <div>
           <div className="text-sm text-gray-500">Location</div>
           <div className="text-gray-800">
