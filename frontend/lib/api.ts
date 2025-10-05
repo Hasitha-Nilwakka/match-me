@@ -4,11 +4,26 @@
 // NEW FUNCTION: Get API URL with fresh logic
 export const getApiUrlNew = (): string => {
   console.log('[API] getApiUrlNew called at:', new Date().toISOString());
-  
-  // Always return the network IP for now
-  const apiUrl = 'http://192.168.101.115:8080';
-  console.log('[API] NEW FUNCTION: Returning network IP:', apiUrl);
-  return apiUrl;
+
+  // 1) Prefer explicit env override
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl.trim().length > 0) {
+    console.log('[API] Using NEXT_PUBLIC_API_URL:', envUrl);
+    return envUrl;
+  }
+
+  // 2) Derive from browser location (works across LAN/devices)
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname; // e.g. localhost or 192.168.x.x
+    const derived = `http://${host}:8080`;
+    console.log('[API] Derived API URL from window.location:', derived);
+    return derived;
+  }
+
+  // 3) Fallback for SSR/build
+  const fallback = 'http://localhost:8080';
+  console.log('[API] Fallback API URL:', fallback);
+  return fallback;
 };
 
 // Get the API base URL from environment variables
