@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import GlobalChatProvider from "../components/GlobalChatProvider";
 import { ChatProvider } from "../context/ChatContext";
+import { DataModeProvider } from "../context/DataModeContext";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -23,11 +24,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable}`}>
-        <ChatProvider>
-          <GlobalChatProvider>
-            {children}
-          </GlobalChatProvider>
-        </ChatProvider>
+        <DataModeProvider>
+          <ChatProvider>
+            <GlobalChatProvider>
+              {children}
+            </GlobalChatProvider>
+          </ChatProvider>
+        </DataModeProvider>
       </body>
     </html>
   );

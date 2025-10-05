@@ -3,12 +3,10 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, profileApi, recommendationsApi, connectionsApi } from "../../lib/api";
+import { authApi, profileApi, recommendationsApi } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
-import DataModeToggle from "../../components/DataModeToggle";
 import Navigation from "../../components/Navigation";
 import { useDataMode } from "../../context/DataModeContext";
-
 
 interface Recommendation {
   id: number;
@@ -41,7 +39,7 @@ interface Recommendation {
 }
 
 export default function FrontPage() {
-  const mode = "real" as const;
+  const { mode } = useDataMode();
   
   // Debug: Log mode changes
   useEffect(() => {
@@ -61,8 +59,6 @@ export default function FrontPage() {
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   // Get current recommendation
   const currentRec = recommendations[currentRecommendationIndex];
 
@@ -88,7 +84,8 @@ export default function FrontPage() {
         
         // Only load recommendations if profile is complete
         if (profile.firstName && profile.firstName.trim()) {
-          loadRecommendations();
+          // Load recommendations will be called by useEffect after component mounts
+          console.log('Profile complete, recommendations will be loaded');
         } else {
           console.log('Profile incomplete, skipping recommendations');
         }
@@ -102,29 +99,8 @@ export default function FrontPage() {
     }
   }, []);
 
-  // Check authentication on page load
-  useEffect(() => {
-    if (!authApi.isAuthenticated()) {
-      router.push('/');
-    } else {
-      setIsAuthenticated(true);
-      loadUserProfile();
-      // Only load recommendations after profile is loaded
-      // loadRecommendations will be called from loadUserProfile if profile is complete
-    }
-  }, [router, loadUserProfile]);
-
-
-  // Reload recommendations when authenticated and profile available
-  useEffect(() => {
-    if (isAuthenticated && userProfile) {
-      loadRecommendations();
-    }
-  }, [isAuthenticated, userProfile]);
-
-
   // Load recommendations
-  const loadRecommendations = async () => {
+  const loadRecommendations = useCallback(async () => {
     try {
       // Check if user is authenticated before making API calls
       const token = localStorage.getItem('token');
@@ -234,7 +210,26 @@ export default function FrontPage() {
     } finally {
       setIsLoadingRecommendations(false);
     }
-  };
+  }, [mode]);
+
+  // Check authentication on page load
+  useEffect(() => {
+    if (!authApi.isAuthenticated()) {
+      router.push('/');
+    } else {
+      setIsAuthenticated(true);
+      loadUserProfile();
+      // Only load recommendations after profile is loaded
+      // loadRecommendations will be called from loadUserProfile if profile is complete
+    }
+  }, [router, loadUserProfile]);
+
+  // Reload recommendations when authenticated and profile available
+  useEffect(() => {
+    if (isAuthenticated && userProfile) {
+      loadRecommendations();
+    }
+  }, [isAuthenticated, userProfile, loadRecommendations]);
 
   // Handle like/connect button
   const handleLike = async () => {

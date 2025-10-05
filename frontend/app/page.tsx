@@ -142,7 +142,7 @@ export default function Home() {
           }
         } catch (profileError) {
           // If profile check fails, assume no profile exists and redirect to profile page
-          console.log('[Login] Profile check failed, redirecting to profile page');
+          console.log('[Login] Profile check failed, redirecting to profile page:', profileError);
           router.push('/profile');
         }
         

@@ -295,7 +295,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
         wsRef.current = null;
       }
     };
-  }, [activeChat, currentUser?.id]);
+  }, [activeChat, currentUser?.id, isOpen, chats.length]);
 
   // Disabled polling - using WebSocket only for real-time updates
   // useEffect(() => {

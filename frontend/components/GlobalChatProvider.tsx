@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { authApi, chatApi } from "../lib/api";
 import ChatPopup from "./ChatPopup";
@@ -44,22 +44,8 @@ export default function GlobalChatProvider({ children }: GlobalChatProviderProps
   const { isChatOpen, openChat, closeChat, unreadCount, setUnreadCount } = useChat();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Check authentication on mount and path changes
-  useEffect(() => {
-    const checkAuth = () => {
-      const authenticated = authApi.isAuthenticated();
-      setIsAuthenticated(authenticated);
-      
-      if (authenticated) {
-        loadUnreadCount();
-      }
-    };
-
-    checkAuth();
-  }, [pathname]);
-
   // Load unread message count
-  const loadUnreadCount = async () => {
+  const loadUnreadCount = useCallback(async () => {
     try {
       // Check if user is authenticated before making API calls
       const token = localStorage.getItem('token');
@@ -100,7 +86,21 @@ export default function GlobalChatProvider({ children }: GlobalChatProviderProps
       console.error('Error loading unread count:', error);
       setUnreadCount(0);
     }
-  };
+  }, [setUnreadCount]);
+
+  // Check authentication on mount and path changes
+  useEffect(() => {
+    const checkAuth = () => {
+      const authenticated = authApi.isAuthenticated();
+      setIsAuthenticated(authenticated);
+      
+      if (authenticated) {
+        loadUnreadCount();
+      }
+    };
+
+    checkAuth();
+  }, [pathname, loadUnreadCount]);
 
   // Periodically refresh unread count when authenticated and popup is closed
   useEffect(() => {
@@ -127,14 +127,14 @@ export default function GlobalChatProvider({ children }: GlobalChatProviderProps
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [isAuthenticated, isChatOpen, pathname]);
+  }, [isAuthenticated, isChatOpen, pathname, loadUnreadCount]);
 
   // When chat closes, immediately refresh unread count
   useEffect(() => {
     if (!isChatOpen && isAuthenticated) {
       loadUnreadCount();
     }
-  }, [isChatOpen, isAuthenticated]);
+  }, [isChatOpen, isAuthenticated, loadUnreadCount]);
 
   // Don't show chat on login page or if not authenticated
   const shouldShowChat = isAuthenticated && pathname !== '/';

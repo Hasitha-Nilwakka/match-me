@@ -2,7 +2,6 @@
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { authApi, connectionsApi, chatApi } from "../../lib/api";
 import Navigation from "../../components/Navigation";
 import ProfileModal from "../../components/ProfileModal";
@@ -32,7 +31,6 @@ export default function ConnectionListPage() {
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [startingChatId, setStartingChatId] = useState<number | null>(null);
   const { openChat } = useChat();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const currentUser = authApi.getCurrentUser();
 
   // Load connections based on data mode
@@ -124,7 +122,7 @@ export default function ConnectionListPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentUser?.id]);
 
   // Check authentication on page load
   useEffect(() => {
