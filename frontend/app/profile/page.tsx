@@ -92,6 +92,7 @@ export default function ProfilePage() {
   const [seekingMovieGenres, setSeekingMovieGenres] = useState<string[]>([]);
   const [seekingTravelTypes, setSeekingTravelTypes] = useState<string[]>([]);
   const [seekingLanguages, setSeekingLanguages] = useState<string[]>([]);
+  const [seekingGender, setSeekingGender] = useState<string[]>([]);
   
   const [priorityLevels, setPriorityLevels] = useState({
     gender: 2,
@@ -403,6 +404,16 @@ export default function ProfilePage() {
         setSeekingMovieGenres(Array.isArray(seekingData.movieGenresPreference) ? seekingData.movieGenresPreference : []);
         setSeekingTravelTypes(Array.isArray(seekingData.travelTypesPreference) ? seekingData.travelTypesPreference : []);
         setSeekingLanguages(Array.isArray(seekingData.languagesPreference) ? seekingData.languagesPreference : []);
+        // Load multi-gender (comma separated) into array; empty/Any => []
+        if (seekingData.genderPreference) {
+          const gp = String(seekingData.genderPreference)
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0 && s.toLowerCase() !== 'any');
+          setSeekingGender(gp);
+        } else {
+          setSeekingGender([]);
+        }
         
         setPriorityLevels({
           gender: seekingData.genderWeight || 2,
@@ -976,7 +987,7 @@ export default function ProfilePage() {
       // Save seeking preferences
       try {
         const seekingData = {
-          genderPreference: seekingPreferences.gender || undefined,
+          genderPreference: (seekingGender.length > 0 ? seekingGender.join(',') : (seekingPreferences.gender || undefined)),
           statusPreference: seekingPreferences.status || undefined,
           relationshipPreference: undefined, // Removed from UI but keeping for API compatibility
           locationPreference: seekingPreferences.locationPreference || 'within_city',
@@ -1687,71 +1698,39 @@ export default function ProfilePage() {
               <h2 className="text-xl font-bold text-gray-800 mb-6">Who are you looking for?</h2>
               
               <div className="space-y-6">
-                {/* Gender with Priority */}
+                {/* Gender - multi-select checkboxes, no priority */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-                  <select 
-                    value={seekingPreferences.gender}
-                    onChange={(e) => handleSeekingPreferenceChange('gender', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Any</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Non-binary">Non-binary</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  <div className="mt-2">
-                    <label className="block text-xs text-gray-600 mb-1">Priority</label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="3"
-                      value={priorityLevels.gender}
-                      onChange={(e) => handlePriorityChange('gender', parseInt(e.target.value))}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>Low</span>
-                      <span>Medium</span>
-                      <span>High</span>
-                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {['Male','Female','Non-binary','Other'].map(val => (
+                      <label key={val} className="flex items-center space-x-2 px-3 py-2 border rounded-md cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="checkbox"
+                          value={val}
+                          checked={seekingGender.includes(val)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSeekingGender(prev => prev.includes(val) ? prev : [...prev, val]);
+                            } else {
+                              setSeekingGender(prev => prev.filter(v => v !== val));
+                            }
+                          }}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">{val}</span>
+                      </label>
+                    ))}
+                    <label className="flex items-center space-x-2 px-3 py-2 border rounded-md cursor-pointer hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={seekingGender.length === 0}
+                        onChange={() => setSeekingGender([])}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-700">Any</span>
+                    </label>
                   </div>
                 </div>
-
-                {/* Status with Priority */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select 
-                    value={seekingPreferences.status}
-                    onChange={(e) => handleSeekingPreferenceChange('status', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Any</option>
-                    <option value="Student">Student</option>
-                    <option value="Employed">Employed</option>
-                    <option value="Entrepreneur">Entrepreneur</option>
-                    <option value="Unemployed">Unemployed</option>
-                    <option value="Retired">Retired</option>
-                  </select>
-                  <div className="mt-2">
-                    <label className="block text-xs text-gray-600 mb-1">Priority</label>
-                    <input
-                      type="range"
-                      min="1"
-                      max="3"
-                      value={priorityLevels.status}
-                      onChange={(e) => handlePriorityChange('status', parseInt(e.target.value))}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>Low</span>
-                      <span>Medium</span>
-                      <span>High</span>
-                    </div>
-                  </div>
-                </div>
-
 
                 {/* Location with Priority */}
                 <div>
@@ -1766,8 +1745,6 @@ export default function ProfilePage() {
                     <option value="within_region">Within region</option>
                     <option value="define_radius">Define radius</option>
                   </select>
-                  
-                  {/* Radius input - only show when "Define radius" is selected */}
                   {seekingPreferences.locationPreference === 'define_radius' && (
                     <div className="mt-3 p-3 bg-blue-50 rounded-md">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1791,7 +1768,6 @@ export default function ProfilePage() {
                       </p>
                     </div>
                   )}
-                  
                   <div className="mt-2">
                     <label className="block text-xs text-gray-600 mb-1">Priority</label>
                     <input
@@ -1809,6 +1785,34 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Status - selection boxes (radio), no priority */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { label: 'Any', value: '' },
+                      { label: 'Student', value: 'Student' },
+                      { label: 'Employed', value: 'Employed' },
+                      { label: 'Entrepreneur', value: 'Entrepreneur' },
+                      { label: 'Unemployed', value: 'Unemployed' },
+                      { label: 'Retired', value: 'Retired' },
+                    ].map(opt => (
+                      <label key={opt.value || 'any'} className="flex items-center space-x-2 px-3 py-2 border rounded-md cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="radio"
+                          name="seeking-status"
+                          value={opt.value}
+                          checked={(seekingPreferences.status || '') === opt.value}
+                          onChange={() => handleSeekingPreferenceChange('status', opt.value)}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                
 
                 {/* Languages with Priority */}
                 <div>
