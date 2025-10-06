@@ -314,7 +314,7 @@ export default function ConnectionRequestsPage() {
                                   request.profilePicture.startsWith("/uploads")
                                 ? `${
                                     process.env.NEXT_PUBLIC_API_URL ||
-                                    "http://localhost:8080"
+                                    (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
                                   }${request.profilePicture}`
                                 : request.profilePicture &&
                                   request.profilePicture.startsWith("/")

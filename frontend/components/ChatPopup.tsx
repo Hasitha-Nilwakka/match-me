@@ -638,6 +638,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                     console.log('[ChatPopup] Current chat user:', currentChatUser);
                     
                     // Handle different profile picture formats
+                    const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
                     let profilePicSrc = "/sitefiles/default-profile-picture.png"; // Default fallback
                     
                     if (currentChatUser.profilePicture) {
@@ -651,7 +652,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                       }
                       // Check if it's an upload path
                       else if (currentChatUser.profilePicture.startsWith('/uploads')) {
-                        profilePicSrc = `http://192.168.101.115:8080${currentChatUser.profilePicture}`;
+                        profilePicSrc = `${base}${currentChatUser.profilePicture}`;
                       }
                       // Check if it's a local path
                       else if (currentChatUser.profilePicture.startsWith('/')) {
@@ -1008,6 +1009,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                           <div className="relative">
                             {(() => {
                               // Handle different profile picture formats for chat list
+                              const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
                               let profilePicSrc = "/sitefiles/default-profile-picture.png"; // Default fallback
                               
                               if (chat.otherUser.profilePicture) {
@@ -1021,7 +1023,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                                 }
                                 // Check if it's an upload path
                                 else if (chat.otherUser.profilePicture.startsWith('/uploads')) {
-                                  profilePicSrc = `http://192.168.101.115:8080${chat.otherUser.profilePicture}`;
+                                  profilePicSrc = `${base}${chat.otherUser.profilePicture}`;
                                 }
                                 // Check if it's a local path
                                 else if (chat.otherUser.profilePicture.startsWith('/')) {

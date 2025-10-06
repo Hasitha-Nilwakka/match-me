@@ -134,10 +134,11 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                   <div className="flex flex-col items-center">
                     {(() => {
                       // Use the same logic as profile page for handling different URL formats
+                      const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
                       const profilePicSrc = profile.profilePictureURL && profile.profilePictureURL.startsWith('http')
                         ? profile.profilePictureURL
                         : profile.profilePictureURL && profile.profilePictureURL.startsWith('/uploads')
-                        ? `http://192.168.101.115:8080${profile.profilePictureURL}`
+                        ? `${base}${profile.profilePictureURL}`
                         : profile.profilePictureURL && profile.profilePictureURL.startsWith('/')
                         ? profile.profilePictureURL
                         : "/sitefiles/default-profile-picture.png";

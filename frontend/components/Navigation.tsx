@@ -186,7 +186,7 @@ export default function Navigation() {
                       ? userProfile.profilePictureURL
                       : userProfile.profilePictureURL &&
                         userProfile.profilePictureURL.startsWith("/uploads")
-                      ? `http://localhost:8080${userProfile.profilePictureURL}`
+                        ? `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')}${userProfile.profilePictureURL}`
                       : userProfile.profilePictureURL &&
                         userProfile.profilePictureURL.startsWith("/")
                       ? userProfile.profilePictureURL
