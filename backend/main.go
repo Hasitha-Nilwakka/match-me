@@ -14,11 +14,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// main initializes and starts the Match-Me backend server.
-// It sets up the database connection, WebSocket hub, HTTP router,
-// and all API endpoints with proper middleware and authentication.
 func main() {
-	// Initialize database connection using GORM
+
 	db.InitDB()
 
 	// Create WebSocket hub for real-time chat functionality
@@ -33,8 +30,12 @@ func main() {
 	// Alternative: Set to debug mode for development (uncomment if needed)
 	// gin.SetMode(gin.DebugMode)
 
-	// Create Gin HTTP router with default middleware (logging, recovery)
-	r := gin.Default()
+	// Create Gin HTTP router WITHOUT default logging middleware
+	// This removes the verbose HTTP request logs
+	r := gin.New()
+
+	// Add only recovery middleware (catches panics)
+	r.Use(gin.Recovery())
 
 	// Add CORS middleware to allow frontend requests
 	// This enables cross-origin requests from the Next.js frontend and local network devices
