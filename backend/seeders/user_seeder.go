@@ -391,7 +391,7 @@ func SeedUserRelationships(userID uint) error {
 		}
 	}
 
-	// Seed user interests (1-4 interests per user)
+	// Seed user interests (ensure at least 1)
 	var interests []models.Interest
 	db.DB.Find(&interests)
 
@@ -412,7 +412,7 @@ func SeedUserRelationships(userID uint) error {
 		}
 	}
 
-	// Seed user music preferences (1-3 genres per user)
+	// Seed user music preferences (ensure at least 1)
 	var musicGenres []models.MusicGenre
 	db.DB.Find(&musicGenres)
 
@@ -433,7 +433,7 @@ func SeedUserRelationships(userID uint) error {
 		}
 	}
 
-	// Seed user movie preferences (1-3 genres per user)
+	// Seed user movie preferences (ensure at least 1)
 	var movieGenres []models.MovieGenre
 	db.DB.Find(&movieGenres)
 
@@ -454,28 +454,32 @@ func SeedUserRelationships(userID uint) error {
 		}
 	}
 
-	// Seed user food preferences (0-2 preferences per user)
+	// Seed user food preferences (ensure at least 1 when available)
 	var foodPreferences []models.FoodPreference
 	db.DB.Find(&foodPreferences)
 
-	numFood := rand.Intn(3) // 0-2 food preferences
+	numFood := 1 + rand.Intn(2) // 1-2 food preferences
 	selectedFood := make(map[uint]bool)
 
-	for i := 0; i < numFood && i < len(foodPreferences); i++ {
-		foodIndex := rand.Intn(len(foodPreferences))
-		foodID := foodPreferences[foodIndex].ID
+	if len(foodPreferences) == 0 {
+		// nothing to seed
+	} else {
+		for i := 0; i < numFood && i < len(foodPreferences); i++ {
+			foodIndex := rand.Intn(len(foodPreferences))
+			foodID := foodPreferences[foodIndex].ID
 
-		if !selectedFood[foodID] {
-			userFood := models.UserFood{
-				UserID:           userID,
-				FoodPreferenceID: foodID,
+			if !selectedFood[foodID] {
+				userFood := models.UserFood{
+					UserID:           userID,
+					FoodPreferenceID: foodID,
+				}
+				db.DB.FirstOrCreate(&userFood, userFood)
+				selectedFood[foodID] = true
 			}
-			db.DB.FirstOrCreate(&userFood, userFood)
-			selectedFood[foodID] = true
 		}
 	}
 
-	// Seed user travel preferences (1-3 types per user)
+	// Seed user travel preferences (ensure at least 1)
 	var travelTypes []models.TravelType
 	db.DB.Find(&travelTypes)
 
@@ -496,7 +500,7 @@ func SeedUserRelationships(userID uint) error {
 		}
 	}
 
-	// Seed user languages (1-3 languages per user)
+	// Seed user languages (ensure at least 1)
 	var languages []models.Language
 	db.DB.Find(&languages)
 

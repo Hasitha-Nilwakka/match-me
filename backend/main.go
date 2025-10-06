@@ -144,12 +144,12 @@ func main() {
 		protected.DELETE("/connections/:id", handlers.DeleteConnectionHandler)        // Delete connection
 
 		// Real-time chat system endpoints
-		protected.POST("/chats", handlers.CreateChatHandler)                        // Create a new chat
-		protected.GET("/chats", handlers.GetChatsHandler(hub))                      // Get user's chats
-		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)   // Get chat messages
-		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler(hub)) // Send new message
-		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler)    // Mark messages as read
-		protected.DELETE("/chats/:chatId", handlers.DeleteChatHandler)              // Delete chat and messages
+		protected.POST("/chats", handlers.CreateChatHandler)                          // Create a new chat
+		protected.GET("/chats", handlers.GetChatsHandler(hub))                        // Get user's chats
+		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)     // Get chat messages
+		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler(hub))   // Send new message
+		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler(hub)) // Mark messages as read (and broadcast)
+		protected.DELETE("/chats/:chatId", handlers.DeleteChatHandler)                // Delete chat and messages
 	}
 
 	// WebSocket endpoint (outside protected group - handles auth internally)

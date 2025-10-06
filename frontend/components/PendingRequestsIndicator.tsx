@@ -16,13 +16,8 @@ export default function PendingRequestsIndicator({
   // Load pending connection requests count
   const loadPendingRequestsCount = async () => {
     try {
-      const response = await connectionsApi.getConnectionRequests();
-      
-      if (response.success && response.data && response.data.requests) {
-        setPendingRequestsCount(response.data.requests.length);
-      } else {
-        setPendingRequestsCount(0);
-      }
+      const count = await connectionsApi.getConnectionRequestsCount();
+      setPendingRequestsCount(count);
     } catch (error) {
       console.error('Error loading pending requests count:', error);
       setPendingRequestsCount(0);
@@ -32,6 +27,14 @@ export default function PendingRequestsIndicator({
   // Load count on component mount
   useEffect(() => {
     loadPendingRequestsCount();
+  }, []);
+
+  // Lightweight periodic refresh (near real-time) while app is open
+  useEffect(() => {
+    const id = setInterval(() => {
+      loadPendingRequestsCount();
+    }, 4000);
+    return () => clearInterval(id);
   }, []);
 
   // Refresh count when page becomes visible (user returns from other pages)
