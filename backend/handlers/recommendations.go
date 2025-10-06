@@ -54,8 +54,8 @@ func GetRecommendationsHandler(c *gin.Context) {
 	excludedUserIDs := getExcludedUserIDs(userID)
 
 	// DEBUG: Log debugging information
-	fmt.Printf("DEBUG: User ID %d requesting recommendations\n", userID)
-	fmt.Printf("DEBUG: Excluded user IDs: %v\n", excludedUserIDs)
+	// fmt.Printf("DEBUG: User ID %d requesting recommendations\n", userID)
+	// fmt.Printf("DEBUG: Excluded user IDs: %v\n", excludedUserIDs)
 
 	// Count total active users first
 	var totalActiveUsers int64
