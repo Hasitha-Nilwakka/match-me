@@ -3,7 +3,7 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, profileApi, recommendationsApi } from "../../lib/api";
+import { authApi, profileApi, recommendationsApi, getApiUrl } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
 import Navigation from "../../components/Navigation";
 import { useDataMode } from "../../context/DataModeContext";
@@ -14,6 +14,8 @@ interface Recommendation {
   profilePictureURL?: string;
   isOnline?: boolean;
   lastSeen?: string;
+  normalizedScore?: number;
+  band?: string;
   userInfo?: {
     id: number;
     createdAt: string;
@@ -62,15 +64,24 @@ export default function FrontPage() {
     foodPreferences: string[];
     travelTypes: string[];
     languages: string[];
-  }>({
-    interests: [],
-    hobbies: [],
-    musicGenres: [],
-    movieGenres: [],
-    foodPreferences: [],
-    travelTypes: [],
-    languages: [],
-  });
+  }>({ interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] });
+  const [mySeeking, setMySeeking] = useState<{
+    genderPreference?: string;
+    statusPreference?: string;
+    genderWeight: number;
+    statusWeight: number;
+    relationshipWeight: number;
+    locationWeight: number;
+    languagesWeight: number;
+    interestsWeight: number;
+    hobbiesWeight: number;
+    foodPreferencesWeight: number;
+    musicGenresWeight: number;
+    movieGenresWeight: number;
+    travelTypesWeight: number;
+    ethnicityWeight: number;
+    religionWeight: number;
+  } | null>(null);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [currentRecommendationIndex, setCurrentRecommendationIndex] =
     useState(0);
@@ -118,7 +129,7 @@ export default function FrontPage() {
             e
           );
         }
-
+        
         // Only load recommendations if profile is complete
         if (profile.firstName && profile.firstName.trim()) {
           // Load recommendations will be called by useEffect after component mounts
@@ -294,7 +305,7 @@ export default function FrontPage() {
           }
         )
       );
-
+      
       setRecommendations(detailedRecs);
       setCurrentRecommendationIndex(0);
     } catch (error) {
@@ -408,6 +419,88 @@ export default function FrontPage() {
     const nonZero = sorted.filter((c) => c.score > 0).slice(0, 4);
     return nonZero.length > 0 ? nonZero : sorted.slice(0, 4);
   };
+
+  // --- Overall normalization utilities (Option C) ---
+  const computeMaxPossible = (): number => {
+    // Backend default weights when seeking preferences are not set
+    const defaultWeights = {
+      hobbiesWeight: 5,
+      interestsWeight: 5,
+      musicGenresWeight: 3,
+      movieGenresWeight: 3,
+      foodPreferencesWeight: 2,
+      travelTypesWeight: 4,
+      languagesWeight: 7,
+      ethnicityWeight: 2,
+      religionWeight: 2,
+      genderWeight: 0,
+      statusWeight: 0,
+    } as const;
+
+    const s = mySeeking || {
+      genderPreference: undefined,
+      statusPreference: undefined,
+      genderWeight: 0,
+      statusWeight: defaultWeights.statusWeight,
+      relationshipWeight: 0,
+      locationWeight: 0,
+      languagesWeight: defaultWeights.languagesWeight,
+      interestsWeight: defaultWeights.interestsWeight,
+      hobbiesWeight: defaultWeights.hobbiesWeight,
+      foodPreferencesWeight: defaultWeights.foodPreferencesWeight,
+      musicGenresWeight: defaultWeights.musicGenresWeight,
+      movieGenresWeight: defaultWeights.movieGenresWeight,
+      travelTypesWeight: defaultWeights.travelTypesWeight,
+      ethnicityWeight: defaultWeights.ethnicityWeight,
+      religionWeight: defaultWeights.religionWeight,
+    };
+    const isUnsetPref = (v?: string) => {
+      if (!v) return true;
+      const trimmed = v.trim();
+      if (trimmed.length === 0) return true;
+      const lower = trimmed.toLowerCase();
+      return lower === 'any' || lower.startsWith('select');
+    };
+    // Multi-valued: countUserItems * weight
+    let max = 0;
+    max += (myBio.hobbies.length) * (s.hobbiesWeight || defaultWeights.hobbiesWeight);
+    max += (myBio.interests.length) * (s.interestsWeight || defaultWeights.interestsWeight);
+    max += (myBio.musicGenres.length) * (s.musicGenresWeight || defaultWeights.musicGenresWeight);
+    max += (myBio.movieGenres.length) * (s.movieGenresWeight || defaultWeights.movieGenresWeight);
+    max += (myBio.foodPreferences.length) * (s.foodPreferencesWeight || defaultWeights.foodPreferencesWeight);
+    max += (myBio.travelTypes.length) * (s.travelTypesWeight || defaultWeights.travelTypesWeight);
+    max += (myBio.languages.length) * (s.languagesWeight || defaultWeights.languagesWeight);
+    // Exact/binary categories: always contribute their weight to denominator (per backend logic)
+    max += (s.ethnicityWeight || defaultWeights.ethnicityWeight);
+    max += (s.religionWeight || defaultWeights.religionWeight);
+    // Gender/status only if preference set
+    // Gender is not part of denominator; it is a hard filter only
+    if (!isUnsetPref(s.statusPreference)) max += (s.statusWeight || 0);
+    return max;
+  };
+
+  const verbalBand = (norm: number): string => {
+    if (norm >= 90) return 'Excellent';
+    if (norm >= 80) return 'Great';
+    if (norm >= 70) return 'Good';
+    if (norm >= 60) return 'Fair';
+    if (norm >= 50) return 'Limited';
+    if (norm >= 35) return 'Low';
+    return 'Poor';
+  };
+
+  // Re-normalize when seeking prefs arrive after recs
+  useEffect(() => {
+    if (!recommendations || recommendations.length === 0) return;
+    const maxPossible = computeMaxPossible();
+    if (!maxPossible) return;
+    const renorm = recommendations.map(rec => {
+      if (typeof rec.score !== 'number') return rec;
+      const normalized = Math.max(0, Math.min(100, Math.round((rec.score / maxPossible) * 100)));
+      return { ...rec, normalizedScore: normalized, band: verbalBand(normalized) };
+    });
+    setRecommendations(renorm as Recommendation[]);
+  }, [mySeeking]);
 
   // Handle like/connect button
   const handleLike = async () => {
@@ -535,10 +628,7 @@ export default function FrontPage() {
                         ? currentRec.profilePictureURL
                         : currentRec?.profilePictureURL &&
                           currentRec.profilePictureURL.startsWith("/uploads")
-                        ? `${
-                            process.env.NEXT_PUBLIC_API_URL ||
-                            "http://localhost:8080"
-                          }${currentRec.profilePictureURL}`
+                        ? `${getApiUrl()}${currentRec.profilePictureURL}`
                         : currentRec?.profilePictureURL &&
                           currentRec.profilePictureURL.startsWith("/")
                         ? currentRec.profilePictureURL
@@ -662,6 +752,7 @@ export default function FrontPage() {
               </div>
 
               {/* Top 5 Match Criteria */}
+
               {(() => {
                 const currentRec = recommendations[currentRecommendationIndex];
                 if (
@@ -699,10 +790,7 @@ export default function FrontPage() {
                           </span>
                         </div>
                         <span className="text-green-600 font-bold text-lg">
-                          {typeof currentRec.score === "number"
-                            ? Math.round(currentRec.score)
-                            : "—"}
-                          %
+                          {typeof currentRec.score === 'number' ? Math.round(currentRec.score) : '—'}%
                         </span>
                       </div>
 

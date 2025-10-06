@@ -90,6 +90,11 @@ func GetRecommendationsHandler(c *gin.Context) {
 
 	// fmt.Printf("DEBUG: Found %d potential matches after filtering\n", len(potentialMatches))
 
+	// === Gender mutual filtering ===
+	// Only show users whose gender matches the requester's seeking preference AND
+	// whose seeking preference includes the requester's gender. Treat empty/Any as open.
+	potentialMatches = filterByMutualGender(user, potentialMatches)
+
 	// Calculate match scores for each potential match
 	var scoredMatches []ScoredMatch
 	var skippedIncomplete = 0
@@ -211,8 +216,8 @@ func calculateMatchScore(userA, userB models.User) float64 {
 			FoodWeight:      2,
 			TravelWeight:    4,
 			LanguagesWeight: 7,
-			EthnicityWeight: 6,
-			ReligionWeight:  6,
+			EthnicityWeight: 2,
+			ReligionWeight:  2,
 		}
 	}
 
@@ -221,19 +226,8 @@ func calculateMatchScore(userA, userB models.User) float64 {
 		return 0.0
 	}
 
-	// Check gender preference (case-insensitive) - flexible scoring
-	if preferences.GenderPreference != nil && userB.Profile.Gender != nil {
-		wantGender := strings.ToLower(*preferences.GenderPreference)
-		foundGender := strings.ToLower(*userB.Profile.Gender)
-		if wantGender == foundGender {
-			// Perfect match - full score
-			score += float64(preferences.GenderWeight)
-		} else {
-			// Mismatch - reduced score (25% of weight)
-			score += float64(preferences.GenderWeight) * 0.25
-		}
-		totalWeight += float64(preferences.GenderWeight)
-	}
+	// NOTE: Gender is enforced as a hard filter before scoring. It does not
+	// contribute to score or denominator anymore.
 
 	// Check status preference (case-insensitive) - flexible scoring
 	if preferences.StatusPreference != nil && userB.Profile.Status != nil {
@@ -324,6 +318,62 @@ func calculateMatchScore(userA, userB models.User) float64 {
 	}
 
 	return math.Round(baseScore*100) / 100 // Round to 2 decimal places
+}
+
+// filterByMutualGender returns users that satisfy mutual gender preferences
+// Requester sees a candidate only if:
+//   - requester's seeking gender matches candidate's gender, or requester's seeking is Any/empty
+//   - candidate's seeking gender matches requester's gender, or candidate's seeking is Any/empty
+func filterByMutualGender(requester models.User, candidates []models.User) []models.User {
+	var out []models.User
+
+	reqGender := valueOrEmpty(requester.Profile, func(p *models.Profile) *string { return p.Gender })
+	reqPref := valueOrEmptyPref(requester.SeekingPreference, func(sp *models.SeekingPreference) *string { return sp.GenderPreference })
+
+	for _, cand := range candidates {
+		candGender := valueOrEmpty(cand.Profile, func(p *models.Profile) *string { return p.Gender })
+		candPref := valueOrEmptyPref(cand.SeekingPreference, func(sp *models.SeekingPreference) *string { return sp.GenderPreference })
+
+		// requester wants candidate?
+		if !genderAllowed(reqPref, candGender) {
+			continue
+		}
+		// candidate wants requester?
+		if !genderAllowed(candPref, reqGender) {
+			continue
+		}
+
+		out = append(out, cand)
+	}
+	return out
+}
+
+// Helpers
+func valueOrEmpty[T any](ptr *T, get func(*T) *string) string {
+	if ptr == nil {
+		return ""
+	}
+	gp := get(ptr)
+	if gp == nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(*gp))
+}
+
+func valueOrEmptyPref[T any](ptr *T, get func(*T) *string) string {
+	v := valueOrEmpty(ptr, get)
+	return v
+}
+
+// genderAllowed returns true if pref is open ("", "any") or equals gender
+func genderAllowed(pref string, gender string) bool {
+	if pref == "" || pref == "any" {
+		return true
+	}
+	if gender == "" {
+		return true
+	} // if candidate hasn't set gender, treat as open
+	return pref == gender
 }
 
 // Helper functions to find common items
