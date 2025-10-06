@@ -130,10 +130,6 @@ func GetUserHandler(c *gin.Context) {
 		"updatedAt": target.UpdatedAt,
 		"isActive":  target.IsActive,
 	})
-	return
-
-	// Otherwise 404 per spec
-	c.JSON(404, gin.H{"error": "User not found"})
 }
 
 // DeleteUserHandler deletes a user by ID (temporary endpoint for admin use)

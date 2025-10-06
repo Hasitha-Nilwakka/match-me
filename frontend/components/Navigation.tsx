@@ -25,23 +25,25 @@ export default function Navigation() {
     const loadUserProfile = async () => {
       try {
         setIsLoading(true);
-        
+
         // Try to load profile data
         try {
           const profile = await profileApi.getMyProfile();
           setUserProfile({
-            firstName: profile.firstName || '',
-            lastName: profile.lastName || '',
-            profilePictureURL: profile.profilePictureURL || '/sitefiles/default-profile-picture.png',
+            firstName: profile.firstName || "",
+            lastName: profile.lastName || "",
+            profilePictureURL:
+              profile.profilePictureURL ||
+              "/sitefiles/default-profile-picture.png",
           });
         } catch {
-          console.log('No profile data found yet');
+          console.log("No profile data found yet");
           setUserProfile({
-            profilePictureURL: '/sitefiles/default-profile-picture.png',
+            profilePictureURL: "/sitefiles/default-profile-picture.png",
           });
         }
       } catch (error) {
-        console.error('Error loading user profile:', error);
+        console.error("Error loading user profile:", error);
       } finally {
         setIsLoading(false);
       }
@@ -172,30 +174,47 @@ export default function Navigation() {
           <div className="flex items-center space-x-4">
             {/* Data Mode Toggle (show on frontpage) */}
             {pathname === "/frontpage" && <DataModeToggle />}
-            
+
             {/* Profile Photo and Name */}
             <div className="flex items-center space-x-2">
               <div className="relative">
                 {(() => {
                   // Use the same logic as other components for handling different URL formats
-                  const profilePicSrc = userProfile.profilePictureURL && userProfile.profilePictureURL.startsWith('http')
-                    ? userProfile.profilePictureURL
-                    : userProfile.profilePictureURL && userProfile.profilePictureURL.startsWith('/uploads')
-                    ? `http://192.168.101.115:8080${userProfile.profilePictureURL}`
-                    : userProfile.profilePictureURL && userProfile.profilePictureURL.startsWith('/')
-                    ? userProfile.profilePictureURL
-                    : "/sitefiles/default-profile-picture.png";
-                  
-                  console.log('[Navigation] Profile picture URL:', userProfile.profilePictureURL);
-                  console.log('[Navigation] Final profile picture src:', profilePicSrc);
-                  
+                  const profilePicSrc =
+                    userProfile.profilePictureURL &&
+                    userProfile.profilePictureURL.startsWith("http")
+                      ? userProfile.profilePictureURL
+                      : userProfile.profilePictureURL &&
+                        userProfile.profilePictureURL.startsWith("/uploads")
+                      ? `http://localhost:8080${userProfile.profilePictureURL}`
+                      : userProfile.profilePictureURL &&
+                        userProfile.profilePictureURL.startsWith("/")
+                      ? userProfile.profilePictureURL
+                      : "/sitefiles/default-profile-picture.png";
+
+                  console.log(
+                    "[Navigation] Profile picture URL:",
+                    userProfile.profilePictureURL
+                  );
+                  console.log(
+                    "[Navigation] Final profile picture src:",
+                    profilePicSrc
+                  );
+
                   return (
                     <Image
                       src={profilePicSrc}
                       alt="Profile"
                       width={32}
                       height={32}
-                      className="h-8 w-8 rounded-full object-cover border-2 border-gray-200"
+                      className="rounded-full object-cover border-2 border-gray-200 flex-shrink-0"
+                      style={{
+                        width: "32px",
+                        height: "32px",
+                        minWidth: "32px",
+                        minHeight: "32px",
+                        borderRadius: "50%",
+                      }}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = "/sitefiles/default-profile-picture.png";

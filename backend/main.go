@@ -10,9 +10,27 @@ import (
 	"backend/middleware"
 	"fmt"
 	"log"
+	"net"
 
 	"github.com/gin-gonic/gin"
 )
+
+// getLocalIP returns the non-loopback local IP of the machine
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "localhost"
+	}
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return "localhost"
+}
 
 func main() {
 
@@ -147,9 +165,10 @@ func main() {
 	r.DELETE("/users/:id", handlers.DeleteUserHandler) // Delete user (temporary endpoint)
 
 	// Start the HTTP server on port 8080 (accessible from local network)
+	localIP := getLocalIP()
 	log.Println("Starting Match-Me server on:")
 	log.Println("  Local:   http://localhost:8080")
-	log.Println("  Network: http://192.168.101.115:8080")
+	log.Printf("  Network: http://%s:8080", localIP)
 	if err := r.Run(":8080"); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
