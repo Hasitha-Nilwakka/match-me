@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
         pathname: '/uploads/**',
       },
     ],
+    // Add this to help with image optimization issues
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 };
 

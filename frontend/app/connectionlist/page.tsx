@@ -7,7 +7,6 @@ import Navigation from "../../components/Navigation";
 import ProfileModal from "../../components/ProfileModal";
 import { useChat } from "../../context/ChatContext";
 
-
 interface Connection {
   id: number;
   userId?: number; // The actual user ID for chat creation
@@ -37,34 +36,38 @@ export default function ConnectionListPage() {
   const loadConnections = useCallback(async () => {
     try {
       setIsLoading(true);
-      
+
       // Real API call
-        const response = await connectionsApi.getConnections();
-        console.log('Connections API response:', response);
-        
-        // Handle different possible response structures
-        let connectionsData = [];
-        
-        if (Array.isArray(response)) {
-          // Direct array response
-          connectionsData = response;
-        } else if (response.success && response.data) {
-          // Standard API response with success/data structure
-          if (Array.isArray(response.data)) {
-            connectionsData = response.data;
-          } else if (response.data.connections && Array.isArray(response.data.connections)) {
-            connectionsData = response.data.connections;
-          }
-        } else if (response.connections && Array.isArray(response.connections)) {
-          // Direct connections property
-          connectionsData = response.connections;
+      const response = await connectionsApi.getConnections();
+      console.log("Connections API response:", response);
+
+      // Handle different possible response structures
+      let connectionsData = [];
+
+      if (Array.isArray(response)) {
+        // Direct array response
+        connectionsData = response;
+      } else if (response.success && response.data) {
+        // Standard API response with success/data structure
+        if (Array.isArray(response.data)) {
+          connectionsData = response.data;
+        } else if (
+          response.data.connections &&
+          Array.isArray(response.data.connections)
+        ) {
+          connectionsData = response.data.connections;
         }
-        
-        console.log('Extracted connections data:', connectionsData);
-        
-        if (connectionsData.length > 0) {
-          // Transform backend data to match frontend interface
-          const transformedConnections: Connection[] = connectionsData.map((conn: {
+      } else if (response.connections && Array.isArray(response.connections)) {
+        // Direct connections property
+        connectionsData = response.connections;
+      }
+
+      console.log("Extracted connections data:", connectionsData);
+
+      if (connectionsData.length > 0) {
+        // Transform backend data to match frontend interface
+        const transformedConnections: Connection[] = connectionsData.map(
+          (conn: {
             id: number;
             userId?: number;
             requesterId?: number;
@@ -81,8 +84,22 @@ export default function ConnectionListPage() {
             createdAt?: string;
             connectionDate?: string;
             chatId?: number;
-            requester?: { id?: number; profile?: { city?: string; country?: string; profilePictureURL?: string } };
-            receiver?: { id?: number; profile?: { city?: string; country?: string; profilePictureURL?: string } };
+            requester?: {
+              id?: number;
+              profile?: {
+                city?: string;
+                country?: string;
+                profilePictureURL?: string;
+              };
+            };
+            receiver?: {
+              id?: number;
+              profile?: {
+                city?: string;
+                country?: string;
+                profilePictureURL?: string;
+              };
+            };
           }) => ({
             id: conn.id,
             // Determine counterpart userId robustly
@@ -99,24 +116,41 @@ export default function ConnectionListPage() {
               // Fallback: undefined
               return undefined;
             })(),
-            firstName: conn.requesterName || conn.receiverName || conn.firstName || "Unknown",
+            firstName:
+              conn.requesterName ||
+              conn.receiverName ||
+              conn.firstName ||
+              "Unknown",
             lastName: conn.lastName || "",
-            city: conn.requester?.profile?.city || conn.receiver?.profile?.city || conn.city || "Unknown",
-            country: conn.requester?.profile?.country || conn.receiver?.profile?.country || conn.country || "Unknown",
-            profilePicture: conn.requester?.profile?.profilePictureURL || conn.receiver?.profile?.profilePictureURL || conn.profilePicture || "/sitefiles/default-profile-picture.png",
+            city:
+              conn.requester?.profile?.city ||
+              conn.receiver?.profile?.city ||
+              conn.city ||
+              "Unknown",
+            country:
+              conn.requester?.profile?.country ||
+              conn.receiver?.profile?.country ||
+              conn.country ||
+              "Unknown",
+            profilePicture:
+              conn.requester?.profile?.profilePictureURL ||
+              conn.receiver?.profile?.profilePictureURL ||
+              conn.profilePicture ||
+              "/sitefiles/default-profile-picture.png",
             isOnline: conn.isOnline || false,
             lastSeen: conn.lastSeen || "Recently",
             connectionDate: conn.createdAt || conn.connectionDate,
-            chatId: conn.chatId
-          }));
-          console.log('Transformed connections:', transformedConnections);
-          setConnections(transformedConnections);
-        } else {
-          console.log('No connections found in response');
-          setConnections([]);
-        }
+            chatId: conn.chatId,
+          })
+        );
+        console.log("Transformed connections:", transformedConnections);
+        setConnections(transformedConnections);
+      } else {
+        console.log("No connections found in response");
+        setConnections([]);
+      }
     } catch (error) {
-      console.error('Error loading connections:', error);
+      console.error("Error loading connections:", error);
       // Show empty list on error
       setConnections([]);
     } finally {
@@ -127,48 +161,61 @@ export default function ConnectionListPage() {
   // Check authentication on page load
   useEffect(() => {
     if (!authApi.isAuthenticated()) {
-      router.push('/');
+      router.push("/");
     } else {
       setIsAuthenticated(true);
       loadConnections();
     }
   }, [router, loadConnections]);
 
-
   const handleStartChat = async (connection: Connection) => {
-    console.log('[ConnectionList] handleStartChat called with:', connection);
+    console.log("[ConnectionList] handleStartChat called with:", connection);
     try {
-      console.log('[ConnectionList] Inside try block, setting startingChatId...');
+      console.log(
+        "[ConnectionList] Inside try block, setting startingChatId..."
+      );
       setStartingChatId(connection.id);
-      
+
       // Always create a new chat to ensure it works after deletion
-      console.log('[ConnectionList] Always creating new chat (ignoring existing chatId if any)');
+      console.log(
+        "[ConnectionList] Always creating new chat (ignoring existing chatId if any)"
+      );
 
       // Otherwise, create (or fetch existing) chat with this user, then open it
-      console.log('[ConnectionList] StartChat clicked, connection:', connection);
-      console.log('[ConnectionList] Checking userId...', connection.userId);
+      console.log(
+        "[ConnectionList] StartChat clicked, connection:",
+        connection
+      );
+      console.log("[ConnectionList] Checking userId...", connection.userId);
       if (!connection.userId) {
-        console.error('[ConnectionList] Missing userId for connection', connection.id);
-        alert('Cannot start chat: missing user id for this connection. Please refresh and try again.');
+        console.error(
+          "[ConnectionList] Missing userId for connection",
+          connection.id
+        );
+        alert(
+          "Cannot start chat: missing user id for this connection. Please refresh and try again."
+        );
         return;
       }
-      console.log('[ConnectionList] userId check passed, proceeding...');
+      console.log("[ConnectionList] userId check passed, proceeding...");
 
-      console.log('[ConnectionList] Creating chat with userId:', connection.userId);
-      console.log('[ConnectionList] About to call chatApi.createChat...');
+      console.log(
+        "[ConnectionList] Creating chat with userId:",
+        connection.userId
+      );
+      console.log("[ConnectionList] About to call chatApi.createChat...");
       const res = await chatApi.createChat(connection.userId);
-      console.log('[ConnectionList] Create chat response:', res);
+      console.log("[ConnectionList] Create chat response:", res);
       const newChatId = res?.data?.chat?.id ?? res?.chat?.id ?? res?.id;
       if (!newChatId) {
-        console.error('Create chat response did not include id:', res);
-        throw new Error('Failed to create or fetch chat (no id in response)');
+        console.error("Create chat response did not include id:", res);
+        throw new Error("Failed to create or fetch chat (no id in response)");
       }
 
       openChat(newChatId);
-      
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('Error starting chat:', message, error);
+      console.error("Error starting chat:", message, error);
       alert(`Failed to start chat: ${message}`);
     } finally {
       setStartingChatId(null);
@@ -179,18 +226,18 @@ export default function ConnectionListPage() {
     try {
       // Call API to remove connection from backend
       await connectionsApi.deleteConnection(connectionId.toString());
-      
+
       // Remove connection from the local list
-      setConnections(prev => prev.filter(conn => conn.id !== connectionId));
+      setConnections((prev) => prev.filter((conn) => conn.id !== connectionId));
       console.log(`Removed connection ${connectionId}`);
     } catch (error) {
-      console.error('Failed to remove connection:', error);
+      console.error("Failed to remove connection:", error);
       // You might want to show an error message to the user here
     }
   };
 
   const handleViewProfile = (connectionId: number) => {
-    const conn = connections.find(c => c.id === connectionId);
+    const conn = connections.find((c) => c.id === connectionId);
     if (!conn || !conn.userId) return;
     // Use real user ID to fetch complete profile data
     setSelectedUserId(conn.userId);
@@ -229,10 +276,11 @@ export default function ConnectionListPage() {
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Your Connections</h1>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              Your Connections
+            </h1>
             <p className="text-lg text-gray-600">
               Manage your connections and start conversations
             </p>
@@ -244,14 +292,28 @@ export default function ConnectionListPage() {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    <svg
+                      className="w-5 h-5 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Total Connections</p>
-                  <p className="text-2xl font-semibold text-gray-900">{connections.length}</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Total Connections
+                  </p>
+                  <p className="text-2xl font-semibold text-gray-900">
+                    {connections.length}
+                  </p>
                 </div>
               </div>
             </div>
@@ -264,9 +326,11 @@ export default function ConnectionListPage() {
                   </div>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Online Now</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Online Now
+                  </p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {connections.filter(conn => conn.isOnline).length}
+                    {connections.filter((conn) => conn.isOnline).length}
                   </p>
                 </div>
               </div>
@@ -276,13 +340,25 @@ export default function ConnectionListPage() {
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    <svg
+                      className="w-5 h-5 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
                     </svg>
                   </div>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Active Chats</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Active Chats
+                  </p>
                   <p className="text-2xl font-semibold text-gray-900">0</p>
                 </div>
               </div>
@@ -292,44 +368,79 @@ export default function ConnectionListPage() {
           {/* Connections List */}
           <div className="bg-white shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">All Connections</h2>
+              <h2 className="text-lg font-medium text-gray-900">
+                All Connections
+              </h2>
             </div>
-            
+
             {connections.length === 0 ? (
               <div className="text-center py-12">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                <svg
+                  className="mx-auto h-12 w-12 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No connections</h3>
-                <p className="mt-1 text-sm text-gray-500">Get started by finding some matches!</p>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  No connections
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Get started by finding some matches!
+                </p>
               </div>
             ) : (
               <div className="divide-y divide-gray-200">
                 {connections.map((connection) => (
-                  <div key={connection.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                  <div
+                    key={connection.id}
+                    className="px-6 py-4 hover:bg-gray-50 transition-colors"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         {/* Profile Picture */}
                         <div className="relative">
                           {(() => {
-                            const profilePicSrc = connection.profilePicture && connection.profilePicture.startsWith('http')
-                              ? connection.profilePicture
-                              : connection.profilePicture && connection.profilePicture.startsWith('/uploads')
-                              ? `http://192.168.101.115:8080${connection.profilePicture}`
-                              : connection.profilePicture && connection.profilePicture.startsWith('/')
-                              ? connection.profilePicture
-                              : "/sitefiles/default-profile-picture.png";
-                            
+                            const profilePicSrc =
+                              connection.profilePicture &&
+                              connection.profilePicture.startsWith("http")
+                                ? connection.profilePicture
+                                : connection.profilePicture &&
+                                  connection.profilePicture.startsWith(
+                                    "/uploads"
+                                  )
+                                ? `${
+                                    process.env.NEXT_PUBLIC_API_URL ||
+                                    "http://localhost:8080"
+                                  }${connection.profilePicture}`
+                                : connection.profilePicture &&
+                                  connection.profilePicture.startsWith("/")
+                                ? connection.profilePicture
+                                : "/sitefiles/default-profile-picture.png";
+
                             return (
                               <Image
                                 src={profilePicSrc}
                                 alt={`${connection.firstName} ${connection.lastName}`}
                                 width={60}
                                 height={60}
+                                style={{
+                                  borderRadius: "50%",
+                                  width: "60px",
+                                  height: "60px",
+                                  objectFit: "cover",
+                                }}
                                 className="rounded-full border-2 border-white shadow-sm"
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
-                                  target.src = "/sitefiles/default-profile-picture.png";
+                                  target.src =
+                                    "/sitefiles/default-profile-picture.png";
                                 }}
                               />
                             );
@@ -356,8 +467,12 @@ export default function ConnectionListPage() {
                             {connection.city}, {connection.country}
                           </p>
                           <p className="text-xs text-gray-400">
-                            Connected on {new Date(connection.connectionDate).toLocaleDateString()}
-                            {!connection.isOnline && ` • Last seen ${connection.lastSeen}`}
+                            Connected on{" "}
+                            {new Date(
+                              connection.connectionDate
+                            ).toLocaleDateString()}
+                            {!connection.isOnline &&
+                              ` • Last seen ${connection.lastSeen}`}
                           </p>
                         </div>
                       </div>
@@ -370,15 +485,30 @@ export default function ConnectionListPage() {
                         >
                           View Profile
                         </button>
-                        
+
                         <button
                           onClick={() => {
-                            console.log('[ConnectionList] BUTTON CLICKED!');
-                            console.log('[ConnectionList] DEBUG: Starting chat with connection:', connection);
-                            console.log('[ConnectionList] DEBUG: connection.userId:', connection.userId);
-                            console.log('[ConnectionList] DEBUG: startingChatId:', startingChatId);
-                            console.log('[ConnectionList] DEBUG: connection.id:', connection.id);
-                            console.log('[ConnectionList] DEBUG: disabled?', startingChatId === connection.id);
+                            console.log("[ConnectionList] BUTTON CLICKED!");
+                            console.log(
+                              "[ConnectionList] DEBUG: Starting chat with connection:",
+                              connection
+                            );
+                            console.log(
+                              "[ConnectionList] DEBUG: connection.userId:",
+                              connection.userId
+                            );
+                            console.log(
+                              "[ConnectionList] DEBUG: startingChatId:",
+                              startingChatId
+                            );
+                            console.log(
+                              "[ConnectionList] DEBUG: connection.id:",
+                              connection.id
+                            );
+                            console.log(
+                              "[ConnectionList] DEBUG: disabled?",
+                              startingChatId === connection.id
+                            );
                             handleStartChat(connection);
                           }}
                           disabled={startingChatId === connection.id}
@@ -391,20 +521,40 @@ export default function ConnectionListPage() {
                             </>
                           ) : (
                             <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                />
                               </svg>
                               <span>Chat</span>
                             </>
                           )}
                         </button>
-                        
+
                         <button
                           onClick={() => handleRemoveConnection(connection.id)}
                           className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M6 18L18 6M6 6l12 12"
+                            />
                           </svg>
                           <span>Remove</span>
                         </button>

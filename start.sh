@@ -12,7 +12,7 @@ echo "📡 Your local network IP: $LOCAL_IP"
 echo ""
 
 # Export environment variables for network access
-export NEXT_PUBLIC_API_URL="http://localhost:8080"
+export NEXT_PUBLIC_API_URL="http://$LOCAL_IP:8080"
 
 echo "🔧 Starting Backend Server..."
 echo "   Backend will be available at:"

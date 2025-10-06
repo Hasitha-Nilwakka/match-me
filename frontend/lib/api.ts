@@ -721,6 +721,8 @@ export const authApi = {
   },
 };
 
+
+
 // Profile-specific API functions
 export const profileApi = {
   // Get current user's profile

@@ -4,12 +4,9 @@ import (
 	"backend/db"
 	"backend/middleware"
 	"backend/models"
-	"fmt"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
-
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -54,13 +51,13 @@ func GetRecommendationsHandler(c *gin.Context) {
 	excludedUserIDs := getExcludedUserIDs(userID)
 
 	// DEBUG: Log debugging information
-	fmt.Printf("DEBUG: User ID %d requesting recommendations\n", userID)
-	fmt.Printf("DEBUG: Excluded user IDs: %v\n", excludedUserIDs)
+	// fmt.Printf("DEBUG: User ID %d requesting recommendations\n", userID)
+	// fmt.Printf("DEBUG: Excluded user IDs: %v\n", excludedUserIDs)
 
 	// Count total active users first
 	var totalActiveUsers int64
 	db.DB.Model(&models.User{}).Where("is_active = ?", true).Count(&totalActiveUsers)
-	fmt.Printf("DEBUG: Total active users in database: %d\n", totalActiveUsers)
+	// fmt.Printf("DEBUG: Total active users in database: %d\n", totalActiveUsers)
 
 	// Get potential matches with spatial filtering if user has location data
 	var potentialMatches []models.User
@@ -70,12 +67,12 @@ func GetRecommendationsHandler(c *gin.Context) {
 	if user.Location != nil && user.Location.Latitude != nil && user.Location.Longitude != nil &&
 		user.SeekingPreference != nil && user.SeekingPreference.LocationPreference == "define_radius" {
 
-		fmt.Printf("DEBUG: Using spatial filtering with radius %d km\n", user.SeekingPreference.MaxDistanceKm)
+		// fmt.Printf("DEBUG: Using spatial filtering with radius %d km\n", user.SeekingPreference.MaxDistanceKm)
 		// Get nearby users using bounding box pre-filtering
 		potentialMatches = getNearbyUsers(*user.Location.Latitude, *user.Location.Longitude,
 			user.SeekingPreference.MaxDistanceKm, excludedUserIDs)
 	} else {
-		fmt.Printf("DEBUG: Using fallback query (loading all users)\n")
+		// fmt.Printf("DEBUG: Using fallback query (loading all users)\n")
 		// Fallback to loading all users (original behavior)
 		query = db.DB.Where("id NOT IN ? AND is_active = ?",
 			excludedUserIDs, true).
@@ -85,13 +82,13 @@ func GetRecommendationsHandler(c *gin.Context) {
 			Preload("UserLanguages").Find(&potentialMatches)
 
 		if query.Error != nil {
-			fmt.Printf("DEBUG: Query error: %v\n", query.Error)
+			// fmt.Printf("DEBUG: Query error: %v\n", query.Error)
 			c.JSON(500, gin.H{"error": "Failed to fetch potential matches"})
 			return
 		}
 	}
 
-	fmt.Printf("DEBUG: Found %d potential matches after filtering\n", len(potentialMatches))
+	// fmt.Printf("DEBUG: Found %d potential matches after filtering\n", len(potentialMatches))
 
 	// === Gender mutual filtering ===
 	// Only show users whose gender matches the requester's seeking preference AND
@@ -107,15 +104,15 @@ func GetRecommendationsHandler(c *gin.Context) {
 		// Skip users without complete profiles
 		if match.Profile == nil || match.Profile.FirstName == "" {
 			skippedIncomplete++
-			fmt.Printf("DEBUG: Skipping user %d - incomplete profile (Profile: %v, FirstName: %v)\n",
-				match.ID, match.Profile != nil, match.Profile != nil && match.Profile.FirstName != "")
+			// fmt.Printf("DEBUG: Skipping user %d - incomplete profile (Profile: %v, FirstName: %v)\n",
+				// match.ID, match.Profile != nil, match.Profile != nil && match.Profile.FirstName != "")
 			continue
 		}
 
 		score := calculateMatchScore(user, match)
 		if score > 0 {
-			fmt.Printf("DEBUG: User %d (%s %s) scored: %.2f\n",
-				match.ID, match.Profile.FirstName, match.Profile.LastName, score)
+			// fmt.Printf("DEBUG: User %d (%s %s) scored: %.2f\n",
+			// 	match.ID, match.Profile.FirstName, match.Profile.LastName, score)
 		}
 
 		if score > 0 { // Only include matches with positive scores
@@ -128,13 +125,13 @@ func GetRecommendationsHandler(c *gin.Context) {
 		}
 	}
 
-	fmt.Printf("DEBUG: Scoring summary - Total potential: %d, Skipped incomplete: %d, Zero scored: %d, Valid matches: %d\n",
-		len(potentialMatches), skippedIncomplete, zeroScored, len(scoredMatches))
+	// fmt.Printf("DEBUG: Scoring summary - Total potential: %d, Skipped incomplete: %d, Zero scored: %d, Valid matches: %d\n",
+	// 	len(potentialMatches), skippedIncomplete, zeroScored, len(scoredMatches))
 
-	// Sort by score (highest first)
-	sort.Slice(scoredMatches, func(i, j int) bool {
-		return scoredMatches[i].Score > scoredMatches[j].Score
-	})
+	// // Sort by score (highest first)
+	// sort.Slice(scoredMatches, func(i, j int) bool {
+	// 	return scoredMatches[i].Score > scoredMatches[j].Score
+	// })
 
 	// Take top 10 recommendations
 	maxRecommendations := 10
