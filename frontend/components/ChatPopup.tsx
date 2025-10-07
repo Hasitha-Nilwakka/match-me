@@ -70,7 +70,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
 
   // Debug mode changes for chat popup
   useEffect(() => {
-    console.log('[ChatPopup] Data mode is', mode);
+    // console.log('[ChatPopup] Data mode is', mode);
   }, [mode]);
 
   // Load/reload chats when popup opens or data mode changes
@@ -83,9 +83,9 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       loadChats();
       
       // Mark user as online when chat popup opens
-      console.log('[ChatPopup] Setting user online');
+      // console.log('[ChatPopup] Setting user online');
       authApi.updateOnlineStatus(true).then(() => {
-        console.log('[ChatPopup] Successfully set user online');
+        // console.log('[ChatPopup] Successfully set user online');
       }).catch((error) => {
         console.error('[ChatPopup] Failed to set user online:', error);
       });
@@ -118,12 +118,12 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
 
   // Auto-open target chat when chats are loaded and targetChatId is set
   useEffect(() => {
-    console.log('[ChatPopup] Auto-open useEffect triggered, targetChatId:', targetChatId, 'chats.length:', chats.length);
+    // console.log('[ChatPopup] Auto-open useEffect triggered, targetChatId:', targetChatId, 'chats.length:', chats.length);
     if (targetChatId && chats.length > 0) {
       const targetChat = chats.find(chat => chat.id === targetChatId);
-      console.log('[ChatPopup] Found target chat:', targetChat);
+      // console.log('[ChatPopup] Found target chat:', targetChat);
       if (targetChat) {
-        console.log('[ChatPopup] Setting activeChat to:', targetChatId);
+        // console.log('[ChatPopup] Setting activeChat to:', targetChatId);
         setActiveChat(targetChatId);
         loadChatMessages(targetChatId);
         // Clear the targetChatId after opening to prevent auto-opening on subsequent popup opens
@@ -138,22 +138,22 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       // Check if user is authenticated before making API calls
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('[ChatPopup] User not authenticated, skipping chat load');
+        // console.log('[ChatPopup] User not authenticated, skipping chat load');
         setChats([]);
         return;
       }
 
       // Real API call
       const data = await chatApi.getAllChats();
-      console.log('[ChatPopup] Raw API response:', data);
+      // console.log('[ChatPopup] Raw API response:', data);
       const chatsData = Array.isArray(data) ? data : (data?.chats || []);
-      console.log('[ChatPopup] Processed chats data:', chatsData);
+      // console.log('[ChatPopup] Processed chats data:', chatsData);
       
       // Debug profile pictures in the response
       chatsData.forEach((chat: Chat, index: number) => {
-        console.log(`[ChatPopup] Chat ${index} otherUser:`, chat.otherUser);
+        // console.log(`[ChatPopup] Chat ${index} otherUser:`, chat.otherUser);
         if (chat.otherUser) {
-          console.log(`[ChatPopup] Chat ${index} profilePicture:`, chat.otherUser.profilePicture);
+          // console.log(`[ChatPopup] Chat ${index} profilePicture:`, chat.otherUser.profilePicture);
         }
       });
       
@@ -170,14 +170,14 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     try {
       // Real API call
       const data = await chatApi.getChatMessages(chatId.toString());
-      console.log('[ChatPopup] Raw messages API response for chat', chatId, ':', data);
+      // console.log('[ChatPopup] Raw messages API response for chat', chatId, ':', data);
       const messagesData = Array.isArray(data) ? data : (data?.messages || []);
-      console.log('[ChatPopup] Processed messages data:', messagesData);
+      // console.log('[ChatPopup] Processed messages data:', messagesData);
       // Sort messages by creation time (oldest first)
       const sortedMessages = messagesData.sort((a: { createdAt: string }, b: { createdAt: string }) => 
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       );
-      console.log('[ChatPopup] Sorted messages:', sortedMessages);
+      // console.log('[ChatPopup] Sorted messages:', sortedMessages);
       setMessages(sortedMessages);
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -187,7 +187,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
 
   // Open a specific chat
   const openChat = (chatId: number) => {
-    console.log('[ChatPopup] openChat called with chatId:', chatId);
+    // console.log('[ChatPopup] openChat called with chatId:', chatId);
     setActiveChat(chatId);
     setIsMinimized(false);
     loadChatMessages(chatId);
@@ -203,9 +203,9 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
 
   // WebSocket connection for active chat
   useEffect(() => {
-    console.log('[ChatPopup] WebSocket useEffect triggered, activeChat:', activeChat);
-    console.log('[ChatPopup] isOpen:', isOpen);
-    console.log('[ChatPopup] chats.length:', chats.length);
+    // console.log('[ChatPopup] WebSocket useEffect triggered, activeChat:', activeChat);
+    // console.log('[ChatPopup] isOpen:', isOpen);
+    // console.log('[ChatPopup] chats.length:', chats.length);
     
     // Cleanup any existing connection
     if (wsRef.current) {
@@ -214,34 +214,34 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     }
 
     if (!activeChat) {
-      console.log('[ChatPopup] No active chat, skipping WebSocket setup');
+      // console.log('[ChatPopup] No active chat, skipping WebSocket setup');
       return;
     }
     
-    console.log('[ChatPopup] Setting up WebSocket for chat:', activeChat);
-    console.log('[ChatPopup] Current user ID:', currentUser?.id);
-    console.log('[ChatPopup] Token exists:', !!localStorage.getItem('token'));
+    // console.log('[ChatPopup] Setting up WebSocket for chat:', activeChat);
+    // console.log('[ChatPopup] Current user ID:', currentUser?.id);
+    // console.log('[ChatPopup] Token exists:', !!localStorage.getItem('token'));
     
     try {
       const ws = chatApi.createWebSocketConnection(
         activeChat.toString(), 
         (incoming: unknown) => {
-          console.log('[ChatPopup] WebSocket message received:', incoming);
-          console.log('[ChatPopup] WebSocket connection state:', ws?.readyState);
+          // console.log('[ChatPopup] WebSocket message received:', incoming);
+          // console.log('[ChatPopup] WebSocket connection state:', ws?.readyState);
           
           // Expecting ChatMessage shape
           const msg = incoming as Message;
           if (!msg || typeof msg !== 'object') {
-            console.log('[ChatPopup] Invalid message format:', msg);
+            // console.log('[ChatPopup] Invalid message format:', msg);
             return;
           }
           
-          console.log('[ChatPopup] Adding message to state:', msg);
+          // console.log('[ChatPopup] Adding message to state:', msg);
           setMessages(prev => {
             // Check if message already exists to avoid duplicates
             const exists = prev.some(m => m.id === msg.id);
             if (exists) {
-              console.log('[ChatPopup] Message already exists, skipping:', msg.id);
+              // console.log('[ChatPopup] Message already exists, skipping:', msg.id);
               return prev;
             }
             const newMessage = {
@@ -425,7 +425,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       // Notify parent component that chat was deleted
       onChatDeleted?.(chatId);
       
-      console.log('Chat deleted successfully');
+      // console.log('Chat deleted successfully');
     } catch (error) {
       console.error('Error deleting chat:', error);
       alert('Failed to delete chat. Please try again.');
@@ -455,7 +455,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       
       // Real API call
       const sentMessage = await chatApi.sendMessage(activeChat.toString(), messageContent);
-      console.log('Message sent successfully:', sentMessage);
+      // console.log('Message sent successfully:', sentMessage);
       
       // Add message to local state immediately with server response data
       if (sentMessage && sentMessage.data) {
@@ -496,13 +496,13 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     setNewMessage(e.target.value);
     
     if (!isTyping && e.target.value.trim()) {
-      console.log('[ChatPopup] Starting typing indicator');
+      // console.log('[ChatPopup] Starting typing indicator');
       setIsTyping(true);
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         chatApi.sendTypingIndicator(wsRef.current, true);
-        console.log('[ChatPopup] Sent typing start via WebSocket');
+        // console.log('[ChatPopup] Sent typing start via WebSocket');
       } else {
-        console.log('[ChatPopup] WebSocket not ready, cannot send typing indicator');
+        // console.log('[ChatPopup] WebSocket not ready, cannot send typing indicator');
       }
     }
     
@@ -514,11 +514,11 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     // Set timeout to stop typing indicator
     typingTimeoutRef.current = setTimeout(() => {
       if (isTyping) {
-        console.log('[ChatPopup] Stopping typing indicator (timeout)');
+        // console.log('[ChatPopup] Stopping typing indicator (timeout)');
         setIsTyping(false);
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           chatApi.sendTypingIndicator(wsRef.current, false);
-          console.log('[ChatPopup] Sent typing stop via WebSocket');
+          // console.log('[ChatPopup] Sent typing stop via WebSocket');
         }
       }
     }, 1000);
@@ -634,8 +634,8 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                 </button>
                 <div className="relative">
                   {(() => {
-                    console.log('[ChatPopup] Current chat user profile picture:', currentChatUser.profilePicture);
-                    console.log('[ChatPopup] Current chat user:', currentChatUser);
+                    // console.log('[ChatPopup] Current chat user profile picture:', currentChatUser.profilePicture);
+                    // console.log('[ChatPopup] Current chat user:', currentChatUser);
                     
                     // Handle different profile picture formats
                     const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
@@ -664,7 +664,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                       }
                     }
                     
-                    console.log('[ChatPopup] Final profile picture src:', profilePicSrc);
+                    // console.log('[ChatPopup] Final profile picture src:', profilePicSrc);
                     
                     return (
                       <Image

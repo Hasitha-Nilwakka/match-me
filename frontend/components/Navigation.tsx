@@ -37,7 +37,7 @@ export default function Navigation() {
               "/sitefiles/default-profile-picture.png",
           });
         } catch {
-          console.log("No profile data found yet");
+          // console.log("No profile data found yet");
           setUserProfile({
             profilePictureURL: "/sitefiles/default-profile-picture.png",
           });
@@ -118,7 +118,9 @@ export default function Navigation() {
                 alt="Site Logo"
                 width={120}
                 height={40}
-                className="h-10 w-auto cursor-pointer hover:opacity-80 transition-opacity"
+                sizes="120px"
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                style={{ width: 120, height: 40 }}
               />
             </Link>
           </div>
@@ -186,20 +188,23 @@ export default function Navigation() {
                       ? userProfile.profilePictureURL
                       : userProfile.profilePictureURL &&
                         userProfile.profilePictureURL.startsWith("/uploads")
-                        ? `${(process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')}${userProfile.profilePictureURL}`
+                      ? `${(process.env.NEXT_PUBLIC_API_URL || "").replace(
+                          /\/$/,
+                          ""
+                        )}${userProfile.profilePictureURL}`
                       : userProfile.profilePictureURL &&
                         userProfile.profilePictureURL.startsWith("/")
                       ? userProfile.profilePictureURL
                       : "/sitefiles/default-profile-picture.png";
 
-                  console.log(
-                    "[Navigation] Profile picture URL:",
-                    userProfile.profilePictureURL
-                  );
-                  console.log(
-                    "[Navigation] Final profile picture src:",
-                    profilePicSrc
-                  );
+                  // console.log(
+                  //   "[Navigation] Profile picture URL:",
+                  //   userProfile.profilePictureURL
+                  // );
+                  // console.log(
+                  //   "[Navigation] Final profile picture src:",
+                  //   profilePicSrc
+                  // );
 
                   return (
                     <Image

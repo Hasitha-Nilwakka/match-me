@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -59,24 +60,36 @@ func GetRecommendationsHandler(c *gin.Context) {
 	db.DB.Model(&models.User{}).Where("is_active = ?", true).Count(&totalActiveUsers)
 	// fmt.Printf("DEBUG: Total active users in database: %d\n", totalActiveUsers)
 
+	// Determine strict location preference
+	locPref := "any"
+	maxKm := 0
+	if user.SeekingPreference != nil {
+		lp := strings.ToLower(strings.TrimSpace(user.SeekingPreference.LocationPreference))
+		switch lp {
+		case "any", "within_city", "within_country", "define_radius":
+			locPref = lp
+		}
+		maxKm = user.SeekingPreference.MaxDistanceKm
+	}
+
 	// Get potential matches with spatial filtering if user has location data
 	var potentialMatches []models.User
 	var query *gorm.DB
 
 	// Apply spatial filtering if user has location and preferences
 	if user.Location != nil && user.Location.Latitude != nil && user.Location.Longitude != nil &&
-		user.SeekingPreference != nil && user.SeekingPreference.LocationPreference == "define_radius" {
+		locPref == "define_radius" && maxKm > 0 {
 
 		// fmt.Printf("DEBUG: Using spatial filtering with radius %d km\n", user.SeekingPreference.MaxDistanceKm)
 		// Get nearby users using bounding box pre-filtering
 		potentialMatches = getNearbyUsers(*user.Location.Latitude, *user.Location.Longitude,
-			user.SeekingPreference.MaxDistanceKm, excludedUserIDs)
+			maxKm, excludedUserIDs)
 	} else {
 		// fmt.Printf("DEBUG: Using fallback query (loading all users)\n")
 		// Fallback to loading all users (original behavior)
-		query = db.DB.Where("id NOT IN ? AND is_active = ?",
+		query = db.DB.Where("users.id NOT IN ? AND users.is_active = ?",
 			excludedUserIDs, true).
-			Preload("Profile").Preload("Location").
+			Preload("Profile").Preload("Location").Preload("SeekingPreference").
 			Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
 			Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
 			Preload("UserLanguages").Find(&potentialMatches)
@@ -89,6 +102,17 @@ func GetRecommendationsHandler(c *gin.Context) {
 	}
 
 	// fmt.Printf("DEBUG: Found %d potential matches after filtering\n", len(potentialMatches))
+
+	// Strict location filtering (any = no filter)
+	if locPref != "any" {
+		filtered := make([]models.User, 0, len(potentialMatches))
+		for _, u := range potentialMatches {
+			if passesLocationFilter(locPref, maxKm, user.Location, u.Location) {
+				filtered = append(filtered, u)
+			}
+		}
+		potentialMatches = filtered
+	}
 
 	// === Gender mutual filtering ===
 	// Only show users whose gender matches the requester's seeking preference AND
@@ -105,7 +129,7 @@ func GetRecommendationsHandler(c *gin.Context) {
 		if match.Profile == nil || match.Profile.FirstName == "" {
 			skippedIncomplete++
 			// fmt.Printf("DEBUG: Skipping user %d - incomplete profile (Profile: %v, FirstName: %v)\n",
-				// match.ID, match.Profile != nil, match.Profile != nil && match.Profile.FirstName != "")
+			// match.ID, match.Profile != nil, match.Profile != nil && match.Profile.FirstName != "")
 			continue
 		}
 
@@ -300,23 +324,6 @@ func calculateMatchScore(userA, userB models.User) float64 {
 	}
 	baseScore := (score / totalWeight) * 100
 
-	// Apply location penalty if users are too far apart
-	if userA.Location != nil && userB.Location != nil &&
-		userA.Location.Latitude != nil && userA.Location.Longitude != nil &&
-		userB.Location.Latitude != nil && userB.Location.Longitude != nil {
-
-		distance := calculateDistance(
-			*userA.Location.Latitude, *userA.Location.Longitude,
-			*userB.Location.Latitude, *userB.Location.Longitude,
-		)
-
-		maxDistance := float64(preferences.MaxDistanceKm)
-		if distance > maxDistance {
-			// Apply 70% penalty for distant matches
-			baseScore *= 0.3
-		}
-	}
-
 	return math.Round(baseScore*100) / 100 // Round to 2 decimal places
 }
 
@@ -365,7 +372,8 @@ func valueOrEmptyPref[T any](ptr *T, get func(*T) *string) string {
 	return v
 }
 
-// genderAllowed returns true if pref is open ("", "any") or equals gender
+// genderAllowed returns true if pref is open ("", "any") or contains gender
+// Supports comma-separated multiple gender preferences like "male,female"
 func genderAllowed(pref string, gender string) bool {
 	if pref == "" || pref == "any" {
 		return true
@@ -373,7 +381,17 @@ func genderAllowed(pref string, gender string) bool {
 	if gender == "" {
 		return true
 	} // if candidate hasn't set gender, treat as open
-	return pref == gender
+
+	// Handle comma-separated multiple preferences
+	prefList := strings.Split(pref, ",")
+	for _, p := range prefList {
+		p = strings.ToLower(strings.TrimSpace(p))
+		g := strings.ToLower(strings.TrimSpace(gender))
+		if p == g || p == "any" {
+			return true
+		}
+	}
+	return false
 }
 
 // Helper functions to find common items
@@ -625,12 +643,14 @@ func getNearbyUsers(userLat, userLon float64, radiusKm int, excludedUserIDs []ui
 
 	// Query users within bounding box first (much faster than Haversine for all users)
 	var nearbyUsers []models.User
-	query := db.DB.Where(`
-		id NOT IN ? AND is_active = ? AND
-		latitude IS NOT NULL AND longitude IS NOT NULL AND
-		latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?
-	`, excludedUserIDs, true, minLat, maxLat, minLon, maxLon).
-		Preload("Profile").Preload("Location").
+	query := db.DB.
+		Joins("JOIN locations ON locations.user_id = users.id").
+		Where(`
+			users.id NOT IN ? AND users.is_active = ? AND
+			locations.latitude IS NOT NULL AND locations.longitude IS NOT NULL AND
+			locations.latitude BETWEEN ? AND ? AND locations.longitude BETWEEN ? AND ?
+		`, excludedUserIDs, true, minLat, maxLat, minLon, maxLon).
+		Preload("Profile").Preload("Location").Preload("SeekingPreference").
 		Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
 		Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
 		Preload("UserLanguages").Find(&nearbyUsers)
@@ -638,9 +658,9 @@ func getNearbyUsers(userLat, userLon float64, radiusKm int, excludedUserIDs []ui
 	if query.Error != nil {
 		// If spatial query fails, fallback to loading all users
 		var allUsers []models.User
-		db.DB.Where("id NOT IN ? AND is_active = ?",
+		db.DB.Where("users.id NOT IN ? AND users.is_active = ?",
 			excludedUserIDs, true).
-			Preload("Profile").Preload("Location").
+			Preload("Profile").Preload("Location").Preload("SeekingPreference").
 			Preload("UserHobbies").Preload("UserInterests").Preload("UserMusic").
 			Preload("UserMovies").Preload("UserFood").Preload("UserTravel").
 			Preload("UserLanguages").Find(&allUsers)
@@ -659,4 +679,32 @@ func getNearbyUsers(userLat, userLon float64, radiusKm int, excludedUserIDs []ui
 	}
 
 	return filteredUsers
+}
+
+// passesLocationFilter applies strict location rules
+func passesLocationFilter(pref string, maxKm int, me *models.Location, other *models.Location) bool {
+	switch pref {
+	case "any", "":
+		return true
+	case "within_city":
+		if me == nil || other == nil || me.City == nil || other.City == nil {
+			return false
+		}
+		return strings.EqualFold(strings.TrimSpace(*me.City), strings.TrimSpace(*other.City))
+	case "within_country":
+		if me == nil || other == nil || me.Country == nil || other.Country == nil {
+			return false
+		}
+		return strings.EqualFold(strings.TrimSpace(*me.Country), strings.TrimSpace(*other.Country))
+	case "define_radius":
+		if me == nil || other == nil ||
+			me.Latitude == nil || me.Longitude == nil ||
+			other.Latitude == nil || other.Longitude == nil ||
+			maxKm <= 0 {
+			return false
+		}
+		return calculateDistance(*me.Latitude, *me.Longitude, *other.Latitude, *other.Longitude) <= float64(maxKm)
+	default:
+		return true
+	}
 }
