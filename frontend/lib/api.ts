@@ -17,12 +17,15 @@ export const getApiUrlNew = (): string => {
     const host = window.location.hostname; // e.g. localhost or 192.168.x.x
     const derived = `http://${host}:8080`;
     console.log('[API] Derived API URL from window.location:', derived);
+    if (host === 'localhost' || host === '127.0.0.1') {
+      console.warn('[API] Using localhost-derived API URL. For mobile testing, set NEXT_PUBLIC_API_URL in frontend/.env.local to your LAN IP (e.g. http://192.168.x.x:8080).');
+    }
     return derived;
   }
 
   // 3) Fallback for SSR/build
   const fallback = 'http://localhost:8080';
-  console.log('[API] Fallback API URL:', fallback);
+  console.warn('[API] Using SSR fallback API URL:', fallback, '\nSet NEXT_PUBLIC_API_URL to your backend base URL for non-localhost clients.');
   return fallback;
 };
 

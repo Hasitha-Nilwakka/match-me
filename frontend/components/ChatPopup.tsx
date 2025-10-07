@@ -118,9 +118,11 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
   };
 
   useEffect(() => {
-    // Force scroll to bottom on any message change
-    scrollToBottom('auto');
-    autoScrollNextRef.current = false;
+    // Smart auto-scroll: only when we explicitly requested or user is near bottom
+    if (autoScrollNextRef.current || isNearBottom()) {
+      scrollToBottom('auto');
+      autoScrollNextRef.current = false;
+    }
   }, [messages]);
   const wsRef = useRef<WebSocket | null>(null);
   const activeChatRef = useRef<number | null>(null);
@@ -1033,7 +1035,16 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                       return (
                         <React.Fragment key={`${message?.id ?? 'm'}-${index}`}>
                           {/* Date Separator */}
-                          {/* Date separator temporarily disabled */}
+                          {showDateSeparator && (() => {
+                            const label = formatDateSeparator(message.createdAt);
+                            return (
+                              <div className="my-3 flex items-center text-[10px] uppercase tracking-wide text-gray-400">
+                                <div className="flex-1 h-px bg-gray-200" />
+                                <span className="mx-2 whitespace-nowrap">{label}</span>
+                                <div className="flex-1 h-px bg-gray-200" />
+                              </div>
+                            );
+                          })()}
                           
                           {/* Message */}
                           <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} items-end space-x-2 ${

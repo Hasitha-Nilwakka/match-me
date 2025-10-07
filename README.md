@@ -300,6 +300,7 @@ This enhancement enables more sophisticated matching algorithms that can priorit
 1. **Same WiFi network** - Ensure all devices are on the same network
 2. **Check firewall** - Allow Node.js and Go through firewall
 3. **Use IP address** - Replace `localhost` with your computer's local IP
+4. **Set frontend API URL** - In `frontend/.env.local`, set `NEXT_PUBLIC_API_URL` to `http://YOUR_LOCAL_IP:8080`, then restart `npm run dev`
 4. **Verify ports** - Backend (8080) and Frontend (3000) should be accessible
 
 #### WebSocket Connection Issues
