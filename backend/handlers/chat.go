@@ -549,7 +549,7 @@ func GetChatsHandler(hub *Hub) gin.HandlerFunc {
 			return
 		}
 
-		log.Printf("Found %d chats for user %d", len(chats), userID)
+		// log.Printf("Found %d chats for user %d", len(chats), userID)
 
 		// Build response with de-duplication per counterpart user
 		var chatResponses []ChatResponse
