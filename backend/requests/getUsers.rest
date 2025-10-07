@@ -1,5 +1,0 @@
-GET http://localhost:8080/users
-###
-
-GET http://localhost:8080/me
-Authorization: Bearer your_jwt_token_here

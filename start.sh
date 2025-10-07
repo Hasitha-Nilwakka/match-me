@@ -6,8 +6,19 @@
 echo "🚀 Starting Match-Me for Local Network Access"
 echo "=============================================="
 
-# Get local IP address
-LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+# Get local IP address - prefer WSL IP over Docker IPs
+# Try to get the actual WSL interface IP (usually eth0)
+LOCAL_IP=$(ip addr show eth0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1)
+
+# If eth0 not found, try to avoid Docker IPs (172.17.x.x, 172.18.x.x, etc.)
+if [ -z "$LOCAL_IP" ]; then
+    LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | grep -v "172\.1[7-9]\." | head -1)
+fi
+
+# If still no IP, fall back to any non-localhost IP
+if [ -z "$LOCAL_IP" ]; then
+    LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+fi
 echo "📡 Your local network IP: $LOCAL_IP"
 echo ""
 
