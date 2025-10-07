@@ -540,7 +540,8 @@ func GetChatsHandler(hub *Hub) gin.HandlerFunc {
 			Joins("JOIN connections ON chats.connection_id = connections.id").
 			Where("connections.requester_id = ? OR connections.receiver_id = ?", userID, userID).
 			Where("connections.status = ?", "accepted").
-			// Do NOT exclude chats by deleted_at; deletion hides history per user, but chat should remain visible
+			// Filter out chats deleted by the current user, but show restarted chats (deletion within last 5 minutes)
+			Where("(connections.requester_id = ? AND (chats.requester_deleted_at IS NULL OR chats.requester_deleted_at > NOW() - INTERVAL '5 minutes')) OR (connections.receiver_id = ? AND (chats.receiver_deleted_at IS NULL OR chats.receiver_deleted_at > NOW() - INTERVAL '5 minutes'))", userID, userID).
 			Order("chats.updated_at DESC").
 			Find(&chats).Error; err != nil {
 			log.Printf("Error fetching chats for user %d: %v", userID, err)
@@ -548,7 +549,7 @@ func GetChatsHandler(hub *Hub) gin.HandlerFunc {
 			return
 		}
 
-		// log.Printf("Found %d chats for user %d", len(chats), userID)
+		log.Printf("Found %d chats for user %d", len(chats), userID)
 
 		// Build response with de-duplication per counterpart user
 		var chatResponses []ChatResponse
@@ -888,15 +889,7 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 	}
 }
 
-// ReadEvent is sent over WebSocket when a user reads messages
-type ReadEvent struct {
-	Type              string `json:"type"`
-	ChatID            uint   `json:"chatId"`
-	ReaderID          uint   `json:"readerId"`
-	LastReadMessageID uint   `json:"lastReadMessageId"`
-}
-
-// MarkMessagesAsReadHandler marks messages as read and broadcasts a WS event
+// MarkMessagesAsReadHandler marks messages as read
 func MarkMessagesAsReadHandler(hub *Hub) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := middleware.GetUserIDFromContext(c)
@@ -925,33 +918,43 @@ func MarkMessagesAsReadHandler(hub *Hub) gin.HandlerFunc {
 			return
 		}
 
-		// Mark all unread messages as read and capture the highest message id touched
-		var lastRead models.Message
+		// Mark all unread messages as read
+		// Mark as read and capture the highest message id for broadcasting
 		if err := db.DB.Model(&models.Message{}).
 			Where("chat_id = ? AND sender_id != ? AND is_read = ?", uint(chatID), userID, false).
-			Updates(map[string]interface{}{"is_read": true}).Error; err != nil {
+			Update("is_read", true).Error; err != nil {
 			c.JSON(500, gin.H{"error": "Failed to mark messages as read"})
 			return
 		}
 
-		// Try to get last message id for event (best-effort)
+		var lastRead models.Message
 		db.DB.Where("chat_id = ? AND sender_id != ?", uint(chatID), userID).Order("id DESC").First(&lastRead)
 
-		// Broadcast WS read event to other participant(s) in this chat
-		evt := ReadEvent{Type: "read", ChatID: uint(chatID), ReaderID: userID, LastReadMessageID: lastRead.ID}
+		// Broadcast a read event to the other participant(s) in this chat
+		evt := map[string]interface{}{
+			"type":              "read",
+			"chatId":            uint(chatID),
+			"readerId":          userID,
+			"lastReadMessageId": lastRead.ID,
+		}
 		payload, _ := json.Marshal(evt)
+		sent := 0
 		for client := range hub.clients {
 			if client.ChatID == uint(chatID) && client.UserID != userID {
 				select {
 				case client.Send <- payload:
+					sent++
 				default:
 					close(client.Send)
 					delete(hub.clients, client)
 				}
 			}
 		}
+		log.Printf("Broadcasted read event for chat %d by user %d to %d clients (lastRead=%d)", chatID, userID, sent, lastRead.ID)
 
-		c.JSON(200, gin.H{"message": "Messages marked as read"})
+		c.JSON(200, gin.H{
+			"message": "Messages marked as read",
+		})
 	}
 }
 

@@ -67,7 +67,7 @@ func setupRouter() *gin.Engine {
 	protected.GET("/chats", GetChatsHandler(hub))
 	protected.GET("/chats/:chatId/messages", GetChatMessagesHandler)
 	protected.POST("/chats/:chatId/messages", CreateChatHandler)
-	protected.PUT("/chats/:chatId/read", MarkMessagesAsReadHandler)
+	protected.PUT("/chats/:chatId/read", MarkMessagesAsReadHandler(hub))
 	protected.DELETE("/chats/:chatId", DeleteChatHandler)
 
 	// Reference data endpoints
@@ -313,6 +313,7 @@ func TestGetSeekingPreferences_NotFound(t *testing.T) {
 	}
 
 	// Check default values
+	// Align with current defaults in GetMePreferencesHandler
 	if response["minAge"] != float64(18) {
 		t.Fatalf("expected default minAge 18, got %v", response["minAge"])
 	}

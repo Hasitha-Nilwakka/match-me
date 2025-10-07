@@ -407,6 +407,7 @@ export default function ConnectionListPage() {
                         {/* Profile Picture */}
                         <div className="relative">
                           {(() => {
+                            const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
                             const profilePicSrc =
                               connection.profilePicture &&
                               connection.profilePicture.startsWith("http")
@@ -415,10 +416,7 @@ export default function ConnectionListPage() {
                                   connection.profilePicture.startsWith(
                                     "/uploads"
                                   )
-                                ? `${
-                                    process.env.NEXT_PUBLIC_API_URL ||
-                                    (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
-                                  }${connection.profilePicture}`
+                                ? `${base}${connection.profilePicture}`
                                 : connection.profilePicture &&
                                   connection.profilePicture.startsWith("/")
                                 ? connection.profilePicture

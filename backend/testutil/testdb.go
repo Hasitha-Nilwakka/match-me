@@ -1,6 +1,8 @@
 package testutil
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"backend/models"
@@ -14,7 +16,10 @@ import (
 func NewTestDB(t *testing.T) (*gorm.DB, func()) {
 	t.Helper()
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	// Use a unique in-memory database per test to avoid cross-test pollution
+	// SQLite DSN format: file:<name>?mode=memory&cache=shared
+	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "-"))
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open test db: %v", err)
 	}

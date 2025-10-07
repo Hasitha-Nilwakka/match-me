@@ -148,7 +148,7 @@ func main() {
 		protected.GET("/chats", handlers.GetChatsHandler(hub))                        // Get user's chats
 		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)     // Get chat messages
 		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler(hub))   // Send new message
-		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler(hub)) // Mark messages as read (and broadcast)
+		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler(hub)) // Mark messages as read
 		protected.DELETE("/chats/:chatId", handlers.DeleteChatHandler)                // Delete chat and messages
 	}
 

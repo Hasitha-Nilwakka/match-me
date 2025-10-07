@@ -3,12 +3,7 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  authApi,
-  profileApi,
-  recommendationsApi,
-  getApiUrl,
-} from "../../lib/api";
+import { authApi, profileApi, recommendationsApi, getApiUrl } from "../../lib/api";
 import ProfileModal from "../../components/ProfileModal";
 import Navigation from "../../components/Navigation";
 import { useDataMode } from "../../context/DataModeContext";
@@ -33,10 +28,6 @@ interface Recommendation {
     aboutMe?: string;
     gender?: string;
     status?: string;
-  };
-  location?: {
-    city?: string;
-    country?: string;
   };
   bio?: {
     interests: string[];
@@ -73,15 +64,7 @@ export default function FrontPage() {
     foodPreferences: string[];
     travelTypes: string[];
     languages: string[];
-  }>({
-    interests: [],
-    hobbies: [],
-    musicGenres: [],
-    movieGenres: [],
-    foodPreferences: [],
-    travelTypes: [],
-    languages: [],
-  });
+  }>({ interests: [], hobbies: [], musicGenres: [], movieGenres: [], foodPreferences: [], travelTypes: [], languages: [] });
   const [mySeeking, setMySeeking] = useState<{
     genderPreference?: string;
     statusPreference?: string;
@@ -146,7 +129,7 @@ export default function FrontPage() {
             e
           );
         }
-
+        
         // Only load recommendations if profile is complete
         if (profile.firstName && profile.firstName.trim()) {
           // Load recommendations will be called by useEffect after component mounts
@@ -204,7 +187,7 @@ export default function FrontPage() {
         recData.recommendations.map(
           async (rec: { id: number; score: number }) => {
             try {
-              let userInfo, userProfile, userBio, onlineStatus, userLocation;
+              let userInfo, userProfile, userBio, onlineStatus;
 
               {
                 console.log(`🔴 REAL USER DETAILS for user ${rec.id}`);
@@ -222,18 +205,6 @@ export default function FrontPage() {
                         .getUserOnlineStatus(String(rec.id))
                         .catch(() => null), // Gracefully handle online status fetch failures
                     ]);
-
-                  // Extract location data from profile response
-                  userLocation = undefined;
-                  if (
-                    userProfile &&
-                    (userProfile.city || userProfile.country)
-                  ) {
-                    userLocation = {
-                      city: userProfile.city,
-                      country: userProfile.country,
-                    };
-                  }
                   console.log(
                     `Successfully fetched details for user ${rec.id}:`,
                     { userInfo, userProfile, userBio, onlineStatus }
@@ -308,7 +279,6 @@ export default function FrontPage() {
                     isOnline: false,
                     lastSeen: new Date().toISOString(),
                   };
-                  userLocation = undefined;
                 }
               }
 
@@ -321,7 +291,6 @@ export default function FrontPage() {
                 ...rec,
                 userInfo,
                 profile: userProfile,
-                location: userLocation,
                 bio: userBio,
                 profilePictureURL:
                   userProfile?.profilePictureURL ||
@@ -336,8 +305,23 @@ export default function FrontPage() {
           }
         )
       );
-
-      setRecommendations(detailedRecs);
+      
+      // Attach verbal bands immediately based on current prefs
+      try {
+        const maxPossible = computeMaxPossible();
+        if (maxPossible && Number.isFinite(maxPossible)) {
+          const withBands = detailedRecs.map((rec) => {
+            if (typeof rec.score !== 'number') return rec;
+            const normalized = Math.max(0, Math.min(100, Math.round((rec.score / maxPossible) * 100)));
+            return { ...rec, normalizedScore: normalized, band: verbalBand(normalized) } as Recommendation;
+          });
+          setRecommendations(withBands);
+        } else {
+          setRecommendations(detailedRecs);
+        }
+      } catch {
+        setRecommendations(detailedRecs);
+      }
       setCurrentRecommendationIndex(0);
     } catch (error) {
       console.error("Error loading recommendations:", error);
@@ -490,47 +474,34 @@ export default function FrontPage() {
       const trimmed = v.trim();
       if (trimmed.length === 0) return true;
       const lower = trimmed.toLowerCase();
-      return lower === "any" || lower.startsWith("select");
+      return lower === 'any' || lower.startsWith('select');
     };
     // Multi-valued: countUserItems * weight
     let max = 0;
-    max +=
-      myBio.hobbies.length * (s.hobbiesWeight || defaultWeights.hobbiesWeight);
-    max +=
-      myBio.interests.length *
-      (s.interestsWeight || defaultWeights.interestsWeight);
-    max +=
-      myBio.musicGenres.length *
-      (s.musicGenresWeight || defaultWeights.musicGenresWeight);
-    max +=
-      myBio.movieGenres.length *
-      (s.movieGenresWeight || defaultWeights.movieGenresWeight);
-    max +=
-      myBio.foodPreferences.length *
-      (s.foodPreferencesWeight || defaultWeights.foodPreferencesWeight);
-    max +=
-      myBio.travelTypes.length *
-      (s.travelTypesWeight || defaultWeights.travelTypesWeight);
-    max +=
-      myBio.languages.length *
-      (s.languagesWeight || defaultWeights.languagesWeight);
+    max += (myBio.hobbies.length) * (s.hobbiesWeight || defaultWeights.hobbiesWeight);
+    max += (myBio.interests.length) * (s.interestsWeight || defaultWeights.interestsWeight);
+    max += (myBio.musicGenres.length) * (s.musicGenresWeight || defaultWeights.musicGenresWeight);
+    max += (myBio.movieGenres.length) * (s.movieGenresWeight || defaultWeights.movieGenresWeight);
+    max += (myBio.foodPreferences.length) * (s.foodPreferencesWeight || defaultWeights.foodPreferencesWeight);
+    max += (myBio.travelTypes.length) * (s.travelTypesWeight || defaultWeights.travelTypesWeight);
+    max += (myBio.languages.length) * (s.languagesWeight || defaultWeights.languagesWeight);
     // Exact/binary categories: always contribute their weight to denominator (per backend logic)
-    max += s.ethnicityWeight || defaultWeights.ethnicityWeight;
-    max += s.religionWeight || defaultWeights.religionWeight;
+    max += (s.ethnicityWeight || defaultWeights.ethnicityWeight);
+    max += (s.religionWeight || defaultWeights.religionWeight);
     // Gender/status only if preference set
     // Gender is not part of denominator; it is a hard filter only
-    if (!isUnsetPref(s.statusPreference)) max += s.statusWeight || 0;
+    if (!isUnsetPref(s.statusPreference)) max += (s.statusWeight || 0);
     return max;
   };
 
   const verbalBand = (norm: number): string => {
-    if (norm >= 90) return "Excellent";
-    if (norm >= 80) return "Great";
-    if (norm >= 70) return "Good";
-    if (norm >= 60) return "Fair";
-    if (norm >= 50) return "Limited";
-    if (norm >= 35) return "Low";
-    return "Poor";
+    if (norm >= 90) return 'Excellent';
+    if (norm >= 80) return 'Great';
+    if (norm >= 70) return 'Good';
+    if (norm >= 60) return 'Fair';
+    if (norm >= 50) return 'Limited';
+    if (norm >= 35) return 'Low';
+    return 'Poor';
   };
 
   // Re-normalize when seeking prefs arrive after recs
@@ -538,17 +509,10 @@ export default function FrontPage() {
     if (!recommendations || recommendations.length === 0) return;
     const maxPossible = computeMaxPossible();
     if (!maxPossible) return;
-    const renorm = recommendations.map((rec) => {
-      if (typeof rec.score !== "number") return rec;
-      const normalized = Math.max(
-        0,
-        Math.min(100, Math.round((rec.score / maxPossible) * 100))
-      );
-      return {
-        ...rec,
-        normalizedScore: normalized,
-        band: verbalBand(normalized),
-      };
+    const renorm = recommendations.map(rec => {
+      if (typeof rec.score !== 'number') return rec;
+      const normalized = Math.max(0, Math.min(100, Math.round((rec.score / maxPossible) * 100)));
+      return { ...rec, normalizedScore: normalized, band: verbalBand(normalized) };
     });
     setRecommendations(renorm as Recommendation[]);
   }, [mySeeking]);
@@ -764,40 +728,16 @@ export default function FrontPage() {
                         ?.aboutMe || "No bio available"}
                     </p>
                     <div className="flex items-center justify-center space-x-4 text-sm text-gray-500">
-                      {recommendations[currentRecommendationIndex].profile
-                        ?.gender && (
-                        <span>
-                          {
-                            recommendations[currentRecommendationIndex].profile
-                              .gender
-                          }
-                        </span>
+                      {recommendations[currentRecommendationIndex].profile?.gender && (
+                        <span>{recommendations[currentRecommendationIndex].profile.gender}</span>
                       )}
-                      {recommendations[currentRecommendationIndex].profile
-                        ?.status && (
-                        <span>
-                          •{" "}
-                          {
-                            recommendations[currentRecommendationIndex].profile
-                              .status
-                          }
-                        </span>
-                      )}
-                      {recommendations[currentRecommendationIndex].location && (
-                        <span>
-                          •{" "}
-                          {recommendations[currentRecommendationIndex].location
-                            .city &&
-                          recommendations[currentRecommendationIndex].location
-                            .country
-                            ? `${recommendations[currentRecommendationIndex].location.city}, ${recommendations[currentRecommendationIndex].location.country}`
-                            : recommendations[currentRecommendationIndex]
-                                .location.city ||
-                              recommendations[currentRecommendationIndex]
-                                .location.country ||
-                              "Location not set"}
-                        </span>
-                      )}
+                      {(() => {
+                        const s = (recommendations[currentRecommendationIndex].profile?.status || '').trim();
+                        const workStatuses = new Set(['Student','Employed','Entrepreneur','Unemployed','Retired']);
+                        return workStatuses.has(s) ? (
+                          <span>• {s}</span>
+                        ) : null;
+                      })()}
                     </div>
                   </>
                 ) : (
@@ -856,10 +796,7 @@ export default function FrontPage() {
                           </span>
                         </div>
                         <span className="text-green-600 font-bold text-lg">
-                          {typeof currentRec.score === "number"
-                            ? Math.round(currentRec.score)
-                            : "—"}
-                          %
+                          {currentRec.band || '—'}
                         </span>
                       </div>
 

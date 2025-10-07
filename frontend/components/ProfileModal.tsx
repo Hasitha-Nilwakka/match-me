@@ -194,12 +194,17 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                           <div className="text-gray-800">{profile?.gender}</div>
                         </div>
                       ) : null}
-                      {profile?.status ? (
-                        <div>
-                          <div className="text-sm text-gray-500">Status</div>
-                          <div className="text-gray-800">{profile?.status}</div>
-                        </div>
-                      ) : null}
+                      {/* Show work-life status only; hide relationship values like 'single', 'married', etc. */}
+                      {(() => {
+                        const s = (profile?.status || '').trim();
+                        const workStatuses = new Set(['Student','Employed','Entrepreneur','Unemployed','Retired']);
+                        return workStatuses.has(s) ? (
+                          <div>
+                            <div className="text-sm text-gray-500">Status</div>
+                            <div className="text-gray-800">{s}</div>
+                          </div>
+                        ) : null;
+                      })()}
                       {/* Relationship removed from modal */}
         <div>
           <div className="text-sm text-gray-500">Location</div>

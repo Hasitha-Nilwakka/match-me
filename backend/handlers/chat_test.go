@@ -35,7 +35,7 @@ func setupChatRouter() *gin.Engine {
 	protected.GET("/chats", GetChatsHandler(hub))
 	protected.GET("/chats/:chatId/messages", GetChatMessagesHandler)
 	protected.POST("/chats/:chatId/messages", SendMessageTestHandler)
-	protected.PUT("/chats/:chatId/read", MarkMessagesAsReadHandler)
+	protected.PUT("/chats/:chatId/read", MarkMessagesAsReadHandler(hub))
 	protected.DELETE("/chats/:chatId", DeleteChatHandler)
 
 	return r

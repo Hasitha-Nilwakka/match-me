@@ -306,16 +306,14 @@ export default function ConnectionRequestsPage() {
                         {/* Profile Picture */}
                         <div className="relative">
                           {(() => {
+                            const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
                             const profilePicSrc =
                               request.profilePicture &&
                               request.profilePicture.startsWith("http")
                                 ? request.profilePicture
                                 : request.profilePicture &&
                                   request.profilePicture.startsWith("/uploads")
-                                ? `${
-                                    process.env.NEXT_PUBLIC_API_URL ||
-                                    (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
-                                  }${request.profilePicture}`
+                                ? `${base}${request.profilePicture}`
                                 : request.profilePicture &&
                                   request.profilePicture.startsWith("/")
                                 ? request.profilePicture

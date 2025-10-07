@@ -54,14 +54,76 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [stickToBottom, setStickToBottom] = useState(true);
+  // One-shot auto-scroll flag to avoid bouncing when user scrolls up
+  const autoScrollNextRef = useRef<boolean>(false);
+  // Temporary suppression window after manual scroll up
+  const suppressUntilRef = useRef<number>(0);
+  // Track last scrollTop to detect upward scrolling immediately
+  const lastScrollTopRef = useRef<number>(0);
+  // Auto-clear for typing indicator to avoid phantom bubble
+  const typingClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Sticky lock: when true, never auto-scroll until user returns to bottom
+  const userScrolledUpRef = useRef<boolean>(false);
+  const clearLockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Chat list lightweight WS refs for typing indicators
+  const listWsRef = useRef<Record<number, WebSocket>>({});
+  const listTypingTimersRef = useRef<Record<number, NodeJS.Timeout>>({});
 
-  // Auto-scroll to bottom when new messages arrive
+  // Track whether user is near the bottom to decide autoscroll
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const threshold = 24; // treat within 24px as near-bottom for lock clearing
+      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      const nearBottom = distanceFromBottom <= threshold;
+      setStickToBottom(nearBottom);
+      // Detect upward scroll direction
+      const lastTop = lastScrollTopRef.current;
+      const scrollingUp = el.scrollTop < lastTop;
+      lastScrollTopRef.current = el.scrollTop;
+
+      // Lock when user scrolls away from bottom
+      if (!nearBottom || scrollingUp) {
+        userScrolledUpRef.current = true;
+        suppressUntilRef.current = Date.now() + 8000; // keep legacy guard as well
+        if (clearLockTimeoutRef.current) clearTimeout(clearLockTimeoutRef.current);
+      } else if (nearBottom && !scrollingUp) {
+        // If user has returned to bottom, clear lock after a short dwell
+        if (clearLockTimeoutRef.current) clearTimeout(clearLockTimeoutRef.current);
+        clearLockTimeoutRef.current = setTimeout(() => {
+          userScrolledUpRef.current = false;
+          suppressUntilRef.current = 0;
+        }, 300);
+      }
+    };
+    el.addEventListener('scroll', onScroll);
+    onScroll();
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Minimal auto-scroll: only when explicitly requested via flag
+  const scrollToBottom = (behavior: ScrollBehavior) => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  };
+  const isNearBottom = () => {
+    const el = messagesContainerRef.current;
+    if (!el) return false;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    return distance <= 24; // within 24px considered near bottom
+  };
+
+  useEffect(() => {
+    // Force scroll to bottom on any message change
+    scrollToBottom('auto');
+    autoScrollNextRef.current = false;
   }, [messages]);
   const wsRef = useRef<WebSocket | null>(null);
+  const activeChatRef = useRef<number | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const recentWsAtRef = useRef<number>(0);
   const currentUser = authApi.getCurrentUser();
@@ -70,7 +132,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
 
   // Debug mode changes for chat popup
   useEffect(() => {
-    // console.log('[ChatPopup] Data mode is', mode);
+    console.log('[ChatPopup] Data mode is', mode);
   }, [mode]);
 
   // Load/reload chats when popup opens or data mode changes
@@ -83,28 +145,16 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       loadChats();
       
       // Mark user as online when chat popup opens
-      // console.log('[ChatPopup] Setting user online');
+      console.log('[ChatPopup] Setting user online');
       authApi.updateOnlineStatus(true).then(() => {
-        // console.log('[ChatPopup] Successfully set user online');
+        console.log('[ChatPopup] Successfully set user online');
       }).catch((error) => {
         console.error('[ChatPopup] Failed to set user online:', error);
       });
     }
   }, [isOpen, mode]);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
-  // Auto-scroll when typing indicator appears/disappears
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [otherUserTyping]);
+  // Do not auto-scroll on typing indicator; user may be reading history
 
   // Live refresh of chats (and online indicators) while popup is open
   useEffect(() => {
@@ -118,12 +168,12 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
 
   // Auto-open target chat when chats are loaded and targetChatId is set
   useEffect(() => {
-    // console.log('[ChatPopup] Auto-open useEffect triggered, targetChatId:', targetChatId, 'chats.length:', chats.length);
+    console.log('[ChatPopup] Auto-open useEffect triggered, targetChatId:', targetChatId, 'chats.length:', chats.length);
     if (targetChatId && chats.length > 0) {
       const targetChat = chats.find(chat => chat.id === targetChatId);
-      // console.log('[ChatPopup] Found target chat:', targetChat);
+      console.log('[ChatPopup] Found target chat:', targetChat);
       if (targetChat) {
-        // console.log('[ChatPopup] Setting activeChat to:', targetChatId);
+        console.log('[ChatPopup] Setting activeChat to:', targetChatId);
         setActiveChat(targetChatId);
         loadChatMessages(targetChatId);
         // Clear the targetChatId after opening to prevent auto-opening on subsequent popup opens
@@ -132,28 +182,102 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     }
   }, [targetChatId, chats, clearTargetChat]);
 
+  // Lightweight typing listeners for chat list (top 5 recent chats)
+  useEffect(() => {
+    // Only when popup is open and no active chat (list view)
+    if (!isOpen || activeChat) {
+      // Cleanup any existing list sockets
+      Object.values(listWsRef.current).forEach((ws) => {
+        try { ws.close(); } catch {}
+      });
+      listWsRef.current = {};
+      return;
+    }
+
+    // Choose up to 5 most recent chats (fallback to current order)
+    const topChats = [...chats]
+      .sort((a, b) => {
+        const at = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+        const bt = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+        return bt - at;
+      })
+      .slice(0, 5);
+
+    const currentIds = new Set(topChats.map(c => c.id));
+
+    // Close sockets that are no longer in top set
+    Object.entries(listWsRef.current).forEach(([idStr, ws]) => {
+      const id = Number(idStr);
+      if (!currentIds.has(id)) {
+        try { ws.close(); } catch {}
+        delete listWsRef.current[id];
+      }
+    });
+
+    // Open sockets for new top chats
+    topChats.forEach((chat) => {
+      if (listWsRef.current[chat.id]) return; // already open
+      try {
+        const ws = chatApi.createWebSocketConnection(
+          String(chat.id),
+          () => {},
+          (typingData: unknown) => {
+            const data = typingData as { isTyping: boolean; userId: number; chatId: number };
+            if (!data || data.chatId !== chat.id) return;
+            // Update chat list isTyping
+            setChats(prev => prev.map(c => (
+              c.id === chat.id ? { ...c, isTyping: Boolean(data.isTyping) } : c
+            )));
+            // Auto-clear after 2.5s
+            if (listTypingTimersRef.current[chat.id]) {
+              clearTimeout(listTypingTimersRef.current[chat.id]);
+            }
+            if (data.isTyping) {
+              listTypingTimersRef.current[chat.id] = setTimeout(() => {
+                setChats(prev => prev.map(c => (
+                  c.id === chat.id ? { ...c, isTyping: false } : c
+                )));
+              }, 2500);
+            }
+          }
+        );
+        listWsRef.current[chat.id] = ws;
+      } catch (e) {
+        console.error('[ChatPopup] Failed to open list WS for chat', chat.id, e);
+      }
+    });
+
+    return () => {
+      // Cleanup on unmount/list leave
+      Object.values(listWsRef.current).forEach((ws) => {
+        try { ws.close(); } catch {}
+      });
+      listWsRef.current = {};
+    };
+  }, [isOpen, activeChat, chats]);
+
   // Load user's chats
   const loadChats = async () => {
     try {
       // Check if user is authenticated before making API calls
       const token = localStorage.getItem('token');
       if (!token) {
-        // console.log('[ChatPopup] User not authenticated, skipping chat load');
+        console.log('[ChatPopup] User not authenticated, skipping chat load');
         setChats([]);
         return;
       }
 
       // Real API call
       const data = await chatApi.getAllChats();
-      // console.log('[ChatPopup] Raw API response:', data);
+      console.log('[ChatPopup] Raw API response:', data);
       const chatsData = Array.isArray(data) ? data : (data?.chats || []);
-      // console.log('[ChatPopup] Processed chats data:', chatsData);
+      console.log('[ChatPopup] Processed chats data:', chatsData);
       
       // Debug profile pictures in the response
       chatsData.forEach((chat: Chat, index: number) => {
-        // console.log(`[ChatPopup] Chat ${index} otherUser:`, chat.otherUser);
+        console.log(`[ChatPopup] Chat ${index} otherUser:`, chat.otherUser);
         if (chat.otherUser) {
-          // console.log(`[ChatPopup] Chat ${index} profilePicture:`, chat.otherUser.profilePicture);
+          console.log(`[ChatPopup] Chat ${index} profilePicture:`, chat.otherUser.profilePicture);
         }
       });
       
@@ -170,14 +294,14 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     try {
       // Real API call
       const data = await chatApi.getChatMessages(chatId.toString());
-      // console.log('[ChatPopup] Raw messages API response for chat', chatId, ':', data);
+      console.log('[ChatPopup] Raw messages API response for chat', chatId, ':', data);
       const messagesData = Array.isArray(data) ? data : (data?.messages || []);
-      // console.log('[ChatPopup] Processed messages data:', messagesData);
+      console.log('[ChatPopup] Processed messages data:', messagesData);
       // Sort messages by creation time (oldest first)
       const sortedMessages = messagesData.sort((a: { createdAt: string }, b: { createdAt: string }) => 
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
       );
-      // console.log('[ChatPopup] Sorted messages:', sortedMessages);
+      console.log('[ChatPopup] Sorted messages:', sortedMessages);
       setMessages(sortedMessages);
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -185,11 +309,33 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     }
   };
 
+  // Ensure read receipts fire immediately when viewing a chat with unread incoming messages
+  useEffect(() => {
+    if (!activeChat || messages.length === 0) return;
+    const hasUnreadFromOther = messages.some(m => !m.isRead && m.senderId !== currentUser?.id);
+    if (hasUnreadFromOther) {
+      // Optimistically update UI
+      setMessages(prev => prev.map(m => m.senderId !== currentUser?.id ? { ...m, isRead: true } : m));
+      setChats(prev => prev.map(c => c.id === activeChat ? { ...c, unreadCount: 0 } : c));
+      // Notify backend to broadcast read event to the sender
+      chatApi.markAsRead(String(activeChat)).catch(() => {});
+    }
+  }, [activeChat, messages, currentUser?.id]);
+
   // Open a specific chat
   const openChat = (chatId: number) => {
-    // console.log('[ChatPopup] openChat called with chatId:', chatId);
+    console.log('[ChatPopup] openChat called with chatId:', chatId);
     setActiveChat(chatId);
     setIsMinimized(false);
+    activeChatRef.current = chatId;
+    autoScrollNextRef.current = true; // one-shot scroll on open
+    // Perform an immediate scroll after initial messages load as a fallback
+    setTimeout(() => {
+      if (activeChatRef.current === chatId) {
+        const el = messagesContainerRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      }
+    }, 0);
     loadChatMessages(chatId);
     // Refresh chat list to ensure new chats appear
     loadChats();
@@ -203,45 +349,48 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
 
   // WebSocket connection for active chat
   useEffect(() => {
-    // console.log('[ChatPopup] WebSocket useEffect triggered, activeChat:', activeChat);
-    // console.log('[ChatPopup] isOpen:', isOpen);
-    // console.log('[ChatPopup] chats.length:', chats.length);
+    console.log('[ChatPopup] WebSocket useEffect triggered, activeChat:', activeChat);
+    console.log('[ChatPopup] isOpen:', isOpen);
+    console.log('[ChatPopup] chats.length:', chats.length);
     
     // Cleanup any existing connection
     if (wsRef.current) {
       try { wsRef.current.close(); } catch { /* noop */ }
       wsRef.current = null;
     }
+    activeChatRef.current = activeChat;
 
     if (!activeChat) {
-      // console.log('[ChatPopup] No active chat, skipping WebSocket setup');
+      console.log('[ChatPopup] No active chat, skipping WebSocket setup');
       return;
     }
     
-    // console.log('[ChatPopup] Setting up WebSocket for chat:', activeChat);
-    // console.log('[ChatPopup] Current user ID:', currentUser?.id);
-    // console.log('[ChatPopup] Token exists:', !!localStorage.getItem('token'));
+    console.log('[ChatPopup] Setting up WebSocket for chat:', activeChat);
+    console.log('[ChatPopup] Current user ID:', currentUser?.id);
+    console.log('[ChatPopup] Token exists:', !!localStorage.getItem('token'));
     
     try {
       const ws = chatApi.createWebSocketConnection(
         activeChat.toString(), 
         (incoming: unknown) => {
-          // console.log('[ChatPopup] WebSocket message received:', incoming);
-          // console.log('[ChatPopup] WebSocket connection state:', ws?.readyState);
+          console.log('[ChatPopup] WebSocket message received:', incoming);
+          console.log('[ChatPopup] WebSocket connection state:', ws?.readyState);
           
           // Expecting ChatMessage shape
           const msg = incoming as Message;
           if (!msg || typeof msg !== 'object') {
-            // console.log('[ChatPopup] Invalid message format:', msg);
+            console.log('[ChatPopup] Invalid message format:', msg);
             return;
           }
           
-          // console.log('[ChatPopup] Adding message to state:', msg);
+          console.log('[ChatPopup] Adding message to state:', msg);
+          // Trigger one-shot scroll for incoming messages only if user is near bottom
+          autoScrollNextRef.current = isNearBottom();
           setMessages(prev => {
             // Check if message already exists to avoid duplicates
             const exists = prev.some(m => m.id === msg.id);
             if (exists) {
-              // console.log('[ChatPopup] Message already exists, skipping:', msg.id);
+              console.log('[ChatPopup] Message already exists, skipping:', msg.id);
               return prev;
             }
             const newMessage = {
@@ -269,21 +418,42 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
         },
         (typingData: unknown) => {
           const data = typingData as { isTyping: boolean; userId: number; chatId: number };
-          if (data && data.userId !== currentUser?.id) {
-            setOtherUserTyping(data.isTyping);
-            
-            // Update typing status in chat list
-            setChats(prev => {
-              const updated = prev.map(chat => 
-                chat.id === data.chatId 
-                  ? { ...chat, isTyping: data.isTyping }
-                  : chat
-              );
-              return updated;
-            });
-          }
+          if (!data || data.userId === currentUser?.id) return;
+          console.log('[ChatPopup] Typing event:', data);
+          // Show typing directly; rely on sender to send stop event
+          setOtherUserTyping(Boolean(data.isTyping));
+
+          // Update typing status in chat list
+          setChats(prev => prev.map(chat => (
+            chat.id === data.chatId ? { ...chat, isTyping: Boolean(data.isTyping) } : chat
+          )));
         }
       );
+      // Listen for read receipt events on the same socket
+      ws.addEventListener('message', (ev) => {
+        const raw = String(ev.data || '');
+        const parts = raw.split('\n').map(s => s.trim()).filter(Boolean);
+        for (const part of (parts.length ? parts : [raw])) {
+          try {
+            const payload = JSON.parse(part);
+            const type = payload?.type ?? payload?.Type;
+            if (type === 'read') {
+              console.log('[ChatPopup] Read event received:', payload);
+              const chatId = payload?.chatId ?? payload?.ChatID;
+              const lastReadId = payload?.lastReadMessageId ?? payload?.LastReadMessageID;
+              setChats(prev => prev.map(c => c.id === chatId ? { ...c, unreadCount: 0 } : c));
+              if (chatId === activeChatRef.current) {
+                setMessages(prev => prev.map(m => {
+                  const shouldMark = m.senderId === currentUser?.id && (!lastReadId || m.id <= lastReadId);
+                  return shouldMark ? { ...m, isRead: true } : m;
+                }));
+              }
+            }
+          } catch {
+            // ignore non-JSON frames
+          }
+        }
+      });
       wsRef.current = ws;
     } catch (error) {
       console.error('[ChatPopup] Failed to open WebSocket for chat', activeChat, error);
@@ -296,6 +466,15 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       }
     };
   }, [activeChat, currentUser?.id, isOpen, chats.length]);
+
+  // Clear typing state on chat switch or popup close
+  useEffect(() => {
+    setOtherUserTyping(false);
+    if (typingClearTimeoutRef.current) {
+      clearTimeout(typingClearTimeoutRef.current);
+      typingClearTimeoutRef.current = null;
+    }
+  }, [activeChat, isOpen]);
 
   // Disabled polling - using WebSocket only for real-time updates
   // useEffect(() => {
@@ -425,7 +604,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       // Notify parent component that chat was deleted
       onChatDeleted?.(chatId);
       
-      // console.log('Chat deleted successfully');
+      console.log('Chat deleted successfully');
     } catch (error) {
       console.error('Error deleting chat:', error);
       alert('Failed to delete chat. Please try again.');
@@ -454,8 +633,10 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       setIsSending(true);
       
       // Real API call
+      // one-shot auto-scroll after sending if near bottom
+      autoScrollNextRef.current = isNearBottom();
       const sentMessage = await chatApi.sendMessage(activeChat.toString(), messageContent);
-      // console.log('Message sent successfully:', sentMessage);
+      console.log('Message sent successfully:', sentMessage);
       
       // Add message to local state immediately with server response data
       if (sentMessage && sentMessage.data) {
@@ -496,13 +677,13 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     setNewMessage(e.target.value);
     
     if (!isTyping && e.target.value.trim()) {
-      // console.log('[ChatPopup] Starting typing indicator');
+      console.log('[ChatPopup] Starting typing indicator');
       setIsTyping(true);
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         chatApi.sendTypingIndicator(wsRef.current, true);
-        // console.log('[ChatPopup] Sent typing start via WebSocket');
+        console.log('[ChatPopup] Sent typing start via WebSocket');
       } else {
-        // console.log('[ChatPopup] WebSocket not ready, cannot send typing indicator');
+        console.log('[ChatPopup] WebSocket not ready, cannot send typing indicator');
       }
     }
     
@@ -514,11 +695,11 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     // Set timeout to stop typing indicator
     typingTimeoutRef.current = setTimeout(() => {
       if (isTyping) {
-        // console.log('[ChatPopup] Stopping typing indicator (timeout)');
+        console.log('[ChatPopup] Stopping typing indicator (timeout)');
         setIsTyping(false);
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           chatApi.sendTypingIndicator(wsRef.current, false);
-          // console.log('[ChatPopup] Sent typing stop via WebSocket');
+          console.log('[ChatPopup] Sent typing stop via WebSocket');
         }
       }
     }, 1000);
@@ -634,8 +815,8 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                 </button>
                 <div className="relative">
                   {(() => {
-                    // console.log('[ChatPopup] Current chat user profile picture:', currentChatUser.profilePicture);
-                    // console.log('[ChatPopup] Current chat user:', currentChatUser);
+                    console.log('[ChatPopup] Current chat user profile picture:', currentChatUser.profilePicture);
+                    console.log('[ChatPopup] Current chat user:', currentChatUser);
                     
                     // Handle different profile picture formats
                     const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
@@ -664,7 +845,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                       }
                     }
                     
-                    // console.log('[ChatPopup] Final profile picture src:', profilePicSrc);
+                    console.log('[ChatPopup] Final profile picture src:', profilePicSrc);
                     
                     return (
                       <Image
@@ -828,10 +1009,12 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                 </div>
 
                 {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                <div className="flex-1 overflow-y-auto p-3 space-y-2" ref={messagesContainerRef}>
                   {(() => {
-                    const safeMessages = Array.isArray(messageSearchQuery ? filteredMessages : messages) ? 
-                      (messageSearchQuery ? filteredMessages : messages).filter((m) => !!m) : [];
+                    const source = messageSearchQuery ? filteredMessages : messages;
+                    const safeMessages = Array.isArray(source)
+                      ? source.filter((m) => !!m && typeof m.content === 'string' && m.content.trim().length > 0)
+                      : [];
                     return safeMessages
                       .slice()
                       // Don't reverse - show newest at bottom (oldest first)
@@ -850,23 +1033,13 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                       return (
                         <React.Fragment key={`${message?.id ?? 'm'}-${index}`}>
                           {/* Date Separator */}
-                          {showDateSeparator && (
-                            <div className="flex justify-center my-4">
-                              <div className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">
-                                {formatDateSeparator(message.createdAt)}
-                              </div>
-                            </div>
-                          )}
+                          {/* Date separator temporarily disabled */}
                           
                           {/* Message */}
                           <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} items-end space-x-2 ${
                             isHighlighted ? 'bg-yellow-100 rounded-lg p-2' : ''
                           }`}>
-                            {!isOwnMessage && (
-                              <div className="text-xs text-gray-500 mb-1 min-w-[40px]">
-                                {clockTime}
-                              </div>
-                            )}
+                            {/* Left-side clock removed to avoid empty placeholders */}
                             
                             <div
                               className={`max-w-[200px] px-3 py-2 rounded-lg text-sm ${
@@ -881,16 +1054,13 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                                   message.content
                                 }
                               </p>
-                              {isOwnMessage && (
-                                <div className="text-xs mt-1 text-blue-100 flex items-center justify-between">
-                                  <span>
-                                    {message.isRead ? '✓✓' : '✓'}
-                                  </span>
-                                  <span className="ml-2">
-                                    {clockTime}
-                                  </span>
-                                </div>
-                              )}
+                              {/* Footer: show time for all messages; ticks only for own */}
+                              <div className={`text-xs mt-1 flex ${isOwnMessage ? 'justify-between text-blue-100' : 'justify-end text-gray-500'}`}>
+                                {isOwnMessage && (
+                                  <span>{message.isRead ? '✓✓' : '✓'}</span>
+                                )}
+                                <span className={isOwnMessage ? 'ml-2' : ''}>{clockTime}</span>
+                              </div>
                             </div>
                             
                             {isOwnMessage && (
@@ -904,24 +1074,13 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                     });
                   })()}
                   
-                  {/* Typing Indicator */}
-                  {otherUserTyping && (
-                    <div className="flex justify-start mb-2">
-                      <div className="bg-gray-200 rounded-lg px-3 py-2 max-w-xs">
-                        <div className="flex items-center space-x-1">
-                          <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                          </div>
-                          <span className="text-xs text-gray-500 ml-2">typing...</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
                   <div ref={messagesEndRef} />
                 </div>
+
+                {/* Typing Indicator - revert to in-list position to keep original UX */}
+                {otherUserTyping && (
+                  <div className="px-3 py-1 text-xs text-gray-500 italic">Typing...</div>
+                )}
 
                 {/* Message Input */}
                 <div className="border-t p-3">

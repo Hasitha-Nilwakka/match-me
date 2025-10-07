@@ -3,12 +3,12 @@
 
 // NEW FUNCTION: Get API URL with fresh logic
 export const getApiUrlNew = (): string => {
-  // console.log('[API] getApiUrlNew called at:', new Date().toISOString());
+  console.log('[API] getApiUrlNew called at:', new Date().toISOString());
 
   // 1) Prefer explicit env override
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
   if (envUrl && envUrl.trim().length > 0) {
-    // console.log('[API] Using NEXT_PUBLIC_API_URL:', envUrl);
+    console.log('[API] Using NEXT_PUBLIC_API_URL:', envUrl);
     return envUrl;
   }
 
@@ -16,19 +16,19 @@ export const getApiUrlNew = (): string => {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname; // e.g. localhost or 192.168.x.x
     const derived = `http://${host}:8080`;
-    // console.log('[API] Derived API URL from window.location:', derived);
+    console.log('[API] Derived API URL from window.location:', derived);
     return derived;
   }
 
   // 3) Fallback for SSR/build
   const fallback = 'http://localhost:8080';
-  // console.log('[API] Fallback API URL:', fallback);
+  console.log('[API] Fallback API URL:', fallback);
   return fallback;
 };
 
 // Get the API base URL from environment variables
 export const getApiUrl = (): string => {
-  // console.log('[API] getApiUrl called at:', new Date().toISOString());
+  console.log('[API] getApiUrl called at:', new Date().toISOString());
   
   // Use the new function instead
   return getApiUrlNew();
@@ -101,14 +101,14 @@ export const apiRequest = async (
     },
   };
 
-  // console.log('[API] Making request to:', url);
-  // console.log('[API] Request options:', { ...defaultOptions, ...options });
-  // console.log('[API] Current location:', typeof window !== 'undefined' ? window.location.href : 'server-side');
+  console.log('[API] Making request to:', url);
+  console.log('[API] Request options:', { ...defaultOptions, ...options });
+  console.log('[API] Current location:', typeof window !== 'undefined' ? window.location.href : 'server-side');
 
   try {
     const response = await fetch(url, { ...defaultOptions, ...options });
-    // console.log('[API] Response status:', response.status);
-    // console.log('[API] Response headers:', Object.fromEntries(response.headers.entries()));
+    console.log('[API] Response status:', response.status);
+    console.log('[API] Response headers:', Object.fromEntries(response.headers.entries()));
     
     if (!response.ok) {
       console.error('[API] Response not OK:', response.status, response.statusText);
@@ -132,7 +132,7 @@ export const authenticatedApiRequest = async (
   options: RequestInit = {}
 ): Promise<Response> => {
   const token = localStorage.getItem('token');
-  // console.log('Authenticated request to:', endpoint, 'Token exists:', !!token);
+  console.log('Authenticated request to:', endpoint, 'Token exists:', !!token);
   if (!token) {
     console.error('No authentication token found. User may need to log in again.');
     throw new Error('No authentication token found. Please log in again.');
@@ -233,13 +233,13 @@ export const chatApi = {
 
   // Create a new chat with a user
   createChat: async (userId: number) => {
-    // console.log('[API] createChat called with userId:', userId);
-    // console.log('[API] Making POST request to:', API_ENDPOINTS.CHATS.CREATE);
+    console.log('[API] createChat called with userId:', userId);
+    console.log('[API] Making POST request to:', API_ENDPOINTS.CHATS.CREATE);
     const response = await authenticatedApiRequest(API_ENDPOINTS.CHATS.CREATE, {
       method: 'POST',
       body: JSON.stringify({ userId }),
     });
-    // console.log('[API] createChat response status:', response.status);
+    console.log('[API] createChat response status:', response.status);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const errorMessage = errorData.error || 'Failed to create chat';
@@ -247,7 +247,7 @@ export const chatApi = {
       throw new Error(errorMessage);
     }
     const result = await response.json();
-    // console.log('[API] createChat success:', result);
+    console.log('[API] createChat success:', result);
     return result;
   },
 
@@ -307,39 +307,62 @@ export const chatApi = {
     const baseUrl = getApiUrl();
     const wsUrl = baseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + `/chats/${chatId}/ws?token=${encodeURIComponent(token)}`;
     
-    // console.log('[API] Creating WebSocket connection to:', wsUrl);
-    // console.log('[API] Token length:', token.length);
-    // console.log('[API] Chat ID:', chatId);
-    // console.log('[API] Base URL:', baseUrl);
+    console.log('[API] Creating WebSocket connection to:', wsUrl);
+    console.log('[API] Token length:', token.length);
+    console.log('[API] Chat ID:', chatId);
+    console.log('[API] Base URL:', baseUrl);
     
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      // console.log('[API] WebSocket connected to chat', chatId);
+      console.log('[API] WebSocket connected to chat', chatId);
       // Send authentication token after connection opens
       ws.send(JSON.stringify({ type: 'auth', token: token }));
-      // console.log('[API] Sent auth token via WebSocket');
+      console.log('[API] Sent auth token via WebSocket');
     };
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
-        // console.log('[API] WebSocket message received:', data);
-        
-        // Handle different message types
-        if (data.type === 'typing') {
-          onTyping?.(data);
-        } else {
-          onMessage(data);
+        if (typeof event.data !== 'string') {
+          console.warn('[API] Ignoring non-text WS frame');
+          return;
+        }
+
+        // Support NDJSON / multi-line frames and trim whitespace
+        const raw = event.data as string;
+        const lines = raw.split('\n');
+        for (const line of lines) {
+          const snippet = line.trim();
+          if (!snippet) continue;
+          // Only attempt to parse when it looks like JSON
+          if (!(snippet.startsWith('{') || snippet.startsWith('['))) {
+            console.warn('[API] Skipping non-JSON WS snippet:', snippet.slice(0, 80));
+            continue;
+          }
+          try {
+            const data = JSON.parse(snippet);
+            console.log('[API] WebSocket message received:', data);
+            if (data && data.type === 'typing') {
+              console.log('[API] Routing typing event to onTyping:', data);
+              onTyping?.(data);
+            } else {
+              if (data && (data.type === 'read' || data.Type === 'read')) {
+                console.log('[API] Routing read event to onMessage:', data);
+              }
+              onMessage(data);
+            }
+          } catch (innerErr) {
+            console.error('[API] Failed to parse WS snippet:', snippet, innerErr);
+          }
         }
       } catch (error) {
-        console.error('[API] Error parsing WebSocket message:', error);
+        console.error('[API] Error handling WebSocket message:', error);
       }
     };
 
     ws.onclose = (event) => {
-      // console.log('[API] WebSocket disconnected from chat', chatId, 'Code:', event.code, 'Reason:', event.reason);
-      // console.log('[API] WebSocket close was clean:', event.wasClean);
+      console.log('[API] WebSocket disconnected from chat', chatId, 'Code:', event.code, 'Reason:', event.reason);
+      console.log('[API] WebSocket close was clean:', event.wasClean);
     };
 
     ws.onerror = (error) => {
@@ -452,9 +475,9 @@ export const recommendationsApi = {
   // Get recommendations for the current user
   getRecommendations: async () => {
     try {
-      // console.log('API: Fetching recommendations...');
+      console.log('API: Fetching recommendations...');
       const response = await authenticatedApiRequest(API_ENDPOINTS.RECOMMENDATIONS.GET_ALL);
-      // console.log('API: Recommendations response status:', response.status);
+      console.log('API: Recommendations response status:', response.status);
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Recommendations API Error:', {
@@ -499,7 +522,7 @@ export const recommendationsApi = {
 export const externalApi = {
   // Get Nordic countries only
   getCountries: async (): Promise<{ name: string; code: string }[]> => {
-    // console.log('Loading Nordic countries...');
+    console.log('Loading Nordic countries...');
     // Return only Nordic countries
     const nordicCountries = [
       { name: 'Denmark', code: 'DK' },
@@ -508,13 +531,13 @@ export const externalApi = {
       { name: 'Norway', code: 'NO' },
       { name: 'Sweden', code: 'SE' }
     ];
-    // console.log('Loaded Nordic countries:', nordicCountries.length);
+    console.log('Loaded Nordic countries:', nordicCountries.length);
     return nordicCountries;
   },
 
   // Get cities for Nordic countries (hardcoded)
   getCitiesByCountry: async (countryCode: string): Promise<{ name: string; population?: number }[]> => {
-    // console.log('Loading cities for Nordic country:', countryCode);
+    console.log('Loading cities for Nordic country:', countryCode);
     
     // Hardcoded cities for Nordic countries
     const nordicCities: { [key: string]: { name: string; population?: number }[] } = {
@@ -541,65 +564,26 @@ export const externalApi = {
         { name: 'Hillerød', population: 32000 }
       ],
       'FI': [
-        // Major cities
-        { name: 'Helsinki' },
-        { name: 'Espoo' },
-        { name: 'Tampere' },
-        { name: 'Vantaa' },
-        { name: 'Oulu' },
-        { name: 'Turku' },
-        { name: 'Jyväskylä' },
-        { name: 'Lahti' },
-        { name: 'Kuopio' },
-        { name: 'Pori' },
-
-        // Medium cities
-        { name: 'Kouvola' },
-        { name: 'Joensuu' },
-        { name: 'Lappeenranta' },
-        { name: 'Hämeenlinna' },
-        { name: 'Vaasa' },
-        { name: 'Seinäjoki' },
-        { name: 'Rovaniemi' },
-        { name: 'Mikkeli' },
-        { name: 'Kotka' },
-        { name: 'Salo' },
-
-        // Smaller municipalities
-        { name: 'Porvoo' },
-        { name: 'Lohja' },
-        { name: 'Hyvinkää' },
-        { name: 'Nurmijärvi' },
-        { name: 'Järvenpää' },
-        { name: 'Kirkkonummi' },
-        { name: 'Kerava' },
-        { name: 'Tuusula' },
-        { name: 'Sipoo' },
-        { name: 'Vihti' },
-
-        // Northern municipalities
-        { name: 'Tornio' },
-        { name: 'Kemi' },
-        { name: 'Kajaani' },
-        { name: 'Ylivieska' },
-        { name: 'Raahe' },
-        { name: 'Iisalmi' },
-        { name: 'Savonlinna' },
-        { name: 'Varkaus' },
-        { name: 'Pieksämäki' },
-        { name: 'Heinola' },
-
-        // Western municipalities
-        { name: 'Rauma' },
-        { name: 'Kankaanpää' },
-        { name: 'Parkano' },
-        { name: 'Ähtäri' },
-        { name: 'Alajärvi' },
-        { name: 'Lapua' },
-        { name: 'Kurikka' },
-        { name: 'Ilmajoki' },
-        { name: 'Kauhava' },
-        { name: 'Alavus' },
+        { name: 'Helsinki', population: 656229 },
+        { name: 'Espoo', population: 293017 },
+        { name: 'Tampere', population: 244223 },
+        { name: 'Vantaa', population: 238857 },
+        { name: 'Turku', population: 194244 },
+        { name: 'Oulu', population: 208939 },
+        { name: 'Jyväskylä', population: 143400 },
+        { name: 'Lahti', population: 120112 },
+        { name: 'Kuopio', population: 120306 },
+        { name: 'Pori', population: 83768 },
+        { name: 'Kouvola', population: 80840 },
+        { name: 'Joensuu', population: 76000 },
+        { name: 'Lappeenranta', population: 73000 },
+        { name: 'Hämeenlinna', population: 68000 },
+        { name: 'Vaasa', population: 67000 },
+        { name: 'Seinäjoki', population: 65000 },
+        { name: 'Rovaniemi', population: 64000 },
+        { name: 'Mikkeli', population: 54000 },
+        { name: 'Kotka', population: 53000 },
+        { name: 'Salo', population: 52000 }
       ],
       'IS': [
         { name: 'Reykjavík', population: 131136 },
@@ -670,7 +654,7 @@ export const externalApi = {
     };
     
     const cities = nordicCities[countryCode] || [];
-    // console.log('Loaded cities for', countryCode + ':', cities.length);
+    console.log('Loaded cities for', countryCode + ':', cities.length);
     return cities;
   }
 };
@@ -694,10 +678,10 @@ export const authApi = {
   // Client-side logout (clears localStorage)
   logout: async () => {
     // Mark user as offline before logging out
-    // console.log('[Logout] Setting user offline before logout');
+    console.log('[Logout] Setting user offline before logout');
     try {
       await authApi.updateOnlineStatus(false);
-      // console.log('[Logout] Successfully set user offline before logout');
+      console.log('[Logout] Successfully set user offline before logout');
     } catch (error) {
       console.error('[Logout] Failed to update online status on logout:', error);
     }
@@ -725,7 +709,7 @@ export const authApi = {
 
   // Update online status
   updateOnlineStatus: async (isOnline: boolean) => {
-    // console.log('[API] Updating online status to:', isOnline);
+    console.log('[API] Updating online status to:', isOnline);
     const response = await authenticatedApiRequest('/me/online-status', {
       method: 'PUT',
       body: JSON.stringify({ isOnline }),
@@ -737,7 +721,7 @@ export const authApi = {
       throw new Error('Failed to update online status');
     }
     const result = await response.json();
-    // console.log('[API] Successfully updated online status:', result);
+    console.log('[API] Successfully updated online status:', result);
     return result;
   },
 
@@ -786,12 +770,12 @@ export const profileApi = {
     profilePictureURL?: string;
     languages?: string[];
   }) => {
-    // console.log('API: Updating profile with data:', profileData);
+    console.log('API: Updating profile with data:', profileData);
     const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.UPDATE_ME, {
       method: 'PUT',
       body: JSON.stringify(profileData),
     });
-    // console.log('API: Profile update response status:', response.status);
+    console.log('API: Profile update response status:', response.status);
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API: Profile update failed:', errorText);
