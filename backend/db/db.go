@@ -58,6 +58,11 @@ func InitDB() {
 		log.Printf("Warning: failed to ensure receiver_deleted_at column: %v", err)
 	}
 
+	// Ensure profiles.age column exists (added for age-based filtering)
+	if err := DB.Exec(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS age integer NULL`).Error; err != nil {
+		log.Printf("Warning: failed to ensure profiles.age column: %v", err)
+	}
+
 	// Note: Database migrations are handled by Prisma in the frontend; the
 	// additions above are minimal, backward-compatible safeguards.
 	fmt.Println("Database connection established")

@@ -764,6 +764,7 @@ export const profileApi = {
   updateMyProfile: async (profileData: {
     firstName?: string;
     lastName?: string;
+    age?: number;
     gender?: string;
     status?: string;
     relationshipStatus?: string;
@@ -868,6 +869,8 @@ export const profileApi = {
     statusPreference?: string;
     relationshipPreference?: string;
     locationPreference: string;
+    minAge?: number;
+    maxAge?: number;
     ethnicityPreference?: string;
     religionPreference?: string;
     // Multiple preference values

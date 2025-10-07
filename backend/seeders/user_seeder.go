@@ -78,10 +78,12 @@ var (
 		"Väisänen", "Toivonen", "Halonen", "Karjalainen", "Manninen", "Lindström", "Savolainen", "Rajala",
 	}
 
-	genders = []string{"male", "female", "non-binary", "other"}
+	genders = []string{"Male", "Female", "Non-binary", "Other"}
 
-	statuses = []string{"single", "divorced", "separated", "widowed"}
+	// Work-life status used in profile.status
+	statuses = []string{"Student", "Employed", "Entrepreneur", "Unemployed", "Retired"}
 
+	// Kept for legacy/reference fields; not shown in UI anymore
 	relationshipStatuses = []string{"looking for relationship", "looking for friends", "casual dating", "serious relationship"}
 
 	// Finnish municipalities with coordinates for distance testing
@@ -208,9 +210,13 @@ func GenerateRandomUser(index int) (*models.User, *models.Profile, *models.Locat
 	religion := religions[rand.Intn(len(religions))]
 	bio := bioTemplates[rand.Intn(len(bioTemplates))]
 
+	// Random age between 18 and 65
+	age := 18 + rand.Intn(48)
+
 	profile := &models.Profile{
 		FirstName:          firstName,
 		LastName:           lastName,
+		Age:                &age,
 		Gender:             &gender,
 		Status:             &status,
 		RelationshipStatus: &relationshipStatus,

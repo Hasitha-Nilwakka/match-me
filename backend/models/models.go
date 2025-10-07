@@ -39,10 +39,12 @@ type User struct {
 // Profile model for user information
 type Profile struct {
 	gorm.Model
-	UserID             uint   `gorm:"uniqueIndex;not null"`
-	ProfilePictureURL  string `gorm:"default:'👤'"`
-	FirstName          string
-	LastName           string
+	UserID            uint   `gorm:"uniqueIndex;not null"`
+	ProfilePictureURL string `gorm:"default:'👤'"`
+	FirstName         string
+	LastName          string
+	// Age in years; used for seeking filters
+	Age                *int
 	Gender             *string
 	Status             *string
 	RelationshipStatus *string

@@ -42,6 +42,7 @@ export default function ProfilePage() {
   const [profileData, setProfileData] = useState({
     firstName: "",
     lastName: "",
+    age: "",
     gender: "",
     status: "",
     aboutMe: "",
@@ -102,7 +103,12 @@ export default function ProfilePage() {
     locationPreference: "",
     ethnicity: "",
     religion: "",
+    minAge: 18,
+    maxAge: 99,
   });
+  // Local string inputs to allow free typing before clamping
+  const [minAgeInput, setMinAgeInput] = useState<string>("18");
+  const [maxAgeInput, setMaxAgeInput] = useState<string>("99");
   const [searchRadius, setSearchRadius] = useState(50); // Default 50km radius
 
   // Multiple selection seeking preferences
@@ -418,6 +424,7 @@ export default function ProfilePage() {
         setProfileData({
           firstName: profile.firstName || "",
           lastName: profile.lastName || "",
+          age: typeof profile.age === 'number' ? String(profile.age) : "",
           gender: profile.gender || "",
           status: profile.status || "",
           aboutMe: profile.aboutMe || "",
@@ -488,7 +495,11 @@ export default function ProfilePage() {
           locationPreference: seekingData.locationPreference || "within_city",
           ethnicity: seekingData.ethnicityPreference || "",
           religion: seekingData.religionPreference || "",
+          minAge: typeof seekingData.minAge === "number" ? seekingData.minAge : 18,
+          maxAge: typeof seekingData.maxAge === "number" ? seekingData.maxAge : 99,
         });
+        setMinAgeInput(String(typeof seekingData.minAge === "number" ? seekingData.minAge : 18));
+        setMaxAgeInput(String(typeof seekingData.maxAge === "number" ? seekingData.maxAge : 99));
 
         // Load search radius if available
         if (seekingData.maxDistanceKm) {
@@ -1076,7 +1087,10 @@ export default function ProfilePage() {
       // Save profile data
       console.log("Saving profile data:", profileData);
       console.log("API URL being used:", getApiUrl());
-      await profileApi.updateMyProfile(profileData);
+      await profileApi.updateMyProfile({
+        ...profileData,
+        age: profileData.age ? Number(profileData.age) : undefined,
+      });
       console.log("Profile saved successfully");
 
       // Save location data if provided
@@ -1166,6 +1180,8 @@ export default function ProfilePage() {
           // Single preference values
           ethnicityPreference: seekingPreferences.ethnicity || undefined,
           religionPreference: seekingPreferences.religion || undefined,
+          minAge: seekingPreferences.minAge,
+          maxAge: seekingPreferences.maxAge,
 
           // Multiple preference values (what they're looking for)
           interestsPreference: seekingInterests,
@@ -1455,6 +1471,25 @@ export default function ProfilePage() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Enter your last name"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Age (18–99)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={profileData.age}
+                      onChange={(e) => handleInputChange("age", e.target.value.replace(/[^0-9]/g, ""))}
+                      onBlur={(e) => {
+                        const n = Number((e.target.value || "").replace(/[^0-9]/g, ""));
+                        const clamped = e.target.value === "" ? "" : String(Math.max(18, Math.min(99, isFinite(n) ? n : 18)));
+                        handleInputChange("age", clamped);
+                      }}
+                      placeholder="Your age"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Used for matching and visibility.</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2151,6 +2186,53 @@ export default function ProfilePage() {
                       </div>
                     </div> */}
                   </div>
+
+                  {/* Age Range */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Age Range
+                    </label>
+                    <div className="p-3 bg-gray-50 rounded-md">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Min Age</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={minAgeInput}
+                            onChange={(e) => setMinAgeInput(e.target.value)}
+                            onBlur={() => {
+                              const n = Number(minAgeInput.replace(/[^0-9]/g, ""));
+                              const clamped = Math.max(18, Math.min(isFinite(n) ? n : 18, seekingPreferences.maxAge));
+                              setSeekingPreferences((prev) => ({ ...prev, minAge: clamped }));
+                              setMinAgeInput(String(clamped));
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Max Age</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={maxAgeInput}
+                            onChange={(e) => setMaxAgeInput(e.target.value)}
+                            onBlur={() => {
+                              const n = Number(maxAgeInput.replace(/[^0-9]/g, ""));
+                              const clamped = Math.min(99, Math.max(isFinite(n) ? n : 99, seekingPreferences.minAge));
+                              setSeekingPreferences((prev) => ({ ...prev, maxAge: clamped }));
+                              setMaxAgeInput(String(clamped));
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Only profiles whose age falls within this range can see and be seen by you.
+                      </p>
+                    </div>
+                  </div>
+
 
                   {/* Status - selection boxes (radio), no priority */}
                   <div>
@@ -2867,6 +2949,8 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </div>
+
+                  
                 </div>
               </div>
             </div>
@@ -2976,11 +3060,7 @@ export default function ProfilePage() {
                 <button
                   onClick={handleChangePassword}
                   disabled={isChangingPassword}
-                  className={`flex-1 px-4 py-2 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isChangingPassword
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700"
-                  }`}
+                  className={isChangingPassword ? "flex-1 px-4 py-2 bg-blue-400 text-white rounded-md cursor-not-allowed" : "flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"}
                 >
                   {isChangingPassword ? "Changing..." : "Change Password"}
                 </button>
@@ -2988,105 +3068,37 @@ export default function ProfilePage() {
             </div>
           </div>
         )}
+        {/* End Change Password Modal */}
 
         {/* Delete Profile Modal */}
         {showDeleteProfileModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-semibold text-red-600 mb-4">
-                Delete Profile
-              </h3>
-
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                <p className="font-semibold">
-                  ⚠️ This action cannot be undone!
-                </p>
-                <p className="text-sm mt-1">
-                  Deleting your profile will permanently remove:
-                </p>
-                <ul className="text-sm mt-2 ml-4 list-disc">
-                  <li>Your profile and personal information</li>
-                  <li>All your connections and chats</li>
-                  <li>All your messages and data</li>
-                </ul>
-              </div>
-
-              {deleteError && (
-                <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                  {deleteError}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {/* Password */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Password
-                  </label>
-                  <input
-                    type="password"
-                    value={deleteProfileData.password}
-                    onChange={(e) =>
-                      setDeleteProfileData((prev) => ({
-                        ...prev,
-                        password: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                    placeholder="Enter your password to confirm"
-                  />
-                </div>
-
-                {/* Confirmation Text */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Type{" "}
-                    <span className="font-mono bg-gray-100 px-1 rounded">
-                      DELETE
-                    </span>{" "}
-                    to confirm
-                  </label>
-                  <input
-                    type="text"
-                    value={deleteProfileData.confirmText}
-                    onChange={(e) =>
-                      setDeleteProfileData((prev) => ({
-                        ...prev,
-                        confirmText: e.target.value,
-                      }))
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
-                    placeholder="Type DELETE"
-                  />
-                </div>
-              </div>
-
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Profile</h3>
+              <p className="text-sm text-gray-700">This action is permanent. Are you sure?</p>
               <div className="flex space-x-3 mt-6">
                 <button
-                  onClick={() => {
-                    setShowDeleteProfileModal(false);
-                    resetDeleteProfileForm();
-                  }}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  onClick={() => setShowDeleteProfileModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  disabled={isDeletingProfile}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteProfile}
                   disabled={isDeletingProfile}
-                  className={`flex-1 px-4 py-2 text-white rounded-md ${
-                    isDeletingProfile
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-red-600 hover:bg-red-700"
-                  }`}
+                  className={isDeletingProfile ? "flex-1 px-4 py-2 bg-red-400 text-white rounded-md cursor-not-allowed" : "flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"}
                 >
-                  {isDeletingProfile ? "Deleting..." : "Delete Profile"}
+                  {isDeletingProfile ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
           </div>
         )}
+        {/* End Delete Profile Modal */}
+
       </div>
     </>
   );
 }
+// export default ProfilePage; // removed duplicate default export

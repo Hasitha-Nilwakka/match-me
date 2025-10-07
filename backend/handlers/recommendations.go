@@ -119,6 +119,35 @@ func GetRecommendationsHandler(c *gin.Context) {
 	// whose seeking preference includes the requester's gender. Treat empty/Any as open.
 	potentialMatches = filterByMutualGender(user, potentialMatches)
 
+	// === Age mutual filtering ===
+	// Only show users when each party's age is within the other's seeking min/max.
+	if user.SeekingPreference != nil && user.Profile != nil && user.Profile.Age != nil {
+		minA := user.SeekingPreference.MinAge
+		maxA := user.SeekingPreference.MaxAge
+		ageA := *user.Profile.Age
+		filtered := make([]models.User, 0, len(potentialMatches))
+		for _, cand := range potentialMatches {
+			if cand.Profile == nil || cand.Profile.Age == nil {
+				continue
+			}
+			ageB := *cand.Profile.Age
+			// requester wants candidate?
+			if ageB < minA || ageB > maxA {
+				continue
+			}
+			// candidate wants requester?
+			if cand.SeekingPreference != nil {
+				minB := cand.SeekingPreference.MinAge
+				maxB := cand.SeekingPreference.MaxAge
+				if ageA < minB || ageA > maxB {
+					continue
+				}
+			}
+			filtered = append(filtered, cand)
+		}
+		potentialMatches = filtered
+	}
+
 	// Calculate match scores for each potential match
 	var scoredMatches []ScoredMatch
 	var skippedIncomplete = 0

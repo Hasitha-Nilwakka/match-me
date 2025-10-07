@@ -274,6 +274,7 @@ func GetMeProfileHandler(c *gin.Context) {
 		"profilePictureURL":  profile.ProfilePictureURL,
 		"firstName":          profile.FirstName,
 		"lastName":           profile.LastName,
+		"age":                profile.Age,
 		"gender":             profile.Gender,
 		"status":             profile.Status,
 		"relationshipStatus": profile.RelationshipStatus,
@@ -397,6 +398,7 @@ func UpdateMeProfileHandler(c *gin.Context) {
 		ProfilePictureURL  *string   `json:"profilePictureURL"`
 		FirstName          *string   `json:"firstName"`
 		LastName           *string   `json:"lastName"`
+		Age                *int      `json:"age"`
 		Gender             *string   `json:"gender"`
 		Status             *string   `json:"status"`
 		RelationshipStatus *string   `json:"relationshipStatus"`
@@ -430,6 +432,9 @@ func UpdateMeProfileHandler(c *gin.Context) {
 	}
 	if updateData.LastName != nil {
 		profile.LastName = *updateData.LastName
+	}
+	if updateData.Age != nil {
+		profile.Age = updateData.Age
 	}
 	if updateData.Gender != nil {
 		profile.Gender = updateData.Gender
