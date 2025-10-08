@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { authApi, connectionsApi, chatApi } from "../../lib/api";
+import { authApi, connectionsApi, chatApi, getApiUrl } from "../../lib/api";
 import Navigation from "../../components/Navigation";
 import ProfileModal from "../../components/ProfileModal";
 import { useChat } from "../../context/ChatContext";
@@ -407,7 +407,7 @@ export default function ConnectionListPage() {
                         {/* Profile Picture */}
                         <div className="relative">
                           {(() => {
-                            const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+                            const base = getApiUrl().replace(/\/$/, '');
                             const profilePicSrc =
                               connection.profilePicture &&
                               connection.profilePicture.startsWith("http")

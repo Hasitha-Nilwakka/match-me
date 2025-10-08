@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { authApi, chatApi } from "../lib/api";
+import { authApi, chatApi, getApiUrl } from "../lib/api";
 import { useChat } from "../context/ChatContext";
 
 interface Message {
@@ -58,6 +58,8 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
   const [stickToBottom, setStickToBottom] = useState(true);
   // One-shot auto-scroll flag to avoid bouncing when user scrolls up
   const autoScrollNextRef = useRef<boolean>(false);
+  // Track previous message count to detect new messages
+  const prevMessageCountRef = useRef<number>(0);
   // Temporary suppression window after manual scroll up
   const suppressUntilRef = useRef<number>(0);
   // Track last scrollTop to detect upward scrolling immediately
@@ -118,11 +120,17 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
   };
 
   useEffect(() => {
-    // Smart auto-scroll: only when we explicitly requested or user is near bottom
-    if (autoScrollNextRef.current || isNearBottom()) {
-      scrollToBottom('auto');
-      autoScrollNextRef.current = false;
+    // Only auto-scroll when message count increases (new message)
+    const currentCount = messages.length;
+    const prevCount = prevMessageCountRef.current;
+    
+    if (currentCount > prevCount) {
+      // New message detected - scroll to bottom
+      scrollToBottom('smooth');
     }
+    
+    // Update the ref for next comparison
+    prevMessageCountRef.current = currentCount;
   }, [messages]);
   const wsRef = useRef<WebSocket | null>(null);
   const activeChatRef = useRef<number | null>(null);
@@ -330,7 +338,8 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     setActiveChat(chatId);
     setIsMinimized(false);
     activeChatRef.current = chatId;
-    autoScrollNextRef.current = true; // one-shot scroll on open
+    // Reset message count tracker when switching chats
+    prevMessageCountRef.current = 0;
     // Perform an immediate scroll after initial messages load as a fallback
     setTimeout(() => {
       if (activeChatRef.current === chatId) {
@@ -386,8 +395,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
           }
           
           console.log('[ChatPopup] Adding message to state:', msg);
-          // Trigger one-shot scroll for incoming messages only if user is near bottom
-          autoScrollNextRef.current = isNearBottom();
+          // Auto-scroll happens automatically via message count detection
           setMessages(prev => {
             // Check if message already exists to avoid duplicates
             const exists = prev.some(m => m.id === msg.id);
@@ -635,8 +643,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       setIsSending(true);
       
       // Real API call
-      // one-shot auto-scroll after sending if near bottom
-      autoScrollNextRef.current = isNearBottom();
+      // Auto-scroll happens automatically via message count detection
       const sentMessage = await chatApi.sendMessage(activeChat.toString(), messageContent);
       console.log('Message sent successfully:', sentMessage);
       
@@ -821,7 +828,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                     console.log('[ChatPopup] Current chat user:', currentChatUser);
                     
                     // Handle different profile picture formats
-                    const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+                    const base = getApiUrl().replace(/\/$/, '');
                     let profilePicSrc = "/sitefiles/default-profile-picture.png"; // Default fallback
                     
                     if (currentChatUser.profilePicture) {
@@ -1179,7 +1186,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                           <div className="relative">
                             {(() => {
                               // Handle different profile picture formats for chat list
-                              const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+                              const base = getApiUrl().replace(/\/$/, '');
                               let profilePicSrc = "/sitefiles/default-profile-picture.png"; // Default fallback
                               
                               if (chat.otherUser.profilePicture) {

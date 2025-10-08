@@ -190,7 +190,7 @@ func (c *Client) readPump() {
 						}
 					}
 
-					log.Printf("Typing indicator: user %d in chat %d is typing: %v", c.UserID, c.ChatID, isTyping)
+					// log.Printf("Typing indicator: user %d in chat %d is typing: %v", c.UserID, c.ChatID, isTyping)
 				}
 			default:
 				log.Printf("Unknown WebSocket message type: %s", messageType)
@@ -864,15 +864,15 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 		messageBytes, _ := json.Marshal(messageResponse)
 
 		// Send message only to clients connected to this specific chat
-		log.Printf("Broadcasting message to chat %d, found %d total clients", chatID, len(hub.clients))
+		// log.Printf("Broadcasting message to chat %d, found %d total clients", chatID, len(hub.clients))
 		sentCount := 0
 		for client := range hub.clients {
 			if client.ChatID == uint(chatID) {
-				log.Printf("Sending message to client: user %d in chat %d", client.UserID, client.ChatID)
+				// log.Printf("Sending message to client: user %d in chat %d", client.UserID, client.ChatID)
 				select {
 				case client.Send <- messageBytes:
 					sentCount++
-					log.Printf("Message sent successfully to user %d", client.UserID)
+					// log.Printf("Message sent successfully to user %d", client.UserID)
 				default:
 					log.Printf("Failed to send message to user %d, closing connection", client.UserID)
 					close(client.Send)
@@ -880,7 +880,7 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 				}
 			}
 		}
-		log.Printf("Message broadcast complete: sent to %d clients in chat %d", sentCount, chatID)
+		// log.Printf("Message broadcast complete: sent to %d clients in chat %d", sentCount, chatID)
 
 		c.JSON(201, gin.H{
 			"message": "Message sent successfully",
@@ -950,7 +950,7 @@ func MarkMessagesAsReadHandler(hub *Hub) gin.HandlerFunc {
 				}
 			}
 		}
-		log.Printf("Broadcasted read event for chat %d by user %d to %d clients (lastRead=%d)", chatID, userID, sent, lastRead.ID)
+		// log.Printf("Broadcasted read event for chat %d by user %d to %d clients (lastRead=%d)", chatID, userID, sent, lastRead.ID)
 
 		c.JSON(200, gin.H{
 			"message": "Messages marked as read",

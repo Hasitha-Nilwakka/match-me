@@ -3,7 +3,7 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authApi, connectionsApi } from "../../lib/api";
+import { authApi, connectionsApi, getApiUrl } from "../../lib/api";
 import Navigation from "../../components/Navigation";
 import ProfileModal from "../../components/ProfileModal";
 
@@ -306,7 +306,7 @@ export default function ConnectionRequestsPage() {
                         {/* Profile Picture */}
                         <div className="relative">
                           {(() => {
-                            const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+                            const base = getApiUrl().replace(/\/$/, '');
                             const profilePicSrc =
                               request.profilePicture &&
                               request.profilePicture.startsWith("http")

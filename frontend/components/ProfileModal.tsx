@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { profileApi } from "../lib/api";
+import { profileApi, getApiUrl } from "../lib/api";
 
 interface ProfileModalProps {
   userId: number | null;
@@ -134,7 +134,7 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
                   <div className="flex flex-col items-center">
                     {(() => {
                       // Use the same logic as profile page for handling different URL formats
-                      const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+                      const base = getApiUrl().replace(/\/$/, '');
                       const profilePicSrc = profile.profilePictureURL && profile.profilePictureURL.startsWith('http')
                         ? profile.profilePictureURL
                         : profile.profilePictureURL && profile.profilePictureURL.startsWith('/uploads')

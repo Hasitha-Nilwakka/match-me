@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { authApi, profileApi } from "../lib/api";
+import { authApi, profileApi, getApiUrl } from "../lib/api";
 import PendingRequestsIndicator from "./PendingRequestsIndicator";
 import DataModeToggle from "./DataModeToggle";
 
@@ -188,10 +188,7 @@ export default function Navigation() {
                       ? userProfile.profilePictureURL
                       : userProfile.profilePictureURL &&
                         userProfile.profilePictureURL.startsWith("/uploads")
-                      ? `${(process.env.NEXT_PUBLIC_API_URL || "").replace(
-                          /\/$/,
-                          ""
-                        )}${userProfile.profilePictureURL}`
+                      ? `${getApiUrl().replace(/\/$/, "")}${userProfile.profilePictureURL}`
                       : userProfile.profilePictureURL &&
                         userProfile.profilePictureURL.startsWith("/")
                       ? userProfile.profilePictureURL

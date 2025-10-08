@@ -8,7 +8,6 @@ import (
 	"backend/db"
 	"backend/handlers"
 	"backend/middleware"
-	"backend/seeders"
 	"fmt"
 	"log"
 	"net"
@@ -40,10 +39,11 @@ func main() {
 	// Auto-seed database
 	// This will only seed if the database is empty
 	fmt.Println("Checking database setup...")
-	if err := seeders.SeedReferenceData(); err != nil {
-		log.Printf("Warning: Failed to seed reference data: %v", err)
-	}
-
+	// Note: Reference data (hobbies, interests, etc.) should be seeded via Prisma
+	// or a separate seeding script. The SeedReferenceData function is not implemented.
+	// if err := seeders.SeedReferenceData(); err != nil {
+	// 	log.Printf("Warning: Failed to seed reference data: %v", err)
+	// }
 
 	// Create WebSocket hub for real-time chat functionality
 	// The hub manages client connections and message broadcasting
@@ -53,7 +53,6 @@ func main() {
 	// Set Gin to release mode to reduce development warnings
 	// In production, this provides better performance and security
 	gin.SetMode(gin.ReleaseMode)
-
 
 	// Create Gin HTTP router WITHOUT default logging middleware
 	// This removes the verbose HTTP request logs
