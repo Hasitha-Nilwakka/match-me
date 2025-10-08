@@ -291,7 +291,18 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
         }
       });
       
-      setChats(chatsData);
+      // Filter out empty chats (deleted chats with no messages)
+      // Unless they're being actively opened via targetChatId
+      const filteredChats = chatsData.filter((chat: Chat) => {
+        // Always show if there's a last message
+        if (chat.lastMessage) return true;
+        // Show if this is the target chat being opened from connections
+        if (targetChatId && chat.id === targetChatId) return true;
+        // Otherwise hide empty chats (deleted)
+        return false;
+      });
+      
+      setChats(filteredChats);
     } catch (error) {
       console.error('[ChatPopup] Error loading chats:', error);
       // Show empty chats on error

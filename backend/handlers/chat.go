@@ -467,21 +467,9 @@ func CreateChatHandler(c *gin.Context) {
 			return
 		} else {
 			// Chat is deleted for this user but not for the other user
-			// Set a new deletion timestamp to "restart" the chat for this user (fresh start)
-			log.Printf("Restarting chat %d for user %d by setting new deletion timestamp", anyChat.ID, userID)
-			now := time.Now()
-			updates := make(map[string]interface{})
-			if connection.RequesterID == userID {
-				updates["requester_deleted_at"] = now
-			} else {
-				updates["receiver_deleted_at"] = now
-			}
-			if err := db.DB.Model(&anyChat).Updates(updates).Error; err != nil {
-				log.Printf("Error setting new deletion timestamp: %v", err)
-				c.JSON(500, gin.H{"error": "Failed to restart chat"})
-				return
-			}
-			// Return the existing chat
+			// Return it as-is - deletion timestamp acts as message cutoff
+			// Chat will appear in list (we removed the skip logic in GetChatsHandler)
+			log.Printf("Returning deleted chat %d for user %d (deletion timestamp is message cutoff)", anyChat.ID, userID)
 			chatResponse := buildChatResponse(anyChat, userID)
 			c.JSON(200, gin.H{
 				"success": true,
@@ -540,8 +528,6 @@ func GetChatsHandler(hub *Hub) gin.HandlerFunc {
 			Joins("JOIN connections ON chats.connection_id = connections.id").
 			Where("connections.requester_id = ? OR connections.receiver_id = ?", userID, userID).
 			Where("connections.status = ?", "accepted").
-			// Filter out chats deleted by the current user, but show restarted chats (deletion within last 5 minutes)
-			Where("(connections.requester_id = ? AND (chats.requester_deleted_at IS NULL OR chats.requester_deleted_at > NOW() - INTERVAL '5 minutes')) OR (connections.receiver_id = ? AND (chats.receiver_deleted_at IS NULL OR chats.receiver_deleted_at > NOW() - INTERVAL '5 minutes'))", userID, userID).
 			Order("chats.updated_at DESC").
 			Find(&chats).Error; err != nil {
 			log.Printf("Error fetching chats for user %d: %v", userID, err)
@@ -640,6 +626,8 @@ func GetChatsHandler(hub *Hub) gin.HandlerFunc {
 					CreatedAt: lastMsg.CreatedAt,
 				}
 			}
+			// Note: We don't skip chats without messages anymore
+			// This allows users to see and open deleted chats from connections page
 
 			// Calculate unread count (respect per-user deletion marker)
 			var unreadCount int64
@@ -840,7 +828,20 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 		}
 
 		// Update chat's updated_at timestamp
-		db.DB.Model(&chat).Update("updated_at", time.Now())
+		now := time.Now()
+		updates := make(map[string]interface{})
+		updates["updated_at"] = now
+
+		// If this user has a deletion timestamp, update it to NOW to create a fresh cutoff
+		// This hides all old messages and only shows messages from this point forward
+		if chat.Connection.RequesterID == userID && chat.RequesterDeletedAt != nil {
+			updates["requester_deleted_at"] = now
+		}
+		if chat.Connection.ReceiverID == userID && chat.ReceiverDeletedAt != nil {
+			updates["receiver_deleted_at"] = now
+		}
+
+		db.DB.Model(&chat).Updates(updates)
 
 		// Get sender info for WebSocket broadcast
 		var sender models.User
