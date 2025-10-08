@@ -28,6 +28,8 @@ interface Recommendation {
     aboutMe?: string;
     gender?: string;
     status?: string;
+    city?: string;
+    country?: string;
   };
   bio?: {
     interests: string[];
@@ -738,6 +740,14 @@ export default function FrontPage() {
                           <span>• {s}</span>
                         ) : null;
                       })()}
+                      {(recommendations[currentRecommendationIndex].profile?.city || recommendations[currentRecommendationIndex].profile?.country) && (
+                        <span>
+                          • {[
+                            recommendations[currentRecommendationIndex].profile?.city,
+                            recommendations[currentRecommendationIndex].profile?.country
+                          ].filter(Boolean).join(', ')}
+                        </span>
+                      )}
                     </div>
                   </>
                 ) : (
