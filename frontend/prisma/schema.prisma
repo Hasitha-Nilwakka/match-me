@@ -1,7 +1,7 @@
 // This schema is auto-generated from the GORM database structure.
 // Database schema management is handled by GORM AutoMigrate in the Go backend.
 // This file is used solely for Prisma Studio database visualization.
-// To update this schema, run `npx prisma db pull` then `node fix-schema.js`.
+// To update this schema, run pnpm db:pull.
 
 generator client {
   provider = "prisma-client-js"
