@@ -7,14 +7,10 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:pull": "prisma db pull && node fix-schema.js"
   },
   "dependencies": {
-    "@prisma/client": "6.16.2",
     "@tailwindcss/postcss": "^4.1.13",
     "next": "15.5.2",
     "postcss": "^8.5.6",

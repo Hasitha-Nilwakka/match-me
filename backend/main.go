@@ -8,6 +8,7 @@ import (
 	"backend/db"
 	"backend/handlers"
 	"backend/middleware"
+	"backend/seeders"
 	"fmt"
 	"log"
 	"net"
@@ -36,6 +37,14 @@ func main() {
 
 	db.InitDB()
 
+	// Auto-seed database
+	// This will only seed if the database is empty
+	fmt.Println("Checking database setup...")
+	if err := seeders.SeedReferenceData(); err != nil {
+		log.Printf("Warning: Failed to seed reference data: %v", err)
+	}
+
+
 	// Create WebSocket hub for real-time chat functionality
 	// The hub manages client connections and message broadcasting
 	hub := handlers.NewHub()
@@ -45,8 +54,6 @@ func main() {
 	// In production, this provides better performance and security
 	gin.SetMode(gin.ReleaseMode)
 
-	// Alternative: Set to debug mode for development (uncomment if needed)
-	// gin.SetMode(gin.DebugMode)
 
 	// Create Gin HTTP router WITHOUT default logging middleware
 	// This removes the verbose HTTP request logs
