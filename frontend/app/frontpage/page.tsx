@@ -441,15 +441,15 @@ export default function FrontPage() {
   const computeMaxPossible = (): number => {
     // Backend default weights when seeking preferences are not set
     const defaultWeights = {
-      hobbiesWeight: 5,
-      interestsWeight: 5,
-      musicGenresWeight: 3,
-      movieGenresWeight: 3,
-      foodPreferencesWeight: 2,
-      travelTypesWeight: 4,
-      languagesWeight: 7,
-      ethnicityWeight: 2,
-      religionWeight: 2,
+      hobbiesWeight: 2,
+      interestsWeight: 2,
+      musicGenresWeight: 1,
+      movieGenresWeight: 1,
+      foodPreferencesWeight: 1,
+      travelTypesWeight: 2,
+      languagesWeight: 3,
+      ethnicityWeight: 1,
+      religionWeight: 1,
       genderWeight: 0,
       statusWeight: 0,
     } as const;

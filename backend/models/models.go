@@ -186,15 +186,15 @@ type SeekingPreference struct {
 	StatusWeight       int `gorm:"default:2;column:status_weight"`
 	RelationshipWeight int `gorm:"default:2;column:relationship_weight"`
 	LocationWeight     int `gorm:"default:2;column:location_weight"`
-	HobbiesWeight      int `gorm:"default:5;column:hobbies_weight"`
-	InterestsWeight    int `gorm:"default:5;column:interests_weight"`
-	MusicWeight        int `gorm:"default:3;column:music_weight"`
-	MoviesWeight       int `gorm:"default:3;column:movies_weight"`
-	FoodWeight         int `gorm:"default:2;column:food_weight"`
-	TravelWeight       int `gorm:"default:4;column:travel_weight"`
-	LanguagesWeight    int `gorm:"default:7;column:languages_weight"`
-	EthnicityWeight    int `gorm:"default:6;column:ethnicity_weight"`
-	ReligionWeight     int `gorm:"default:6;column:religion_weight"`
+	HobbiesWeight      int `gorm:"default:2;column:hobbies_weight"`
+	InterestsWeight    int `gorm:"default:2;column:interests_weight"`
+	MusicWeight        int `gorm:"default:1;column:music_weight"`
+	MoviesWeight       int `gorm:"default:1;column:movies_weight"`
+	FoodWeight         int `gorm:"default:1;column:food_weight"`
+	TravelWeight       int `gorm:"default:2;column:travel_weight"`
+	LanguagesWeight    int `gorm:"default:3;column:languages_weight"`
+	EthnicityWeight    int `gorm:"default:1;column:ethnicity_weight"`
+	ReligionWeight     int `gorm:"default:1;column:religion_weight"`
 }
 
 // Connection model for user connections

@@ -262,15 +262,15 @@ func calculateMatchScore(userA, userB models.User) float64 {
 	preferences := userA.SeekingPreference
 	if preferences == nil {
 		preferences = &models.SeekingPreference{
-			HobbiesWeight:   5,
-			InterestsWeight: 5,
-			MusicWeight:     3,
-			MoviesWeight:    3,
-			FoodWeight:      2,
-			TravelWeight:    4,
-			LanguagesWeight: 7,
-			EthnicityWeight: 2,
-			ReligionWeight:  2,
+			HobbiesWeight:   2,
+			InterestsWeight: 2,
+			MusicWeight:     1,
+			MoviesWeight:    1,
+			FoodWeight:      1,
+			TravelWeight:    2,
+			LanguagesWeight: 3,
+			EthnicityWeight: 1,
+			ReligionWeight:  1,
 		}
 	}
 
