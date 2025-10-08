@@ -57,15 +57,20 @@ func SeedUsersFast(userCount int) error {
 
 // SampleData contains arrays of sample data for generating users
 var (
-	firstNames = []string{
-		// Traditional Finnish names
-		"Aino", "Eero", "Elina", "Jari", "Kaisa", "Mikael", "Noora", "Oskari",
-		"Sanna", "Tuomas", "Veera", "Ville", "Aada", "Aleksi", "Emilia", "Henri",
-		"Iida", "Joona", "Liisa", "Matias", "Nea", "Otto", "Pinja", "Roni",
-		"Saga", "Timo", "Venla", "Väinö", "Aura", "Eemil", "Helmi", "Ilmari",
-		"Kerttu", "Leevi", "Mira", "Niilo", "Oona", "Paavo", "Ronja", "Sampo",
-		"Taika", "Urho", "Vilja", "Yrjö", "Aarne", "Elsa", "Hannu", "Iiris",
-		"Jenna", "Kalle", "Laura", "Matti", "Nina", "Onni", "Petra", "Raimo",
+	firstNamesM = []string{
+		// Traditional Finnish male names
+		"Eero", "Jari", "Mikael", "Oskari", "Tuomas", "Ville", "Aleksi", "Henri",
+		"Joona", "Matias", "Otto", "Roni", "Timo", "Väinö", "Eemil", "Ilmari",
+		"Leevi", "Niilo", "Paavo", "Sampo", "Urho", "Yrjö", "Aarne", "Hannu",
+		"Kalle", "Matti", "Onni", "Raimo",
+	}
+
+	firstNamesW = []string{
+		// Traditional Finnish female names
+		"Aino", "Elina", "Kaisa", "Noora", "Sanna", "Veera", "Aada", "Emilia",
+		"Iida", "Liisa", "Nea", "Pinja", "Saga", "Venla", "Aura", "Helmi",
+		"Kerttu", "Mira", "Oona", "Ronja", "Taika", "Vilja", "Elsa", "Iiris",
+		"Jenna", "Laura", "Nina", "Petra",
 	}
 
 	lastNames = []string{
@@ -180,8 +185,21 @@ var (
 
 // GenerateRandomUser creates a single random user with profile and location
 func GenerateRandomUser(index int) (*models.User, *models.Profile, *models.Location) {
-	// Random data generation
-	firstName := firstNames[rand.Intn(len(firstNames))]
+	// Random data generation - first determine gender to pick appropriate name
+	gender := genders[rand.Intn(len(genders))]
+
+	var firstName string
+	switch gender {
+	case "Male":
+		firstName = firstNamesM[rand.Intn(len(firstNamesM))]
+	case "Female":
+		firstName = firstNamesW[rand.Intn(len(firstNamesW))]
+	case "Non-binary", "Other":
+		// For non-binary/other, randomly choose from either male or female names
+		allNames := append(firstNamesM, firstNamesW...)
+		firstName = allNames[rand.Intn(len(allNames))]
+	}
+
 	lastName := lastNames[rand.Intn(len(lastNames))]
 	email := fmt.Sprintf("%s.%s%d@example.com",
 		convertToASCII(firstName), convertToASCII(lastName), rand.Intn(1000))
@@ -203,7 +221,7 @@ func GenerateRandomUser(index int) (*models.User, *models.Profile, *models.Locat
 	}
 
 	// Create profile
-	gender := genders[rand.Intn(len(genders))]
+	// gender already determined above for name selection
 	status := statuses[rand.Intn(len(statuses))]
 	relationshipStatus := relationshipStatuses[rand.Intn(len(relationshipStatuses))]
 	ethnicity := ethnicities[rand.Intn(len(ethnicities))]

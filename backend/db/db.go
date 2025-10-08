@@ -4,6 +4,7 @@
 package db
 
 import (
+	"backend/models"
 	"fmt"
 	"log"
 	"os"
@@ -48,22 +49,96 @@ func InitDB() {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	// Lightweight compatibility migrations (safe, additive only)
-	// Ensure per-user chat deletion columns exist
-	// These are idempotent and safe to run at startup
-	if err := DB.Exec(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS requester_deleted_at timestamptz NULL`).Error; err != nil {
-		log.Printf("Warning: failed to ensure requester_deleted_at column: %v", err)
-	}
-	if err := DB.Exec(`ALTER TABLE chats ADD COLUMN IF NOT EXISTS receiver_deleted_at timestamptz NULL`).Error; err != nil {
-		log.Printf("Warning: failed to ensure receiver_deleted_at column: %v", err)
+	// Run GORM AutoMigrate for all models
+	fmt.Println("Running database migrations...")
+	if err := runMigrations(); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// Ensure profiles.age column exists (added for age-based filtering)
-	if err := DB.Exec(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS age integer NULL`).Error; err != nil {
-		log.Printf("Warning: failed to ensure profiles.age column: %v", err)
+	fmt.Println("Database connection established and migrations completed")
+}
+
+// runMigrations handles all GORM AutoMigrate operations
+func runMigrations() error {
+	// Migrate all models in dependency order
+	modelsToMigrate := []interface{}{
+		// Core entities first
+		&models.User{},
+		&models.Profile{},
+		&models.Location{},
+
+		// Reference data tables
+		&models.Hobby{},
+		&models.Interest{},
+		&models.MusicGenre{},
+		&models.MovieGenre{},
+		&models.FoodPreference{},
+		&models.TravelType{},
+		&models.Language{},
+
+		// Junction tables (many-to-many relationships)
+		&models.UserHobby{},
+		&models.UserInterest{},
+		&models.UserMusic{},
+		&models.UserMovie{},
+		&models.UserFood{},
+		&models.UserTravel{},
+		&models.UserLanguage{},
+
+		// User preferences and matching
+		&models.SeekingPreference{},
+		&models.DismissedRecommendation{},
+
+		// Connections and messaging
+		&models.Connection{},
+		&models.Chat{},
+		&models.Message{},
+
+		// Online status tracking
+		&models.OnlineStatus{},
 	}
 
-	// Note: Database migrations are handled by Prisma in the frontend; the
-	// additions above are minimal, backward-compatible safeguards.
-	fmt.Println("Database connection established")
+	// Run AutoMigrate for all models
+	if err := DB.AutoMigrate(modelsToMigrate...); err != nil {
+		return fmt.Errorf("failed to auto-migrate models: %w", err)
+	}
+
+	// Add any custom indexes or constraints that GORM might not handle
+	if err := addCustomIndexes(); err != nil {
+		return fmt.Errorf("failed to add custom indexes: %w", err)
+	}
+
+	return nil
+}
+
+// addCustomIndexes adds any custom database indexes for performance
+func addCustomIndexes() error {
+	// Spatial indexes for location-based queries (if PostGIS is available)
+	// These are optional and will fail silently if PostGIS is not installed
+
+	// Index for location-based searches
+	if err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_locations_lat_lng ON locations USING btree (latitude, longitude)`).Error; err != nil {
+		log.Printf("Warning: Could not create location index (PostGIS may not be available): %v", err)
+	}
+
+	// Composite indexes for common query patterns
+	if err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_connections_status_requester ON connections (status, requester_id)`).Error; err != nil {
+		log.Printf("Warning: Could not create connection status index: %v", err)
+	}
+
+	if err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_connections_status_receiver ON connections (status, receiver_id)`).Error; err != nil {
+		log.Printf("Warning: Could not create connection receiver index: %v", err)
+	}
+
+	// Index for message queries
+	if err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_messages_chat_created ON messages (chat_id, created_at DESC)`).Error; err != nil {
+		log.Printf("Warning: Could not create message index: %v", err)
+	}
+
+	// Index for online status queries
+	if err := DB.Exec(`CREATE INDEX IF NOT EXISTS idx_online_status_last_seen ON online_statuses (is_online, last_seen DESC)`).Error; err != nil {
+		log.Printf("Warning: Could not create online status index: %v", err)
+	}
+
+	return nil
 }
