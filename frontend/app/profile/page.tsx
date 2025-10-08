@@ -424,7 +424,7 @@ export default function ProfilePage() {
         setProfileData({
           firstName: profile.firstName || "",
           lastName: profile.lastName || "",
-          age: typeof profile.age === 'number' ? String(profile.age) : "",
+          age: typeof profile.age === "number" ? String(profile.age) : "",
           gender: profile.gender || "",
           status: profile.status || "",
           aboutMe: profile.aboutMe || "",
@@ -495,11 +495,21 @@ export default function ProfilePage() {
           locationPreference: seekingData.locationPreference || "within_city",
           ethnicity: seekingData.ethnicityPreference || "",
           religion: seekingData.religionPreference || "",
-          minAge: typeof seekingData.minAge === "number" ? seekingData.minAge : 18,
-          maxAge: typeof seekingData.maxAge === "number" ? seekingData.maxAge : 99,
+          minAge:
+            typeof seekingData.minAge === "number" ? seekingData.minAge : 18,
+          maxAge:
+            typeof seekingData.maxAge === "number" ? seekingData.maxAge : 99,
         });
-        setMinAgeInput(String(typeof seekingData.minAge === "number" ? seekingData.minAge : 18));
-        setMaxAgeInput(String(typeof seekingData.maxAge === "number" ? seekingData.maxAge : 99));
+        setMinAgeInput(
+          String(
+            typeof seekingData.minAge === "number" ? seekingData.minAge : 18
+          )
+        );
+        setMaxAgeInput(
+          String(
+            typeof seekingData.maxAge === "number" ? seekingData.maxAge : 99
+          )
+        );
 
         // Load search radius if available
         if (seekingData.maxDistanceKm) {
@@ -634,11 +644,41 @@ export default function ProfilePage() {
   };
 
   // Handle city input change
-  const handleCityChange = (cityName: string) => {
+  const handleCityChange = async (cityName: string) => {
     setLocationData((prev) => ({
       ...prev,
       city: cityName,
     }));
+
+    // Get coordinates from the selected city
+    if (cityName && selectedCountry) {
+      try {
+        const country = countries.find((c) => c.name === selectedCountry);
+        if (country) {
+          const citiesData = await externalApi.getCitiesByCountry(country.code);
+          const selectedCity = citiesData.find(
+            (city) => city.name === cityName
+          );
+
+          if (
+            selectedCity &&
+            "latitude" in selectedCity &&
+            "longitude" in selectedCity
+          ) {
+            setLocationData((prev) => ({
+              ...prev,
+              latitude: selectedCity.latitude as number,
+              longitude: selectedCity.longitude as number,
+            }));
+            console.log(
+              `Set coordinates for ${cityName}: ${selectedCity.latitude}, ${selectedCity.longitude}`
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error getting coordinates for city:", error);
+      }
+    }
   };
 
   // Show beautiful success notification
@@ -1481,15 +1521,29 @@ export default function ProfilePage() {
                       inputMode="numeric"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={profileData.age}
-                      onChange={(e) => handleInputChange("age", e.target.value.replace(/[^0-9]/g, ""))}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "age",
+                          e.target.value.replace(/[^0-9]/g, "")
+                        )
+                      }
                       onBlur={(e) => {
-                        const n = Number((e.target.value || "").replace(/[^0-9]/g, ""));
-                        const clamped = e.target.value === "" ? "" : String(Math.max(18, Math.min(99, isFinite(n) ? n : 18)));
+                        const n = Number(
+                          (e.target.value || "").replace(/[^0-9]/g, "")
+                        );
+                        const clamped =
+                          e.target.value === ""
+                            ? ""
+                            : String(
+                                Math.max(18, Math.min(99, isFinite(n) ? n : 18))
+                              );
                         handleInputChange("age", clamped);
                       }}
                       placeholder="Your age"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Used for matching and visibility.</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Used for matching and visibility.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2162,29 +2216,6 @@ export default function ProfilePage() {
                         </p>
                       </div>
                     )}
-                    {/* <div className="mt-2">
-                      <label className="block text-xs text-gray-600 mb-1">
-                        Priority
-                      </label>
-                      <input
-                        type="range"
-                        min="1"
-                        max="3"
-                        value={priorityLevels.locationPreference}
-                        onChange={(e) =>
-                          handlePriorityChange(
-                            "locationPreference",
-                            parseInt(e.target.value)
-                          )
-                        }
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="flex justify-between text-xs text-gray-500 mt-1">
-                        <span>Low</span>
-                        <span>Medium</span>
-                        <span>High</span>
-                      </div>
-                    </div> */}
                   </div>
 
                   {/* Age Range */}
@@ -2195,32 +2226,58 @@ export default function ProfilePage() {
                     <div className="p-3 bg-gray-50 rounded-md">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs text-gray-600 mb-1">Min Age</label>
+                          <label className="block text-xs text-gray-600 mb-1">
+                            Min Age
+                          </label>
                           <input
                             type="text"
                             inputMode="numeric"
                             value={minAgeInput}
                             onChange={(e) => setMinAgeInput(e.target.value)}
                             onBlur={() => {
-                              const n = Number(minAgeInput.replace(/[^0-9]/g, ""));
-                              const clamped = Math.max(18, Math.min(isFinite(n) ? n : 18, seekingPreferences.maxAge));
-                              setSeekingPreferences((prev) => ({ ...prev, minAge: clamped }));
+                              const n = Number(
+                                minAgeInput.replace(/[^0-9]/g, "")
+                              );
+                              const clamped = Math.max(
+                                18,
+                                Math.min(
+                                  isFinite(n) ? n : 18,
+                                  seekingPreferences.maxAge
+                                )
+                              );
+                              setSeekingPreferences((prev) => ({
+                                ...prev,
+                                minAge: clamped,
+                              }));
                               setMinAgeInput(String(clamped));
                             }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-600 mb-1">Max Age</label>
+                          <label className="block text-xs text-gray-600 mb-1">
+                            Max Age
+                          </label>
                           <input
                             type="text"
                             inputMode="numeric"
                             value={maxAgeInput}
                             onChange={(e) => setMaxAgeInput(e.target.value)}
                             onBlur={() => {
-                              const n = Number(maxAgeInput.replace(/[^0-9]/g, ""));
-                              const clamped = Math.min(99, Math.max(isFinite(n) ? n : 99, seekingPreferences.minAge));
-                              setSeekingPreferences((prev) => ({ ...prev, maxAge: clamped }));
+                              const n = Number(
+                                maxAgeInput.replace(/[^0-9]/g, "")
+                              );
+                              const clamped = Math.min(
+                                99,
+                                Math.max(
+                                  isFinite(n) ? n : 99,
+                                  seekingPreferences.minAge
+                                )
+                              );
+                              setSeekingPreferences((prev) => ({
+                                ...prev,
+                                maxAge: clamped,
+                              }));
                               setMaxAgeInput(String(clamped));
                             }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -2228,11 +2285,11 @@ export default function ProfilePage() {
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">
-                        Only profiles whose age falls within this range can see and be seen by you.
+                        Only profiles whose age falls within this range can see
+                        and be seen by you.
                       </p>
                     </div>
                   </div>
-
 
                   {/* Status - selection boxes (radio), no priority */}
                   <div>
@@ -2949,8 +3006,6 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </div>
-
-                  
                 </div>
               </div>
             </div>
@@ -3060,7 +3115,11 @@ export default function ProfilePage() {
                 <button
                   onClick={handleChangePassword}
                   disabled={isChangingPassword}
-                  className={isChangingPassword ? "flex-1 px-4 py-2 bg-blue-400 text-white rounded-md cursor-not-allowed" : "flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"}
+                  className={
+                    isChangingPassword
+                      ? "flex-1 px-4 py-2 bg-blue-400 text-white rounded-md cursor-not-allowed"
+                      : "flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+                  }
                 >
                   {isChangingPassword ? "Changing..." : "Change Password"}
                 </button>
@@ -3074,8 +3133,12 @@ export default function ProfilePage() {
         {showDeleteProfileModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Delete Profile</h3>
-              <p className="text-sm text-gray-700">This action is permanent. Are you sure?</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Delete Profile
+              </h3>
+              <p className="text-sm text-gray-700">
+                This action is permanent. Are you sure?
+              </p>
               <div className="flex space-x-3 mt-6">
                 <button
                   onClick={() => setShowDeleteProfileModal(false)}
@@ -3087,7 +3150,11 @@ export default function ProfilePage() {
                 <button
                   onClick={handleDeleteProfile}
                   disabled={isDeletingProfile}
-                  className={isDeletingProfile ? "flex-1 px-4 py-2 bg-red-400 text-white rounded-md cursor-not-allowed" : "flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"}
+                  className={
+                    isDeletingProfile
+                      ? "flex-1 px-4 py-2 bg-red-400 text-white rounded-md cursor-not-allowed"
+                      : "flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
+                  }
                 >
                   {isDeletingProfile ? "Deleting..." : "Delete"}
                 </button>
@@ -3096,7 +3163,6 @@ export default function ProfilePage() {
           </div>
         )}
         {/* End Delete Profile Modal */}
-
       </div>
     </>
   );
