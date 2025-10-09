@@ -1,11 +1,15 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { authApi, chatApi, getApiUrl } from "../lib/api";
 import { useChat } from "../context/ChatContext";
 import type { Socket } from "socket.io-client";
 import ChatErrorBoundary from "./ChatErrorBoundary";
 import ConfirmDialog from "./ConfirmDialog";
+
+// Dynamically import emoji picker to avoid SSR issues
+const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
 interface Message {
   id: number;
@@ -57,6 +61,8 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const [confirmDeleteChatId, setConfirmDeleteChatId] = useState<number | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Track previous message count to detect new messages
@@ -579,6 +585,20 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
     }
   }, [activeChat, isOpen]);
 
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showEmojiPicker]);
+
   // Delete a chat
   const handleDeleteChat = (chatId: number, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent opening chat when clicking delete
@@ -616,11 +636,18 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
   };
 
   // Send message
+  // Handle emoji selection
+  const handleEmojiClick = (emojiData: { emoji: string }) => {
+    setNewMessage(prev => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
+  };
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || isSending || !activeChat) return;
 
     const messageContent = newMessage.trim();
     setNewMessage(""); // Clear input immediately for better UX
+    setShowEmojiPicker(false); // Close emoji picker when sending
 
     // Stop typing indicator
     if (isTyping) {
@@ -1111,7 +1138,26 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
                 )}
 
                 {/* Message Input */}
-                <div className="border-t p-3">
+                <div className="border-t p-3 relative">
+                  {/* Emoji Picker */}
+                  {showEmojiPicker && (
+                    <div 
+                      ref={emojiPickerRef}
+                      className="absolute bottom-full right-0 mb-2 z-50"
+                      style={{ 
+                        transform: 'translateY(-4px)',
+                      }}
+                    >
+                      <EmojiPicker
+                        onEmojiClick={handleEmojiClick}
+                        width={320}
+                        height={400}
+                        previewConfig={{ showPreview: false }}
+                        searchPlaceHolder="Search emoji..."
+                      />
+                    </div>
+                  )}
+                  
                   <div className="flex space-x-2">
                     <input
                       type="text"
@@ -1122,6 +1168,15 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
                       className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                       disabled={isSending}
                     />
+                    {/* Emoji Button - Only visible on desktop/laptop */}
+                    <button
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 transition"
+                      title="Add emoji"
+                      type="button"
+                    >
+                      <span className="text-xl">😊</span>
+                    </button>
                     <button
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim() || isSending}
