@@ -56,68 +56,19 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [stickToBottom, setStickToBottom] = useState(true);
-  // One-shot auto-scroll flag to avoid bouncing when user scrolls up
-  const autoScrollNextRef = useRef<boolean>(false);
   // Track previous message count to detect new messages
   const prevMessageCountRef = useRef<number>(0);
-  // Temporary suppression window after manual scroll up
-  const suppressUntilRef = useRef<number>(0);
-  // Track last scrollTop to detect upward scrolling immediately
-  const lastScrollTopRef = useRef<number>(0);
   // Auto-clear for typing indicator to avoid phantom bubble
   const typingClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // Sticky lock: when true, never auto-scroll until user returns to bottom
-  const userScrolledUpRef = useRef<boolean>(false);
-  const clearLockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Chat list lightweight Socket.IO refs for typing indicators
   const listSocketsRef = useRef<Record<number, Socket>>({});
   const listTypingTimersRef = useRef<Record<number, NodeJS.Timeout>>({});
-
-  // Track whether user is near the bottom to decide autoscroll
-  useEffect(() => {
-    const el = messagesContainerRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const threshold = 24; // treat within 24px as near-bottom for lock clearing
-      const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      const nearBottom = distanceFromBottom <= threshold;
-      setStickToBottom(nearBottom);
-      // Detect upward scroll direction
-      const lastTop = lastScrollTopRef.current;
-      const scrollingUp = el.scrollTop < lastTop;
-      lastScrollTopRef.current = el.scrollTop;
-
-      // Lock when user scrolls away from bottom
-      if (!nearBottom || scrollingUp) {
-        userScrolledUpRef.current = true;
-        suppressUntilRef.current = Date.now() + 8000; // keep legacy guard as well
-        if (clearLockTimeoutRef.current) clearTimeout(clearLockTimeoutRef.current);
-      } else if (nearBottom && !scrollingUp) {
-        // If user has returned to bottom, clear lock after a short dwell
-        if (clearLockTimeoutRef.current) clearTimeout(clearLockTimeoutRef.current);
-        clearLockTimeoutRef.current = setTimeout(() => {
-          userScrolledUpRef.current = false;
-          suppressUntilRef.current = 0;
-        }, 300);
-      }
-    };
-    el.addEventListener('scroll', onScroll);
-    onScroll();
-    return () => el.removeEventListener('scroll', onScroll);
-  }, []);
 
   // Minimal auto-scroll: only when explicitly requested via flag
   const scrollToBottom = (behavior: ScrollBehavior) => {
     const el = messagesContainerRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior });
-  };
-  const isNearBottom = () => {
-    const el = messagesContainerRef.current;
-    if (!el) return false;
-    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-    return distance <= 24; // within 24px considered near bottom
   };
 
   useEffect(() => {
@@ -164,6 +115,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
         console.error('[ChatPopup] Failed to set user online:', error);
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mode]);
 
   // Do not auto-scroll on typing indicator; user may be reading history
@@ -176,6 +128,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       loadChats();
     }, 10000); // 10s
     return () => clearInterval(intervalId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mode]);
 
   // Auto-open target chat when chats are loaded and targetChatId is set
@@ -405,7 +358,7 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
           console.log('[ChatPopup] Socket.IO connection state:', socket.connected);
           
           // Handle read receipts
-          const msgData = incoming as any;
+          const msgData = incoming as { type?: string; chatId?: number; lastReadMessageId?: number };
           if (msgData && msgData.type === 'read') {
             console.log('[ChatPopup] Read event received:', msgData);
             const chatId = msgData.chatId;

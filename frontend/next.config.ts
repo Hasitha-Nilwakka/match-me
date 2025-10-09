@@ -27,12 +27,9 @@ const nextConfig: NextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   // Hide dev overlay when NEXT_DEV_OVERLAY=false (for mobile/clean testing)
-  devIndicators: {
-    buildActivity: process.env.NEXT_DEV_OVERLAY !== 'false',
-    buildActivityPosition: 'bottom-right',
-  },
-  // Note: Error overlay (red screen) will still appear in dev mode for critical errors
-  // To hide that too, you'd need to use production build (npm run build && npm start)
+  // Note: devIndicators.buildActivity is deprecated in Next.js 15.5+
+  // The dev indicator now shows automatically in dev mode and is hidden in production
+  // Error overlay (red screen) will still appear in dev mode for critical errors
 };
 
 export default nextConfig;

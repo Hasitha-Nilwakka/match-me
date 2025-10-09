@@ -2,9 +2,8 @@
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { authApi, connectionsApi, getApiUrl } from "../../lib/api";
-import { io, Socket } from "socket.io-client";
+import { io } from "socket.io-client";
 import Navigation from "../../components/Navigation";
 import ProfileModal from "../../components/ProfileModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -30,7 +29,6 @@ export default function ConnectionRequestsPage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [confirmRejectId, setConfirmRejectId] = useState<number | null>(null);
-  const [socket, setSocket] = useState<Socket | null>(null);
 
   // Load connection requests based on data mode
   const loadRequests = useCallback(async () => {
@@ -98,8 +96,7 @@ export default function ConnectionRequestsPage() {
     s.on('request_created', () => loadRequests());
     s.on('connection_updated', () => loadRequests()); // request may become accepted
     s.on('request_deleted', () => loadRequests());
-    setSocket(s);
-    return () => { s.disconnect(); setSocket(null); };
+    return () => { s.disconnect(); };
   }, [isAuthenticated, loadRequests]);
 
   const handleAcceptRequest = async (requestId: number) => {

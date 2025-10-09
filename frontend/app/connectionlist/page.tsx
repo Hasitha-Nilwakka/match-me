@@ -3,7 +3,7 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { authApi, connectionsApi, chatApi, getApiUrl } from "../../lib/api";
-import { io, Socket } from "socket.io-client";
+import { io } from "socket.io-client";
 import Toast from "../../components/Toast";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import Navigation from "../../components/Navigation";
@@ -35,7 +35,6 @@ export default function ConnectionListPage() {
   const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null);
   const { openChat, isChatOpen } = useChat();
   const currentUser = authApi.getCurrentUser();
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [toast, setToast] = useState<{open: boolean; msg: string}>({open:false, msg:""});
 
   // Shallow compare helper to avoid unnecessary state updates (and flicker)
@@ -196,7 +195,7 @@ export default function ConnectionListPage() {
     } finally {
       if (!silent) setIsLoading(false);
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, isChatOpen]);
 
   // Check authentication on page load
   useEffect(() => {
@@ -220,9 +219,9 @@ export default function ConnectionListPage() {
       transports: ['websocket', 'polling'],
     });
 
-    s.on('connection_updated', (evt: any) => {
+    s.on('connection_updated', (evt: { status?: string }) => {
       // Only refresh on meaningful status transitions and when chat overlay is not open
-      const status = evt?.status as string | undefined;
+      const status = evt?.status;
       if ((status === 'accepted' || status === 'rejected') && !isChatOpen && isPageVisible()) {
         if (startingChatId === null) loadConnections(true);
         if (status === 'accepted') setToast({ open: true, msg: 'Connection accepted' });
@@ -233,12 +232,10 @@ export default function ConnectionListPage() {
       if (!isChatOpen && isPageVisible() && startingChatId === null) loadConnections(true);
     });
 
-    setSocket(s);
     return () => {
       s.disconnect();
-      setSocket(null);
     };
-  }, [isAuthenticated, loadConnections, startingChatId]);
+  }, [isAuthenticated, loadConnections, startingChatId, isChatOpen]);
 
 
   const handleStartChat = async (connection: Connection) => {

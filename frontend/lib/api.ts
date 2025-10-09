@@ -339,7 +339,7 @@ export const chatApi = {
       socket.emit('join_chat', { chatId: Number(chatId) });
     });
     
-    socket.on('joined_chat', (data: any) => {
+    socket.on('joined_chat', (data: { chatId?: number; room?: string }) => {
       console.log('[SocketIO] Joined chat room:', data);
     });
     
@@ -361,7 +361,7 @@ export const chatApi = {
       console.error('[SocketIO] Reconnection failed');
     });
     
-    socket.on('error', (error: any) => {
+    socket.on('error', (error: unknown) => {
       console.error('[SocketIO] Error:', error);
     });
     

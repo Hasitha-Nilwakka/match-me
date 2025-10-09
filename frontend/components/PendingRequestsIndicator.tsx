@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { connectionsApi, getApiUrl } from "../lib/api";
-import { io, Socket } from "socket.io-client";
+import { io } from "socket.io-client";
 
 interface PendingRequestsIndicatorProps {
   className?: string;
@@ -13,7 +13,6 @@ export default function PendingRequestsIndicator({
   showCount = true 
 }: PendingRequestsIndicatorProps) {
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
-  const [socket, setSocket] = useState<Socket | null>(null);
 
   // Load pending connection requests count
   const loadPendingRequestsCount = async () => {
@@ -37,8 +36,7 @@ export default function PendingRequestsIndicator({
     s.on('connection_updated', () => loadPendingRequestsCount());
     s.on('request_created', () => loadPendingRequestsCount());
     s.on('request_deleted', () => loadPendingRequestsCount());
-    setSocket(s);
-    return () => { s.disconnect(); setSocket(null); };
+    return () => { s.disconnect(); };
   }, []);
 
   // Refresh count when page becomes visible (user returns from other pages)
