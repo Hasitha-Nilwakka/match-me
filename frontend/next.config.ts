@@ -26,6 +26,13 @@ const nextConfig: NextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
+  // Hide dev overlay when NEXT_DEV_OVERLAY=false (for mobile/clean testing)
+  devIndicators: {
+    buildActivity: process.env.NEXT_DEV_OVERLAY !== 'false',
+    buildActivityPosition: 'bottom-right',
+  },
+  // Note: Error overlay (red screen) will still appear in dev mode for critical errors
+  // To hide that too, you'd need to use production build (npm run build && npm start)
 };
 
 export default nextConfig;

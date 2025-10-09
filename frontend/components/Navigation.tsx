@@ -242,10 +242,12 @@ export default function Navigation() {
             <div className="md:hidden">
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                className="bg-gray-800 inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white relative"
                 aria-expanded="false"
               >
                 <span className="sr-only">Open main menu</span>
+                {/* Notification Badge */}
+                <PendingRequestsIndicator className="absolute -top-1 -right-1" />
                 {/* Hamburger icon */}
                 <svg
                   className={`${isMobileMenuOpen ? "hidden" : "block"} h-6 w-6`}
