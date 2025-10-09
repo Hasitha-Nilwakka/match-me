@@ -4,6 +4,7 @@ import Image from "next/image";
 import { authApi, chatApi, getApiUrl } from "../lib/api";
 import { useChat } from "../context/ChatContext";
 import type { Socket } from "socket.io-client";
+import ChatErrorBoundary from "./ChatErrorBoundary";
 
 interface Message {
   id: number;
@@ -41,7 +42,7 @@ interface ChatPopupProps {
   onChatDeleted?: (chatId: number) => void;
 }
 
-export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
+function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
   const [activeChat, setActiveChat] = useState<number | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1265,6 +1266,14 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
         )}
       </div>
     </div>
+  );
+}
+
+export default function ChatPopup(props: ChatPopupProps) {
+  return (
+    <ChatErrorBoundary>
+      <ChatPopupContent {...props} />
+    </ChatErrorBoundary>
   );
 }
 

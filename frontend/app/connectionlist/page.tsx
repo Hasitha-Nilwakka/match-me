@@ -8,6 +8,7 @@ import Toast from "../../components/Toast";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import Navigation from "../../components/Navigation";
 import ProfileModal from "../../components/ProfileModal";
+import PageErrorBoundary from "../../components/PageErrorBoundary";
 import { useChat } from "../../context/ChatContext";
 
 interface Connection {
@@ -24,7 +25,7 @@ interface Connection {
   chatId?: number;
 }
 
-export default function ConnectionListPage() {
+function ConnectionListPageContent() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -655,5 +656,13 @@ export default function ConnectionListPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ConnectionListPage() {
+  return (
+    <PageErrorBoundary pageName="Connection List">
+      <ConnectionListPageContent />
+    </PageErrorBoundary>
   );
 }

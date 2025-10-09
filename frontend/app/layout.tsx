@@ -4,6 +4,7 @@ import "./globals.css";
 import GlobalChatProvider from "../components/GlobalChatProvider";
 import { ChatProvider } from "../context/ChatContext";
 import { DataModeProvider } from "../context/DataModeContext";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -34,11 +35,13 @@ export default function RootLayout({
         className={`${inter.className} ${inter.variable}`}
         suppressHydrationWarning={true}
       >
-        <DataModeProvider>
-          <ChatProvider>
-            <GlobalChatProvider>{children}</GlobalChatProvider>
-          </ChatProvider>
-        </DataModeProvider>
+        <ErrorBoundary level="app" name="App">
+          <DataModeProvider>
+            <ChatProvider>
+              <GlobalChatProvider>{children}</GlobalChatProvider>
+            </ChatProvider>
+          </DataModeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -7,6 +7,7 @@ import { io } from "socket.io-client";
 import Navigation from "../../components/Navigation";
 import ProfileModal from "../../components/ProfileModal";
 import ConfirmDialog from "../../components/ConfirmDialog";
+import PageErrorBoundary from "../../components/PageErrorBoundary";
 
 interface Request {
   id: number;
@@ -21,7 +22,7 @@ interface Request {
   message?: string;
 }
 
-export default function ConnectionRequestsPage() {
+function ConnectionRequestsPageContent() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -469,5 +470,13 @@ export default function ConnectionRequestsPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ConnectionRequestsPage() {
+  return (
+    <PageErrorBoundary pageName="Connection Requests">
+      <ConnectionRequestsPageContent />
+    </PageErrorBoundary>
   );
 }

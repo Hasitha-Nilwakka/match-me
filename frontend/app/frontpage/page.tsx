@@ -8,6 +8,8 @@ import ProfileModal from "../../components/ProfileModal";
 import Navigation from "../../components/Navigation";
 import { useDataMode } from "../../context/DataModeContext";
 import { overlapScore } from "../../lib/utils";
+import PageErrorBoundary from "../../components/PageErrorBoundary";
+import RecommendationsErrorBoundary from "../../components/RecommendationsErrorBoundary";
 
 interface Recommendation {
   id: number;
@@ -43,7 +45,7 @@ interface Recommendation {
   };
 }
 
-export default function FrontPage() {
+function FrontPageContent() {
   const { mode } = useDataMode();
 
   // Debug: Log mode changes (development only)
@@ -674,7 +676,8 @@ export default function FrontPage() {
           </div>
 
           {/* Recommendation Card / Empty State */}
-          <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl overflow-hidden max-w-2xl mx-auto w-full mb-20 sm:mb-6">
+          <RecommendationsErrorBoundary>
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-xl overflow-hidden max-w-2xl mx-auto w-full mb-20 sm:mb-6">
             {/* Profile Picture Section (hidden when no recs) */}
             <div className="relative">
               {recommendations.length > 0 ? (
@@ -1097,8 +1100,17 @@ export default function FrontPage() {
               </div>
             </div>
           </div>
+          </RecommendationsErrorBoundary>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function FrontPage() {
+  return (
+    <PageErrorBoundary pageName="Front Page">
+      <FrontPageContent />
+    </PageErrorBoundary>
   );
 }
