@@ -53,13 +53,7 @@ func GetRecommendationsHandler(c *gin.Context) {
 	excludedUserIDs := getExcludedUserIDs(userID)
 
 	// DEBUG: Log debugging information
-	// fmt.Printf("DEBUG: User ID %d requesting recommendations\n", userID)
-	// fmt.Printf("DEBUG: Excluded user IDs: %v\n", excludedUserIDs)
 
-	// Count total active users first
-	var totalActiveUsers int64
-	db.DB.Model(&models.User{}).Where("is_active = ?", true).Count(&totalActiveUsers)
-	// fmt.Printf("DEBUG: Total active users in database: %d\n", totalActiveUsers)
 
 	// Determine strict location preference
 	locPref := "any"
@@ -81,12 +75,10 @@ func GetRecommendationsHandler(c *gin.Context) {
 	if user.Location != nil && user.Location.Latitude != nil && user.Location.Longitude != nil &&
 		locPref == "define_radius" && maxKm > 0 {
 
-		// fmt.Printf("DEBUG: Using spatial filtering with radius %d km\n", user.SeekingPreference.MaxDistanceKm)
 		// Get nearby users using bounding box pre-filtering
 		potentialMatches = getNearbyUsers(*user.Location.Latitude, *user.Location.Longitude,
 			maxKm, excludedUserIDs)
 	} else {
-		// fmt.Printf("DEBUG: Using fallback query (loading all users)\n")
 		// Fallback to loading all users (original behavior)
 		query = db.DB.Where("users.id NOT IN ? AND users.is_active = ?",
 			excludedUserIDs, true).
@@ -96,13 +88,10 @@ func GetRecommendationsHandler(c *gin.Context) {
 			Preload("UserLanguages").Find(&potentialMatches)
 
 		if query.Error != nil {
-			// fmt.Printf("DEBUG: Query error: %v\n", query.Error)
 			c.JSON(500, gin.H{"error": "Failed to fetch potential matches"})
 			return
 		}
 	}
-
-	// fmt.Printf("DEBUG: Found %d potential matches after filtering\n", len(potentialMatches))
 
 	// Strict location filtering (any = no filter)
 	if locPref != "any" {
@@ -158,14 +147,12 @@ func GetRecommendationsHandler(c *gin.Context) {
 		// Skip users without complete profiles
 		if match.Profile == nil || match.Profile.FirstName == "" {
 			skippedIncomplete++
-			// fmt.Printf("DEBUG: Skipping user %d - incomplete profile (Profile: %v, FirstName: %v)\n",
 			// match.ID, match.Profile != nil, match.Profile != nil && match.Profile.FirstName != "")
 			continue
 		}
 
 		score := calculateMatchScore(user, match)
 		if score > 0 {
-			// fmt.Printf("DEBUG: User %d (%s %s) scored: %.2f\n",
 			// 	match.ID, match.Profile.FirstName, match.Profile.LastName, score)
 		}
 

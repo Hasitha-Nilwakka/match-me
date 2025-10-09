@@ -7,6 +7,7 @@ import { authApi, profileApi, recommendationsApi, getApiUrl } from "../../lib/ap
 import ProfileModal from "../../components/ProfileModal";
 import Navigation from "../../components/Navigation";
 import { useDataMode } from "../../context/DataModeContext";
+import { overlapScore } from "../../lib/utils";
 
 interface Recommendation {
   id: number;
@@ -45,10 +46,12 @@ interface Recommendation {
 export default function FrontPage() {
   const { mode } = useDataMode();
 
-  // Debug: Log mode changes
+  // Debug: Log mode changes (development only)
   useEffect(() => {
-    console.log("🔄 MODE CHANGED TO:", mode);
-    console.log("🔄 localStorage value:", localStorage.getItem("MM_DATA_MODE"));
+    if (process.env.NODE_ENV === 'development') {
+      console.log("🔄 MODE CHANGED TO:", mode);
+      console.log("🔄 localStorage value:", localStorage.getItem("MM_DATA_MODE"));
+    }
   }, [mode]);
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -455,24 +458,7 @@ export default function FrontPage() {
     }
   }, [isAuthenticated, userProfile, loadRecommendations]);
 
-  // --- Sub-score utilities ---
-  const normalize = (arr?: string[]): string[] =>
-    Array.isArray(arr)
-      ? arr.map((s) => (s || "").toLowerCase().trim()).filter(Boolean)
-      : [];
-
-  const overlapScore = (a?: string[], b?: string[]): number => {
-    const A = new Set(normalize(a));
-    const B = new Set(normalize(b));
-    if (A.size === 0 || B.size === 0) return 0;
-    let inter = 0;
-    A.forEach((v) => {
-      if (B.has(v)) inter += 1;
-    });
-    const union = new Set([...A, ...B]).size;
-    const ratio = union === 0 ? 0 : inter / union;
-    return Math.round(ratio * 100);
-  };
+  // --- Sub-score utilities (imported from utils) ---
 
   const buildCategoryScores = (rec: Recommendation | undefined) => {
     if (!rec) return [] as { key: string; label: string; score: number }[];

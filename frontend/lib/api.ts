@@ -105,14 +105,20 @@ export const apiRequest = async (
     },
   };
 
-  console.log('[API] Making request to:', url);
-  console.log('[API] Request options:', { ...defaultOptions, ...options });
-  console.log('[API] Current location:', typeof window !== 'undefined' ? window.location.href : 'server-side');
+  // Development logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[API] Making request to:', url);
+    console.log('[API] Request options:', { ...defaultOptions, ...options });
+    console.log('[API] Current location:', typeof window !== 'undefined' ? window.location.href : 'server-side');
+  }
 
   try {
     const response = await fetch(url, { ...defaultOptions, ...options });
-    console.log('[API] Response status:', response.status);
-    console.log('[API] Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API] Response status:', response.status);
+      console.log('[API] Response headers:', Object.fromEntries(response.headers.entries()));
+    }
     
     if (!response.ok) {
       console.error('[API] Response not OK:', response.status, response.statusText);
@@ -123,9 +129,11 @@ export const apiRequest = async (
     return response;
   } catch (error) {
     console.error('[API] Fetch error:', error);
-    console.error('[API] URL was:', url);
-    console.error('[API] Error type:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('[API] Error message:', error instanceof Error ? error.message : String(error));
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[API] URL was:', url);
+      console.error('[API] Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('[API] Error message:', error instanceof Error ? error.message : String(error));
+    }
     throw error;
   }
 };
@@ -402,106 +410,6 @@ export const chatApi = {
   },
 };
 
-// OLD WebSocket methods removed - now using Socket.IO exclusively
-// See git history (backup-native-websocket branch) for old WebSocket implementation
-/*
-const OLD_WEBSOCKET_CODE_REMOVED = {
-  createWebSocketConnection: (chatId: string, onMessage: (message: unknown) => void, onTyping?: (data: unknown) => void) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
-    // Use the same base URL as API calls, but convert to WebSocket protocol
-    const baseUrl = getApiUrl();
-    const wsUrl = baseUrl.replace('http://', 'ws://').replace('https://', 'wss://') + `/chats/${chatId}/ws?token=${encodeURIComponent(token)}`;
-    
-    console.log('[API] Creating WebSocket connection to:', wsUrl);
-    console.log('[API] Token length:', token.length);
-    console.log('[API] Chat ID:', chatId);
-    console.log('[API] Base URL:', baseUrl);
-    
-    const ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-      console.log('[API] WebSocket connected to chat', chatId);
-      // Send authentication token after connection opens
-      ws.send(JSON.stringify({ type: 'auth', token: token }));
-      console.log('[API] Sent auth token via WebSocket');
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        if (typeof event.data !== 'string') {
-          console.warn('[API] Ignoring non-text WS frame');
-          return;
-        }
-
-        // Support NDJSON / multi-line frames and trim whitespace
-        const raw = event.data as string;
-        const lines = raw.split('\n');
-        for (const line of lines) {
-          const snippet = line.trim();
-          if (!snippet) continue;
-          // Only attempt to parse when it looks like JSON
-          if (!(snippet.startsWith('{') || snippet.startsWith('['))) {
-            console.warn('[API] Skipping non-JSON WS snippet:', snippet.slice(0, 80));
-            continue;
-          }
-          try {
-            const data = JSON.parse(snippet);
-            console.log('[API] WebSocket message received:', data);
-            if (data && data.type === 'typing') {
-              console.log('[API] Routing typing event to onTyping:', data);
-              onTyping?.(data);
-            } else {
-              if (data && (data.type === 'read' || data.Type === 'read')) {
-                console.log('[API] Routing read event to onMessage:', data);
-              }
-              onMessage(data);
-            }
-          } catch (innerErr) {
-            console.error('[API] Failed to parse WS snippet:', snippet, innerErr);
-          }
-        }
-      } catch (error) {
-        console.error('[API] Error handling WebSocket message:', error);
-      }
-    };
-
-    ws.onclose = (event) => {
-      console.log('[API] WebSocket disconnected from chat', chatId, 'Code:', event.code, 'Reason:', event.reason);
-      console.log('[API] WebSocket close was clean:', event.wasClean);
-    };
-
-    ws.onerror = (error) => {
-      console.error('[API] WebSocket error:', error);
-      console.error('[API] WebSocket ready state:', ws.readyState);
-      console.error('[API] WebSocket URL:', wsUrl);
-    };
-
-    // Add a timeout to detect if connection never opens
-    setTimeout(() => {
-      if (ws.readyState === WebSocket.CONNECTING) {
-        console.error('[API] WebSocket connection timeout - still connecting after 5 seconds');
-        console.error('[API] WebSocket URL:', wsUrl);
-        console.error('[API] WebSocket ready state:', ws.readyState);
-      }
-    }, 5000);
-
-    return ws;
-  },
-
-  sendTypingIndicator: (ws: WebSocket, isTyping: boolean) => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ 
-        type: 'typing', 
-        isTyping: isTyping 
-      }));
-    }
-  },
-};
-*/
 
 // Connections API functions
 export const connectionsApi = {
