@@ -5,6 +5,7 @@ import { authApi, chatApi, getApiUrl } from "../lib/api";
 import { useChat } from "../context/ChatContext";
 import type { Socket } from "socket.io-client";
 import ChatErrorBoundary from "./ChatErrorBoundary";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface Message {
   id: number;
@@ -55,6 +56,7 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [currentSearchIndex, setCurrentSearchIndex] = useState(-1);
+  const [confirmDeleteChatId, setConfirmDeleteChatId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   // Track previous message count to detect new messages
@@ -578,12 +580,16 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
   }, [activeChat, isOpen]);
 
   // Delete a chat
-  const handleDeleteChat = async (chatId: number, e: React.MouseEvent) => {
+  const handleDeleteChat = (chatId: number, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent opening chat when clicking delete
+    setConfirmDeleteChatId(chatId);
+  };
+
+  const confirmDeleteChat = async () => {
+    if (confirmDeleteChatId === null) return;
     
-    if (!confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
-      return;
-    }
+    const chatId = confirmDeleteChatId;
+    setConfirmDeleteChatId(null);
 
     try {
       await chatApi.deleteChat(chatId.toString());
@@ -794,7 +800,19 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 transform-gpu">
+    <>
+      {/* Confirm Delete Chat Dialog */}
+      <ConfirmDialog
+        open={confirmDeleteChatId !== null}
+        title="Delete Conversation"
+        message="Are you sure you want to delete this conversation?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        onCancel={() => setConfirmDeleteChatId(null)}
+        onConfirm={confirmDeleteChat}
+      />
+
+      <div className="fixed bottom-4 right-4 z-50 transform-gpu">
       {/* Chat Popup Window */}
       <div className={`bg-white rounded-lg shadow-2xl border transition-all duration-300 ${
         isMinimized ? 'h-14' : 'h-96 w-80 max-w-[calc(100vw-2rem)]'
@@ -1266,6 +1284,7 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
         )}
       </div>
     </div>
+    </>
   );
 }
 
