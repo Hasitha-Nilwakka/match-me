@@ -538,7 +538,7 @@ func GetChatsHandler(hub *Hub) gin.HandlerFunc {
 		log.Printf("Found %d chats for user %d", len(chats), userID)
 
 		// Build response with de-duplication per counterpart user
-		var chatResponses []ChatResponse
+		chatResponses := make([]ChatResponse, 0)
 		seenByCounterpart := make(map[uint]bool)
 		for _, chat := range chats {
 			response := ChatResponse{
@@ -576,6 +576,12 @@ func GetChatsHandler(hub *Hub) gin.HandlerFunc {
 					IsOnline:       isOnline,
 					LastSeen:       lastSeen,
 				}
+			}
+
+			// Skip chats where the other user's profile is missing
+			if response.OtherUser == nil {
+				log.Printf("Skipping chat %d for user %d: other user (ID: %d) has no profile", chat.ID, userID, otherUser.ID)
+				continue
 			}
 
 			// If we've already included a chat with this counterpart, prefer the one that has a lastMessage or newer UpdatedAt

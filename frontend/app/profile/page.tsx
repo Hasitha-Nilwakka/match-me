@@ -10,6 +10,7 @@ import {
   externalApi,
   getApiUrl,
   authenticatedApiRequest,
+  API_ENDPOINTS,
 } from "../../lib/api";
 import Navigation from "../../components/Navigation";
 
@@ -33,7 +34,6 @@ export default function ProfilePage() {
   });
   const [deleteProfileData, setDeleteProfileData] = useState({
     password: "",
-    confirmText: "",
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isDeletingProfile, setIsDeletingProfile] = useState(false);
@@ -1072,16 +1072,12 @@ export default function ProfilePage() {
       return;
     }
 
-    if (deleteProfileData.confirmText !== "DELETE") {
-      setDeleteError("Please type DELETE to confirm");
-      return;
-    }
 
     setIsDeletingProfile(true);
     setDeleteError("");
 
     try {
-      const response = await authenticatedApiRequest("/me/delete-profile", {
+      const response = await authenticatedApiRequest(API_ENDPOINTS.PROFILE.DELETE_ME, {
         method: "DELETE",
         body: JSON.stringify({
           password: deleteProfileData.password,
@@ -1114,7 +1110,6 @@ export default function ProfilePage() {
   const resetDeleteProfileForm = () => {
     setDeleteProfileData({
       password: "",
-      confirmText: "",
     });
     setDeleteError("");
   };
@@ -3136,12 +3131,39 @@ export default function ProfilePage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Delete Profile
               </h3>
-              <p className="text-sm text-gray-700">
-                This action is permanent. Are you sure?
+              <p className="text-sm text-gray-700 mb-4">
+                This action is permanent and cannot be undone. Please enter your password to confirm deletion.
               </p>
+              
+              {/* Password input */}
+              <div className="mb-4">
+                <label htmlFor="deletePassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  id="deletePassword"
+                  value={deleteProfileData.password}
+                  onChange={(e) => setDeleteProfileData(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Enter your password"
+                  disabled={isDeletingProfile}
+                />
+              </div>
+
+              {/* Error message */}
+              {deleteError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{deleteError}</p>
+                </div>
+              )}
+
               <div className="flex space-x-3 mt-6">
                 <button
-                  onClick={() => setShowDeleteProfileModal(false)}
+                  onClick={() => {
+                    setShowDeleteProfileModal(false);
+                    resetDeleteProfileForm();
+                  }}
                   className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
                   disabled={isDeletingProfile}
                 >
@@ -3156,7 +3178,7 @@ export default function ProfilePage() {
                       : "flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"
                   }
                 >
-                  {isDeletingProfile ? "Deleting..." : "Delete"}
+                  {isDeletingProfile ? "Deleting..." : "Delete Profile"}
                 </button>
               </div>
             </div>

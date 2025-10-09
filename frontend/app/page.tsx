@@ -169,7 +169,7 @@ export default function Home() {
 
         if (response.status === 401) {
           setErrors({
-            general: "Invalid email or password. Please try again.",
+            general: "Invalid email or password. If you recently deleted your account, you'll need to create a new one.",
           });
         } else if (response.status === 400) {
           setErrors({
@@ -407,7 +407,18 @@ export default function Home() {
                 {/* General Error Message */}
                 {errors.general && (
                   <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
-                    {errors.general}
+                    <div className="mb-2">{errors.general}</div>
+                    {errors.general.includes("deleted your account") && (
+                      <div className="text-sm">
+                        <button
+                          type="button"
+                          onClick={() => setIsLogin(false)}
+                          className="text-red-600 hover:text-red-800 underline font-medium"
+                        >
+                          Create a new account instead
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 

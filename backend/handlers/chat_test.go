@@ -41,6 +41,94 @@ func setupChatRouter() *gin.Engine {
 	return r
 }
 
+// TestGetChatsHandlerWithNilProfile tests that GetChatsHandler handles users without profiles gracefully
+func TestGetChatsHandlerWithNilProfile(t *testing.T) {
+	// Setup test database
+	testDB, _ := testutil.NewTestDB(t)
+	originalDB := db.DB
+	db.DB = testDB
+	defer func() { db.DB = originalDB }()
+
+	// Create test users
+	user1 := models.User{
+		Email:        "user1@test.com",
+		PasswordHash: "hash1",
+		IsActive:     true,
+	}
+	user2 := models.User{
+		Email:        "user2@test.com",
+		PasswordHash: "hash2",
+		IsActive:     true,
+		// Note: user2 has no profile - this simulates the problematic scenario
+	}
+
+	if err := db.DB.Create(&user1).Error; err != nil {
+		t.Fatalf("Failed to create user1: %v", err)
+	}
+	if err := db.DB.Create(&user2).Error; err != nil {
+		t.Fatalf("Failed to create user2: %v", err)
+	}
+
+	// Create profile for user1 only
+	profile1 := models.Profile{
+		UserID:            user1.ID,
+		FirstName:         "User",
+		LastName:          "One",
+		ProfilePictureURL: "test1.jpg",
+	}
+	if err := db.DB.Create(&profile1).Error; err != nil {
+		t.Fatalf("Failed to create profile1: %v", err)
+	}
+
+	// Create a connection between the users
+	connection := models.Connection{
+		RequesterID: user1.ID,
+		ReceiverID:  user2.ID,
+		Status:      "accepted",
+	}
+	if err := db.DB.Create(&connection).Error; err != nil {
+		t.Fatalf("Failed to create connection: %v", err)
+	}
+
+	// Create a chat for the connection
+	chat := models.Chat{
+		ConnectionID: connection.ID,
+	}
+	if err := db.DB.Create(&chat).Error; err != nil {
+		t.Fatalf("Failed to create chat: %v", err)
+	}
+
+	// Setup router
+	router := setupChatRouter()
+
+	// Make request as user1
+	req, _ := http.NewRequest("GET", "/chats", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Should return 200 OK (not panic)
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d. Response: %s", w.Code, w.Body.String())
+	}
+
+	// Parse response
+	var response map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// Should return empty chats array since user2 has no profile
+	chats, ok := response["chats"].([]interface{})
+	if !ok {
+		t.Fatalf("Expected chats array in response, got: %T", response["chats"])
+	}
+
+	// Should be empty because we skip chats where the other user has no profile
+	if len(chats) != 0 {
+		t.Errorf("Expected 0 chats (user2 has no profile), got %d", len(chats))
+	}
+}
+
 // SendMessageTestHandler is a test version of SendMessageHandler that doesn't require a hub
 func SendMessageTestHandler(c *gin.Context) {
 	userID, exists := middleware.GetUserIDFromContext(c)
