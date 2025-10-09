@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/gorilla/websocket v1.5.1
+	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/crypto v0.42.0
 	gorm.io/driver/postgres v1.6.0
@@ -42,6 +42,8 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
+	github.com/zishang520/engine.io/v2 v2.5.0 // indirect
+	github.com/zishang520/socket.io v1.3.2 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
