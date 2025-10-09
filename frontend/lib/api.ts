@@ -223,6 +223,8 @@ export const referenceApi = {
   },
 };
 
+import { io, Socket } from 'socket.io-client';
+
 // Chat API functions
 export const chatApi = {
   // Get all user's chats
@@ -299,7 +301,106 @@ export const chatApi = {
     return response.json();
   },
 
-  // Create WebSocket connection
+  // Create Socket.IO connection (NEW - replaces WebSocket)
+  createSocketIOConnection: (
+    chatId: string,
+    onMessage: (message: unknown) => void,
+    onTyping?: (data: unknown) => void
+  ): Socket => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const baseUrl = getApiUrl();
+    
+    console.log('[SocketIO] Creating Socket.IO connection');
+    console.log('[SocketIO] Base URL:', baseUrl);
+    console.log('[SocketIO] Chat ID:', chatId);
+    
+    // Create Socket.IO connection
+    const socket = io(baseUrl, {
+      auth: {
+        token: token,
+      },
+      transports: ['websocket', 'polling'], // WebSocket first, polling fallback
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
+      timeout: 10000,
+    });
+    
+    // Connection events
+    socket.on('connect', () => {
+      console.log('[SocketIO] Connected! Socket ID:', socket.id);
+      // Join the chat room
+      socket.emit('join_chat', { chatId: Number(chatId) });
+    });
+    
+    socket.on('joined_chat', (data: any) => {
+      console.log('[SocketIO] Joined chat room:', data);
+    });
+    
+    socket.on('disconnect', (reason: string) => {
+      console.log('[SocketIO] Disconnected:', reason);
+    });
+    
+    socket.on('reconnect', (attemptNumber: number) => {
+      console.log('[SocketIO] Reconnected after', attemptNumber, 'attempts');
+      // Rejoin chat room after reconnection
+      socket.emit('join_chat', { chatId: Number(chatId) });
+    });
+    
+    socket.on('reconnecting', (attemptNumber: number) => {
+      console.log('[SocketIO] Reconnecting... Attempt', attemptNumber);
+    });
+    
+    socket.on('reconnect_failed', () => {
+      console.error('[SocketIO] Reconnection failed');
+    });
+    
+    socket.on('error', (error: any) => {
+      console.error('[SocketIO] Error:', error);
+    });
+    
+    socket.on('connect_error', (error: Error) => {
+      console.error('[SocketIO] Connection error:', error.message);
+    });
+    
+    // Chat events
+    socket.on('message', (data: unknown) => {
+      console.log('[SocketIO] Message received:', data);
+      onMessage(data);
+    });
+    
+    socket.on('typing', (data: unknown) => {
+      console.log('[SocketIO] Typing event received:', data);
+      if (onTyping) {
+        onTyping(data);
+      }
+    });
+    
+    socket.on('read_receipt', (data: unknown) => {
+      console.log('[SocketIO] Read receipt received:', data);
+      // Forward read receipts to message handler
+      onMessage(data);
+    });
+    
+    return socket;
+  },
+
+  // Send typing indicator via Socket.IO
+  sendSocketIOTypingIndicator: (socket: Socket, isTyping: boolean) => {
+    if (socket && socket.connected) {
+      socket.emit('typing', { isTyping });
+      console.log('[SocketIO] Sent typing indicator:', isTyping);
+    } else {
+      console.warn('[SocketIO] Cannot send typing - socket not connected');
+    }
+  },
+
+  // OLD WebSocket method (kept temporarily for reference, will be removed)
   createWebSocketConnection: (chatId: string, onMessage: (message: unknown) => void, onTyping?: (data: unknown) => void) => {
     const token = localStorage.getItem('token');
     if (!token) {

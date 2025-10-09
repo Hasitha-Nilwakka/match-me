@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { authApi, chatApi, getApiUrl } from "../lib/api";
 import { useChat } from "../context/ChatContext";
+import type { Socket } from "socket.io-client";
 
 interface Message {
   id: number;
@@ -69,8 +70,8 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
   // Sticky lock: when true, never auto-scroll until user returns to bottom
   const userScrolledUpRef = useRef<boolean>(false);
   const clearLockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // Chat list lightweight WS refs for typing indicators
-  const listWsRef = useRef<Record<number, WebSocket>>({});
+  // Chat list lightweight Socket.IO refs for typing indicators
+  const listSocketsRef = useRef<Record<number, Socket>>({});
   const listTypingTimersRef = useRef<Record<number, NodeJS.Timeout>>({});
 
   // Track whether user is near the bottom to decide autoscroll
@@ -132,13 +133,14 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     // Update the ref for next comparison
     prevMessageCountRef.current = currentCount;
   }, [messages]);
-  const wsRef = useRef<WebSocket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const activeChatRef = useRef<number | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const recentWsAtRef = useRef<number>(0);
   const currentUser = authApi.getCurrentUser();
   const mode = "real" as const;
   const { targetChatId, clearTargetChat } = useChat();
+  const [connectionState, setConnectionState] = useState<'connected' | 'disconnected' | 'reconnecting'>('disconnected');
 
   // Debug mode changes for chat popup
   useEffect(() => {
@@ -192,15 +194,15 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     }
   }, [targetChatId, chats, clearTargetChat]);
 
-  // Lightweight typing listeners for chat list (top 5 recent chats)
+  // Lightweight typing listeners for chat list (top 5 recent chats) - Socket.IO version
   useEffect(() => {
     // Only when popup is open and no active chat (list view)
     if (!isOpen || activeChat) {
       // Cleanup any existing list sockets
-      Object.values(listWsRef.current).forEach((ws) => {
-        try { ws.close(); } catch {}
+      Object.values(listSocketsRef.current).forEach((socket) => {
+        try { socket.disconnect(); } catch {}
       });
-      listWsRef.current = {};
+      listSocketsRef.current = {};
       return;
     }
 
@@ -216,21 +218,21 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     const currentIds = new Set(topChats.map(c => c.id));
 
     // Close sockets that are no longer in top set
-    Object.entries(listWsRef.current).forEach(([idStr, ws]) => {
+    Object.entries(listSocketsRef.current).forEach(([idStr, socket]) => {
       const id = Number(idStr);
       if (!currentIds.has(id)) {
-        try { ws.close(); } catch {}
-        delete listWsRef.current[id];
+        try { socket.disconnect(); } catch {}
+        delete listSocketsRef.current[id];
       }
     });
 
-    // Open sockets for new top chats
+    // Open Socket.IO connections for new top chats
     topChats.forEach((chat) => {
-      if (listWsRef.current[chat.id]) return; // already open
+      if (listSocketsRef.current[chat.id]) return; // already open
       try {
-        const ws = chatApi.createWebSocketConnection(
+        const socket = chatApi.createSocketIOConnection(
           String(chat.id),
-          () => {},
+          () => {}, // No message handling needed for list view
           (typingData: unknown) => {
             const data = typingData as { isTyping: boolean; userId: number; chatId: number };
             if (!data || data.chatId !== chat.id) return;
@@ -251,18 +253,18 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
             }
           }
         );
-        listWsRef.current[chat.id] = ws;
+        listSocketsRef.current[chat.id] = socket;
       } catch (e) {
-        console.error('[ChatPopup] Failed to open list WS for chat', chat.id, e);
+        console.error('[ChatPopup] Failed to open list Socket.IO for chat', chat.id, e);
       }
     });
 
     return () => {
       // Cleanup on unmount/list leave
-      Object.values(listWsRef.current).forEach((ws) => {
-        try { ws.close(); } catch {}
+      Object.values(listSocketsRef.current).forEach((socket) => {
+        try { socket.disconnect(); } catch {}
       });
-      listWsRef.current = {};
+      listSocketsRef.current = {};
     };
   }, [isOpen, activeChat, chats]);
 
@@ -369,38 +371,58 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       .catch((err) => console.error('Failed to mark messages as read:', err));
   };
 
-  // WebSocket connection for active chat
+  // Socket.IO connection for active chat
   useEffect(() => {
-    console.log('[ChatPopup] WebSocket useEffect triggered, activeChat:', activeChat);
+    console.log('[ChatPopup] Socket.IO useEffect triggered, activeChat:', activeChat);
     console.log('[ChatPopup] isOpen:', isOpen);
     console.log('[ChatPopup] chats.length:', chats.length);
     
     // Cleanup any existing connection
-    if (wsRef.current) {
-      try { wsRef.current.close(); } catch { /* noop */ }
-      wsRef.current = null;
+    if (socketRef.current) {
+      try {
+        socketRef.current.disconnect();
+      } catch { /* noop */ }
+      socketRef.current = null;
     }
     activeChatRef.current = activeChat;
 
     if (!activeChat) {
-      console.log('[ChatPopup] No active chat, skipping WebSocket setup');
+      console.log('[ChatPopup] No active chat, skipping Socket.IO setup');
+      setConnectionState('disconnected');
       return;
     }
     
-    console.log('[ChatPopup] Setting up WebSocket for chat:', activeChat);
+    console.log('[ChatPopup] Setting up Socket.IO for chat:', activeChat);
     console.log('[ChatPopup] Current user ID:', currentUser?.id);
     console.log('[ChatPopup] Token exists:', !!localStorage.getItem('token'));
     
     try {
-      const ws = chatApi.createWebSocketConnection(
+      setConnectionState('reconnecting');
+      const socket = chatApi.createSocketIOConnection(
         activeChat.toString(), 
         (incoming: unknown) => {
-          console.log('[ChatPopup] WebSocket message received:', incoming);
-          console.log('[ChatPopup] WebSocket connection state:', ws?.readyState);
+          console.log('[ChatPopup] Socket.IO message received:', incoming);
+          console.log('[ChatPopup] Socket.IO connection state:', socket.connected);
           
-          // Expecting ChatMessage shape
+          // Handle read receipts
+          const msgData = incoming as any;
+          if (msgData && msgData.type === 'read') {
+            console.log('[ChatPopup] Read event received:', msgData);
+            const chatId = msgData.chatId;
+            const lastReadId = msgData.lastReadMessageId;
+            setChats(prev => prev.map(c => c.id === chatId ? { ...c, unreadCount: 0 } : c));
+            if (chatId === activeChatRef.current) {
+              setMessages(prev => prev.map(m => {
+                const shouldMark = m.senderId === currentUser?.id && (!lastReadId || m.id <= lastReadId);
+                return shouldMark ? { ...m, isRead: true } : m;
+              }));
+            }
+            return;
+          }
+          
+          // Handle regular chat messages
           const msg = incoming as Message;
-          if (!msg || typeof msg !== 'object') {
+          if (!msg || typeof msg !== 'object' || !msg.id) {
             console.log('[ChatPopup] Invalid message format:', msg);
             return;
           }
@@ -450,41 +472,42 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
           )));
         }
       );
-      // Listen for read receipt events on the same socket
-      ws.addEventListener('message', (ev) => {
-        const raw = String(ev.data || '');
-        const parts = raw.split('\n').map(s => s.trim()).filter(Boolean);
-        for (const part of (parts.length ? parts : [raw])) {
-          try {
-            const payload = JSON.parse(part);
-            const type = payload?.type ?? payload?.Type;
-            if (type === 'read') {
-              console.log('[ChatPopup] Read event received:', payload);
-              const chatId = payload?.chatId ?? payload?.ChatID;
-              const lastReadId = payload?.lastReadMessageId ?? payload?.LastReadMessageID;
-              setChats(prev => prev.map(c => c.id === chatId ? { ...c, unreadCount: 0 } : c));
-              if (chatId === activeChatRef.current) {
-                setMessages(prev => prev.map(m => {
-                  const shouldMark = m.senderId === currentUser?.id && (!lastReadId || m.id <= lastReadId);
-                  return shouldMark ? { ...m, isRead: true } : m;
-                }));
-              }
-            }
-          } catch {
-            // ignore non-JSON frames
-          }
-        }
+      
+      // Add connection state listeners
+      socket.on('connect', () => {
+        console.log('[ChatPopup] Socket.IO connected');
+        setConnectionState('connected');
       });
-      wsRef.current = ws;
+      
+      socket.on('disconnect', () => {
+        console.log('[ChatPopup] Socket.IO disconnected');
+        setConnectionState('disconnected');
+      });
+      
+      socket.on('reconnecting', () => {
+        console.log('[ChatPopup] Socket.IO reconnecting');
+        setConnectionState('reconnecting');
+      });
+      
+      socket.on('reconnect', () => {
+        console.log('[ChatPopup] Socket.IO reconnected');
+        setConnectionState('connected');
+      });
+      
+      socketRef.current = socket;
     } catch (error) {
-      console.error('[ChatPopup] Failed to open WebSocket for chat', activeChat, error);
+      console.error('[ChatPopup] Failed to open Socket.IO connection for chat', activeChat, error);
+      setConnectionState('disconnected');
     }
 
     return () => {
-      if (wsRef.current) {
-        try { wsRef.current.close(); } catch { /* noop */ }
-        wsRef.current = null;
+      if (socketRef.current) {
+        try {
+          socketRef.current.disconnect();
+        } catch { /* noop */ }
+        socketRef.current = null;
       }
+      setConnectionState('disconnected');
     };
   }, [activeChat, currentUser?.id, isOpen, chats.length]);
 
@@ -642,7 +665,9 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     // Stop typing indicator
     if (isTyping) {
       setIsTyping(false);
-      chatApi.sendTypingIndicator(wsRef.current!, false);
+      if (socketRef.current) {
+        chatApi.sendSocketIOTypingIndicator(socketRef.current, false);
+      }
     }
     
     // Clear typing timeout
@@ -699,11 +724,11 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
     if (!isTyping && e.target.value.trim()) {
       console.log('[ChatPopup] Starting typing indicator');
       setIsTyping(true);
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        chatApi.sendTypingIndicator(wsRef.current, true);
-        console.log('[ChatPopup] Sent typing start via WebSocket');
+      if (socketRef.current && socketRef.current.connected) {
+        chatApi.sendSocketIOTypingIndicator(socketRef.current, true);
+        console.log('[ChatPopup] Sent typing start via Socket.IO');
       } else {
-        console.log('[ChatPopup] WebSocket not ready, cannot send typing indicator');
+        console.log('[ChatPopup] Socket.IO not connected, cannot send typing indicator');
       }
     }
     
@@ -717,9 +742,9 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
       if (isTyping) {
         console.log('[ChatPopup] Stopping typing indicator (timeout)');
         setIsTyping(false);
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          chatApi.sendTypingIndicator(wsRef.current, false);
-          console.log('[ChatPopup] Sent typing stop via WebSocket');
+        if (socketRef.current && socketRef.current.connected) {
+          chatApi.sendSocketIOTypingIndicator(socketRef.current, false);
+          console.log('[ChatPopup] Sent typing stop via Socket.IO');
         }
       }
     }, 1000);
@@ -948,6 +973,16 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                       <span className="font-medium text-gray-900">
                         {currentChatUser?.name || 'Chat'}
                       </span>
+                      {/* Connection Status Indicator */}
+                      {connectionState === 'reconnecting' && (
+                        <span className="text-xs text-yellow-600 flex items-center">
+                          <svg className="w-3 h-3 mr-1 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Reconnecting...
+                        </span>
+                      )}
                     </div>
                     
                     {/* Message Search Button */}
