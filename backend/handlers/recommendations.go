@@ -576,6 +576,15 @@ func LikeRecommendationHandler(c *gin.Context) {
 		return
 	}
 
+	// Parse request body for optional message
+	var requestBody struct {
+		Message string `json:"message"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		// Message is optional, so we don't require JSON body
+		requestBody.Message = ""
+	}
+
 	// Check if user exists and is active
 	var recommendedUser models.User
 	if err := db.DB.Where("id = ? AND is_active = ?", uint(recommendedUserID), true).First(&recommendedUser).Error; err != nil {
@@ -596,6 +605,7 @@ func LikeRecommendationHandler(c *gin.Context) {
 		RequesterID: userID,
 		ReceiverID:  uint(recommendedUserID),
 		Status:      "pending",
+		Message:     requestBody.Message,
 	}
 
 	if err := db.DB.Create(&connection).Error; err != nil {

@@ -605,9 +605,13 @@ export const recommendationsApi = {
   },
 
   // Like a recommendation (send connection request)
-  likeRecommendation: async (userId: string) => {
+  likeRecommendation: async (userId: string, message?: string) => {
     const response = await authenticatedApiRequest(API_ENDPOINTS.RECOMMENDATIONS.LIKE(userId), {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: message || '' }),
     });
     if (!response.ok) {
       throw new Error('Failed to like recommendation');

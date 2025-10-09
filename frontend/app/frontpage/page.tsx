@@ -91,6 +91,7 @@ export default function FrontPage() {
     useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [connectionMessage, setConnectionMessage] = useState("");
   // Get current recommendation
   const currentRec = recommendations[currentRecommendationIndex];
 
@@ -567,10 +568,11 @@ export default function FrontPage() {
     if (!currentRec) return;
 
     try {
-      await recommendationsApi.likeRecommendation(currentRec.id.toString());
-      console.log("Liked user:", currentRec.id);
+      await recommendationsApi.likeRecommendation(currentRec.id.toString(), connectionMessage);
+      console.log("Liked user:", currentRec.id, "with message:", connectionMessage);
 
-      // Move to next recommendation
+      // Clear message and move to next recommendation
+      setConnectionMessage("");
       handleNext();
     } catch (error) {
       console.error("Error liking recommendation:", error);
@@ -887,6 +889,27 @@ export default function FrontPage() {
                   </div>
                 );
               })()}
+
+              {/* Message Input */}
+              {recommendations.length > 0 && (
+                <div className="mb-4">
+                  <label htmlFor="connectionMessage" className="block text-sm font-medium text-gray-700 mb-2">
+                    Add a message (optional)
+                  </label>
+                  <textarea
+                    id="connectionMessage"
+                    value={connectionMessage}
+                    onChange={(e) => setConnectionMessage(e.target.value)}
+                    placeholder="Say hello and let them know why you'd like to connect..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    rows={3}
+                    maxLength={500}
+                  />
+                  <div className="text-xs text-gray-500 mt-1 text-right">
+                    {connectionMessage.length}/500 characters
+                  </div>
+                </div>
+              )}
 
               {/* Action Buttons or Empty Actions */}
               {recommendations.length > 0 ? (

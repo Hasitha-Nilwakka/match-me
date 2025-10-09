@@ -50,6 +50,7 @@ export default function ConnectionRequestsPage() {
           profilePicture?: string;
           requestDate: string;
           status: string;
+          message?: string;
         }) => ({
           id: req.id,
           firstName: req.firstName,
@@ -63,7 +64,7 @@ export default function ConnectionRequestsPage() {
           isOnline: false, // Backend doesn't provide online status yet
           lastSeen: "Recently",
           requestDate: req.requestDate,
-          message: "Would like to connect with you!",
+          message: req.message || "Would like to connect with you!",
         })
       );
       setRequests(transformedRequests);
@@ -289,7 +290,7 @@ export default function ConnectionRequestsPage() {
                     With Messages
                   </p>
                   <p className="text-2xl font-semibold text-gray-900">
-                    {requests.length}
+                    {requests.filter(req => req.message && req.message.trim() !== "").length}
                   </p>
                 </div>
               </div>

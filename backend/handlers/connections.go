@@ -20,6 +20,7 @@ type ConnectionResponse struct {
 	RequesterID uint   `json:"requesterId"`
 	ReceiverID  uint   `json:"receiverId"`
 	Status      string `json:"status"`
+	Message     string `json:"message,omitempty"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
 
@@ -464,6 +465,7 @@ func GetConnectionRequestsHandler(c *gin.Context) {
 			"profilePicture": profile.ProfilePictureURL,
 			"requestDate":    req.CreatedAt.Format("2006-01-02"),
 			"status":         req.Status,
+			"message":        req.Message,
 		}
 
 		formattedRequests = append(formattedRequests, formattedRequest)

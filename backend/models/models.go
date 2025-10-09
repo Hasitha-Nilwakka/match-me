@@ -203,6 +203,7 @@ type Connection struct {
 	RequesterID uint   `gorm:"not null"`
 	ReceiverID  uint   `gorm:"not null"`
 	Status      string `gorm:"default:'pending'"`
+	Message     string `gorm:"type:text"`
 
 	Requester User `gorm:"foreignKey:RequesterID"`
 	Receiver  User `gorm:"foreignKey:ReceiverID"`
