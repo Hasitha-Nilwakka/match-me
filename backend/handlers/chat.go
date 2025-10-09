@@ -4,42 +4,12 @@ import (
 	"backend/db"
 	"backend/middleware"
 	"backend/models"
-	"backend/utils"
-	"encoding/json"
 	"log"
-	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 )
-
-// WebSocket upgrader
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins in development
-	},
-}
-
-// Client represents a WebSocket client
-type Client struct {
-	Hub      *Hub
-	Conn     *websocket.Conn
-	Send     chan []byte
-	UserID   uint
-	ChatID   uint
-	IsTyping bool
-	TypingAt time.Time
-}
-
-// Hub maintains the set of active clients and broadcasts messages
-type Hub struct {
-	clients    map[*Client]bool
-	broadcast  chan []byte
-	register   chan *Client
-	unregister chan *Client
-}
 
 // Message represents a chat message
 type Message struct {
@@ -83,256 +53,6 @@ type UserInfo struct {
 	ProfilePicture string     `json:"profilePicture"`
 	IsOnline       bool       `json:"isOnline"`
 	LastSeen       *time.Time `json:"lastSeen,omitempty"`
-}
-
-// NewHub creates a new WebSocket hub
-func NewHub() *Hub {
-	return &Hub{
-		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-	}
-}
-
-// Run starts the hub
-func (h *Hub) Run() {
-	for {
-		select {
-		case client := <-h.register:
-			h.clients[client] = true
-			log.Printf("Client registered for user %d in chat %d", client.UserID, client.ChatID)
-
-		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.Send)
-				log.Printf("Client unregistered for user %d in chat %d", client.UserID, client.ChatID)
-			}
-
-		case message := <-h.broadcast:
-			for client := range h.clients {
-				select {
-				case client.Send <- message:
-				default:
-					close(client.Send)
-					delete(h.clients, client)
-				}
-			}
-		}
-	}
-}
-
-// readPump pumps messages from the websocket connection to the hub
-func (c *Client) readPump() {
-	defer func() {
-		c.Hub.unregister <- c
-		c.Conn.Close()
-	}()
-
-	c.Conn.SetReadLimit(512)
-	c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-	c.Conn.SetPongHandler(func(string) error {
-		c.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-		return nil
-	})
-
-	for {
-		_, messageBytes, err := c.Conn.ReadMessage()
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
-			}
-			break
-		}
-
-		// Parse the incoming message
-		var messageData map[string]interface{}
-		if err := json.Unmarshal(messageBytes, &messageData); err != nil {
-			log.Printf("Error parsing WebSocket message: %v", err)
-			continue
-		}
-
-		// Handle different message types
-		if messageType, ok := messageData["type"].(string); ok {
-			switch messageType {
-			case "auth":
-				// Authentication message - just log it
-				log.Printf("WebSocket auth received for user %d in chat %d", c.UserID, c.ChatID)
-			case "typing":
-				// Handle typing indicator
-				if isTyping, ok := messageData["isTyping"].(bool); ok {
-					// Update client typing status
-					c.IsTyping = isTyping
-					if isTyping {
-						c.TypingAt = time.Now()
-					}
-
-					// Create typing indicator message
-					typingMessage := map[string]interface{}{
-						"type":     "typing",
-						"isTyping": isTyping,
-						"userId":   c.UserID,
-						"chatId":   c.ChatID,
-					}
-
-					typingBytes, _ := json.Marshal(typingMessage)
-
-					// Broadcast to all clients in this chat except the sender
-					for client := range c.Hub.clients {
-						if client.ChatID == c.ChatID && client.UserID != c.UserID {
-							select {
-							case client.Send <- typingBytes:
-							default:
-								close(client.Send)
-								delete(c.Hub.clients, client)
-							}
-						}
-					}
-
-					// log.Printf("Typing indicator: user %d in chat %d is typing: %v", c.UserID, c.ChatID, isTyping)
-				}
-			default:
-				log.Printf("Unknown WebSocket message type: %s", messageType)
-			}
-		}
-	}
-}
-
-// writePump pumps messages from the hub to the websocket connection
-func (c *Client) writePump() {
-	ticker := time.NewTicker(54 * time.Second)
-	defer func() {
-		ticker.Stop()
-		c.Conn.Close()
-	}()
-
-	for {
-		select {
-		case message, ok := <-c.Send:
-			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-			if !ok {
-				c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
-
-			w, err := c.Conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			w.Write(message)
-
-			// Add queued chat messages to the current websocket message
-			n := len(c.Send)
-			for i := 0; i < n; i++ {
-				w.Write([]byte{'\n'})
-				w.Write(<-c.Send)
-			}
-
-			if err := w.Close(); err != nil {
-				return
-			}
-
-		case <-ticker.C:
-			c.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				return
-			}
-		}
-	}
-}
-
-// serveWS handles websocket requests from clients
-func serveWS(hub *Hub, w http.ResponseWriter, r *http.Request, userID uint, chatID uint) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
-		return
-	}
-
-	client := &Client{
-		Hub:    hub,
-		Conn:   conn,
-		Send:   make(chan []byte, 256),
-		UserID: userID,
-		ChatID: chatID,
-	}
-
-	client.Hub.register <- client
-
-	go client.writePump()
-	go client.readPump()
-}
-
-// WebSocketHandler handles WebSocket connections for chat
-func WebSocketHandler(hub *Hub) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		log.Printf("WebSocket connection attempt from %s", c.ClientIP())
-
-		// For WebSocket connections, we need to handle authentication differently
-		// since WebSocket can't use Authorization headers
-		var userID uint
-		var err error
-
-		// First try to get user ID from context (if middleware worked)
-		if id, exists := middleware.GetUserIDFromContext(c); exists {
-			userID = id
-			log.Printf("WebSocket auth: Got user ID from context: %d", userID)
-		} else {
-			// Fallback: try to get token from query parameter
-			token := c.Query("token")
-			if token == "" {
-				log.Printf("WebSocket auth: No token provided")
-				c.JSON(401, gin.H{"error": "No authentication token provided"})
-				return
-			}
-
-			// Validate the JWT token
-			userID, err = utils.ValidateJWT(token)
-			if err != nil {
-				log.Printf("WebSocket auth: Invalid token: %v", err)
-				c.JSON(401, gin.H{"error": "Invalid or expired token"})
-				return
-			}
-			log.Printf("WebSocket auth: Got user ID from token: %d", userID)
-			log.Printf("WebSocket auth: Token: %s", token)
-		}
-
-		chatIDStr := c.Param("chatId")
-		chatID, err := strconv.ParseUint(chatIDStr, 10, 32)
-		if err != nil {
-			c.JSON(400, gin.H{"error": "Invalid chat ID"})
-			return
-		}
-
-		// Verify user has access to this chat
-		var chat models.Chat
-		if err := db.DB.Preload("Connection").Where("id = ?", uint(chatID)).First(&chat).Error; err != nil {
-			log.Printf("WebSocket access: Chat %d not found: %v", chatID, err)
-			c.JSON(404, gin.H{"error": "Chat not found"})
-			return
-		}
-
-		log.Printf("WebSocket access: Chat %d found, connection: requester=%d, receiver=%d, status=%s",
-			chatID, chat.Connection.RequesterID, chat.Connection.ReceiverID, chat.Connection.Status)
-
-		// Check if user is part of this connection
-		if chat.Connection.RequesterID != userID && chat.Connection.ReceiverID != userID {
-			log.Printf("WebSocket access: User %d denied access to chat %d", userID, chatID)
-			c.JSON(403, gin.H{"error": "Access denied to this chat"})
-			return
-		}
-
-		// Check if connection is accepted
-		if chat.Connection.Status != "accepted" {
-			log.Printf("WebSocket access: Chat %d not accepted (status: %s)", chatID, chat.Connection.Status)
-			c.JSON(403, gin.H{"error": "Chat is not available"})
-			return
-		}
-
-		log.Printf("WebSocket access: User %d granted access to chat %d", userID, chatID)
-		serveWS(hub, c.Writer, c.Request, userID, uint(chatID))
-	}
 }
 
 // buildChatResponse creates a ChatResponse from a models.Chat
@@ -513,7 +233,7 @@ func CreateChatHandler(c *gin.Context) {
 }
 
 // GetChatsHandler returns all chats for the current user
-func GetChatsHandler(hub *Hub) gin.HandlerFunc {
+func GetChatsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := middleware.GetUserIDFromContext(c)
 		if !exists {
@@ -645,16 +365,8 @@ func GetChatsHandler(hub *Hub) gin.HandlerFunc {
 			// Check if the other user is currently typing in this chat
 			response.IsTyping = false
 			if response.OtherUser != nil {
-				// Check if there's a WebSocket client for the other user in this chat
-				for client := range hub.clients {
-					if client.UserID == response.OtherUser.ID && client.ChatID == chat.ID && client.IsTyping {
-						// Check if typing is recent (within last 5 seconds)
-						if time.Since(client.TypingAt) < 5*time.Second {
-							response.IsTyping = true
-							break
-						}
-					}
-				}
+				// Check if the other user is currently typing (using Socket.IO typing state)
+				response.IsTyping = IsUserTyping(response.OtherUser.ID, chat.ID)
 			}
 
 			chatResponses = append(chatResponses, response)
@@ -765,7 +477,7 @@ func GetChatMessagesHandler(c *gin.Context) {
 }
 
 // SendMessageHandler handles sending a new message
-func SendMessageHandler(hub *Hub) gin.HandlerFunc {
+func SendMessageHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := middleware.GetUserIDFromContext(c)
 		if !exists {
@@ -861,27 +573,9 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 			messageResponse.SenderName = sender.Profile.FirstName + " " + sender.Profile.LastName
 		}
 
-		// Broadcast message to WebSocket clients in this chat
-		messageBytes, _ := json.Marshal(messageResponse)
-
-		// Send message only to clients connected to this specific chat
-		// log.Printf("Broadcasting message to chat %d, found %d total clients", chatID, len(hub.clients))
-		sentCount := 0
-		for client := range hub.clients {
-			if client.ChatID == uint(chatID) {
-				// log.Printf("Sending message to client: user %d in chat %d", client.UserID, client.ChatID)
-				select {
-				case client.Send <- messageBytes:
-					sentCount++
-					// log.Printf("Message sent successfully to user %d", client.UserID)
-				default:
-					log.Printf("Failed to send message to user %d, closing connection", client.UserID)
-					close(client.Send)
-					delete(hub.clients, client)
-				}
-			}
-		}
-		// log.Printf("Message broadcast complete: sent to %d clients in chat %d", sentCount, chatID)
+		// Broadcast message to all Socket.IO clients in this chat room
+		BroadcastMessageToChat(uint(chatID), messageResponse)
+		log.Printf("[SocketIO] Message broadcasted to chat %d", chatID)
 
 		c.JSON(201, gin.H{
 			"message": "Message sent successfully",
@@ -891,7 +585,7 @@ func SendMessageHandler(hub *Hub) gin.HandlerFunc {
 }
 
 // MarkMessagesAsReadHandler marks messages as read
-func MarkMessagesAsReadHandler(hub *Hub) gin.HandlerFunc {
+func MarkMessagesAsReadHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := middleware.GetUserIDFromContext(c)
 		if !exists {
@@ -931,27 +625,9 @@ func MarkMessagesAsReadHandler(hub *Hub) gin.HandlerFunc {
 		var lastRead models.Message
 		db.DB.Where("chat_id = ? AND sender_id != ?", uint(chatID), userID).Order("id DESC").First(&lastRead)
 
-		// Broadcast a read event to the other participant(s) in this chat
-		evt := map[string]interface{}{
-			"type":              "read",
-			"chatId":            uint(chatID),
-			"readerId":          userID,
-			"lastReadMessageId": lastRead.ID,
-		}
-		payload, _ := json.Marshal(evt)
-		sent := 0
-		for client := range hub.clients {
-			if client.ChatID == uint(chatID) && client.UserID != userID {
-				select {
-				case client.Send <- payload:
-					sent++
-				default:
-					close(client.Send)
-					delete(hub.clients, client)
-				}
-			}
-		}
-		// log.Printf("Broadcasted read event for chat %d by user %d to %d clients (lastRead=%d)", chatID, userID, sent, lastRead.ID)
+		// Broadcast a read receipt event to all Socket.IO clients in this chat room
+		BroadcastReadReceiptToChat(uint(chatID), userID, lastRead.ID)
+		log.Printf("[SocketIO] Read receipt broadcasted for chat %d by user %d (lastRead=%d)", chatID, userID, lastRead.ID)
 
 		c.JSON(200, gin.H{
 			"message": "Messages marked as read",

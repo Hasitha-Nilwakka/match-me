@@ -45,10 +45,10 @@ func main() {
 	// 	log.Printf("Warning: Failed to seed reference data: %v", err)
 	// }
 
-	// Create WebSocket hub for real-time chat functionality
-	// The hub manages client connections and message broadcasting
-	hub := handlers.NewHub()
-	go hub.Run() // Start the hub in a separate goroutine
+	// Create Socket.IO server for real-time chat functionality
+	// Socket.IO provides automatic reconnection, fallback transports, and better mobile support
+	socketIOServer := handlers.SetupSocketIO()
+	defer socketIOServer.Close(nil)
 
 	// Set Gin to release mode to reduce development warnings
 	// In production, this provides better performance and security
@@ -150,16 +150,18 @@ func main() {
 		protected.DELETE("/connections/:id", handlers.DeleteConnectionHandler)        // Delete connection
 
 		// Real-time chat system endpoints
-		protected.POST("/chats", handlers.CreateChatHandler)                          // Create a new chat
-		protected.GET("/chats", handlers.GetChatsHandler(hub))                        // Get user's chats
-		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)     // Get chat messages
-		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler(hub))   // Send new message
-		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler(hub)) // Mark messages as read
-		protected.DELETE("/chats/:chatId", handlers.DeleteChatHandler)                // Delete chat and messages
+		protected.POST("/chats", handlers.CreateChatHandler)                       // Create a new chat
+		protected.GET("/chats", handlers.GetChatsHandler())                        // Get user's chats
+		protected.GET("/chats/:chatId/messages", handlers.GetChatMessagesHandler)  // Get chat messages
+		protected.POST("/chats/:chatId/messages", handlers.SendMessageHandler())   // Send new message
+		protected.PUT("/chats/:chatId/read", handlers.MarkMessagesAsReadHandler()) // Mark messages as read
+		protected.DELETE("/chats/:chatId", handlers.DeleteChatHandler)             // Delete chat and messages
 	}
 
-	// WebSocket endpoint (outside protected group - handles auth internally)
-	r.GET("/chats/:chatId/ws", handlers.WebSocketHandler(hub)) // WebSocket connection
+	// Socket.IO endpoint for real-time chat
+	// Handles both GET (upgrade to WebSocket) and POST (polling fallback)
+	r.GET("/socket.io/*any", gin.WrapH(socketIOServer.ServeHandler(nil)))
+	r.POST("/socket.io/*any", gin.WrapH(socketIOServer.ServeHandler(nil)))
 
 	// Server test.html file
 	r.StaticFile("/test", "./test.html")
