@@ -35,6 +35,12 @@ Starts both backend and frontend with full dev tooling (build indicators, error 
 ```
 Starts both servers with clean UI (no dev indicators) - perfect for testing on Android/iPad.
 
+### For Production Testing
+```bash
+./start-production.sh
+```
+Builds and runs optimized production versions of both servers. Completely clean UI, no dev overlays, best performance.
+
 ### Manual Start
 See detailed setup instructions below.
 
@@ -334,6 +340,7 @@ This enhancement enables more sophisticated matching algorithms that can priorit
 ### Quick Start Scripts (Project Root)
 - `./start.sh` - Start backend + frontend with full dev tooling
 - `./start-mobile.sh` - Start both servers with clean UI (for mobile testing)
+- `./start-production.sh` - Build and run production versions (optimized, no overlays)
 
 ### Frontend Scripts
 - `npm run dev` - Start dev server (full dev tooling)
