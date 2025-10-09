@@ -962,14 +962,6 @@ export default function ChatPopup({ isOpen, onClose, onChatDeleted }: ChatPopupP
                 <div className="p-3 border-b border-gray-200 bg-white">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => setActiveChat(null)}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
                       <span className="font-medium text-gray-900">
                         {currentChatUser?.name || 'Chat'}
                       </span>

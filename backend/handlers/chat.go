@@ -258,7 +258,7 @@ func GetChatsHandler() gin.HandlerFunc {
 		log.Printf("Found %d chats for user %d", len(chats), userID)
 
 		// Build response with de-duplication per counterpart user
-		var chatResponses []ChatResponse
+		chatResponses := make([]ChatResponse, 0)
 		seenByCounterpart := make(map[uint]bool)
 		for _, chat := range chats {
 			response := ChatResponse{
@@ -296,6 +296,12 @@ func GetChatsHandler() gin.HandlerFunc {
 					IsOnline:       isOnline,
 					LastSeen:       lastSeen,
 				}
+			}
+
+			// Skip chats where the other user's profile is missing
+			if response.OtherUser == nil {
+				log.Printf("Skipping chat %d for user %d: other user (ID: %d) has no profile", chat.ID, userID, otherUser.ID)
+				continue
 			}
 
 			// If we've already included a chat with this counterpart, prefer the one that has a lastMessage or newer UpdatedAt
@@ -539,21 +545,14 @@ func SendMessageHandler() gin.HandlerFunc {
 			return
 		}
 
-		// Update chat's updated_at timestamp
-		now := time.Now()
-		updates := make(map[string]interface{})
-		updates["updated_at"] = now
-
-		// If this user has a deletion timestamp, update it to NOW to create a fresh cutoff
-		// This hides all old messages and only shows messages from this point forward
-		if chat.Connection.RequesterID == userID && chat.RequesterDeletedAt != nil {
-			updates["requester_deleted_at"] = now
-		}
-		if chat.Connection.ReceiverID == userID && chat.ReceiverDeletedAt != nil {
-			updates["receiver_deleted_at"] = now
-		}
-
-		db.DB.Model(&chat).Updates(updates)
+		// Update chat's updated_at timestamp only
+		// IMPORTANT: Do NOT move per-user deletion markers forward here.
+		// Advancing the deletion marker to now would immediately hide the
+		// just-created message for the user who previously deleted the chat.
+		// We keep the original deletion cutoff so that any new messages
+		// (created after the original deletion time) remain visible and
+		// old messages stay hidden for that user.
+		db.DB.Model(&chat).Update("updated_at", time.Now())
 
 		// Get sender info for WebSocket broadcast
 		var sender models.User

@@ -51,6 +51,7 @@ export const API_ENDPOINTS = {
   PROFILE: {
     GET_ME: '/me/profile',
     UPDATE_ME: '/me/profile',
+    DELETE_ME: '/me/delete-profile',
     GET_BY_ID: (id: string) => `/users/${id}/profile`,
     GET_BIographical: '/me/biographical',
     UPDATE_BIographical: '/me/biographical',
