@@ -21,6 +21,25 @@ match-me/
 │   └── package.json   # Node dependencies
 ```
 
+## Quick Start Scripts
+
+### For Standard Development
+```bash
+./start.sh
+```
+Starts both backend and frontend with full dev tooling (build indicators, error overlays, etc.)
+
+### For Mobile Testing
+```bash
+./start-mobile.sh
+```
+Starts both servers with clean UI (no dev indicators) - perfect for testing on Android/iPad.
+
+### Manual Start
+See detailed setup instructions below.
+
+---
+
 ## Setup Instructions
 
 ### Prerequisites
@@ -211,22 +230,56 @@ The Prisma schema mirrors GORM models and includes:
 ## Key Features
 
 - **Type-safe database access** with Prisma Client
-- **Real-time messaging** support with WebSocket chat system
+- **Real-time messaging** with Socket.IO (auto-reconnection, fallback transports, mobile-optimized)
+- **Real-time notifications** via per-user Socket.IO rooms (connections, requests, chat events)
 - **Advanced matching algorithm** with weighted preferences and location-based filtering
 - **Location-based matching** with Finnish municipality support
 - **Rich user profiles** with multiple interest categories and multi-select bio data
 - **Connection management** system (send requests, accept/reject, disconnect)
 - **Comprehensive preference system** with both specific values and priority weights
 - **Global floating chat (popup)** - All chat functionality (list, messages, typing, unread, delete) lives in a single popup component across all pages
-- **Mobile-responsive design** - Works on desktop and mobile devices
+- **Mobile-responsive design** - Works seamlessly on desktop and mobile devices
 - **Network access support** - Multi-device testing on local WiFi
 - **Chat deletion** - Delete conversations with confirmation dialogs
 - **Enhanced error handling** - Detailed debugging and user-friendly messages
- - **Chat search** - Filter chat list by user or last message; search inside a conversation with highlighting and next/prev navigation (Ctrl+F)
+- **Chat search** - Filter chat list by user or last message; search inside a conversation with highlighting and next/prev navigation (Ctrl+F)
+- **Auto-reconnection** - Survives network switches, app backgrounding, and temporary disconnections
 
 ## Recent Updates
 
-### Latest Features (v3.1) - October 2025
+### Latest Features (v4.0) - October 2025
+
+**🔌 Socket.IO Migration:**
+- Migrated from native WebSocket to Socket.IO for superior mobile reliability
+- ✅ **Automatic reconnection** with exponential backoff (no more "refresh to fix")
+- ✅ **Network switching support** (WiFi ↔ Cellular seamlessly)
+- ✅ **Transport fallback** (WebSocket → HTTP polling if blocked)
+- ✅ **Per-user rooms** for real-time notifications across the app
+- Removed 347 lines of old WebSocket Hub/Client code
+
+**⚡ Real-Time Updates:**
+- Connection requests appear instantly (no polling)
+- Accepted connections show immediately with toast notification
+- Pending requests badge updates in real-time
+- Connection list updates via Socket.IO events
+- Mobile menu badge shows notification count
+
+**📱 Mobile UX Improvements:**
+- Profile modal header stays accessible (z-index fix)
+- Connection/Request layouts unified and mobile-optimized
+- Custom confirmation dialogs (no browser chrome)
+- Toast notifications for user actions
+- Reduced visual flicker with visibility guards
+- Added `dev:mobile` mode for clean UI testing
+
+**🎯 UX Enhancements:**
+- Hidden Poor/Low recommendations (only Fair+ shown)
+- Confirmation dialogs for Remove/Dismiss actions
+- Fixed chat restart after deletion (messages no longer disappear)
+- Removed duplicate back arrow in chat
+- Notification badge on mobile menu button
+
+### Previous (v3.1) - October 2025
 
 **💬 Chat UX Consolidation:**
 - Removed separate chat pages; everything is handled in the floating popup (`ChatPopup`).
@@ -276,15 +329,25 @@ The seeking preferences system has been significantly enhanced to provide more d
 
 This enhancement enables more sophisticated matching algorithms that can prioritize certain preferences over others based on user-defined importance levels.
 
-## Available Scripts (Frontend)
+## Available Scripts
 
-- `npm run dev` - Start development server
+### Quick Start Scripts (Project Root)
+- `./start.sh` - Start backend + frontend with full dev tooling
+- `./start-mobile.sh` - Start both servers with clean UI (for mobile testing)
+
+### Frontend Scripts
+- `npm run dev` - Start dev server (full dev tooling)
+- `npm run dev:mobile` - Start dev server (clean UI, no build indicator)
+- `npm run dev:clean` - Same as dev:mobile (alias)
 - `npm run build` - Build for production
+- `npm run start` - Run production build
 - `npm run db:generate` - Generate Prisma client
 - `npm run db:push` - Push schema to database
 - `npm run db:migrate` - Create and run migrations
 - `npm run db:studio` - Open Prisma Studio (visual database browser)
 - `npm run db:seed` - Seed database with initial data
+
+See `frontend/DEV_MODES.md` for detailed guide on development modes.
 
 ## Troubleshooting
 
@@ -303,10 +366,12 @@ This enhancement enables more sophisticated matching algorithms that can priorit
 4. **Set frontend API URL** - In `frontend/.env.local`, set `NEXT_PUBLIC_API_URL` to `http://YOUR_LOCAL_IP:8080`, then restart `npm run dev`
 4. **Verify ports** - Backend (8080) and Frontend (3000) should be accessible
 
-#### WebSocket Connection Issues
-1. **Check network settings** - WebSocket URLs should match API base URL
-2. **Browser compatibility** - Modern browsers support WebSockets
-3. **Firewall settings** - Ensure WebSocket traffic is allowed
+#### Socket.IO Connection Issues
+1. **Check network settings** - Socket.IO connects to same base URL as API
+2. **Browser compatibility** - Modern browsers fully support Socket.IO
+3. **Firewall settings** - Socket.IO falls back to HTTP polling if WebSocket is blocked
+4. **Auto-reconnection** - Connection should restore automatically after network changes
+5. **Console logs** - Look for `[SocketIO]` prefixed messages in browser console
 
 #### Database Connection Problems
 1. **PostgreSQL running** - `brew services start postgresql` (macOS)
