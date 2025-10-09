@@ -240,36 +240,6 @@ export default function ConnectionListPage() {
     };
   }, [isAuthenticated, loadConnections, startingChatId]);
 
-  // Lightweight live refresh: periodically and on focus/visibility change
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    let intervalId: number | undefined;
-
-    const refresh = () => {
-      // Avoid spamming while actions in progress
-      if (startingChatId !== null) return;
-      loadConnections();
-    };
-
-    // Periodic refresh every 10s
-    intervalId = window.setInterval(refresh, 10000);
-
-    // Refresh when window gains focus or becomes visible
-    const onFocus = () => refresh();
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
-      if (intervalId) window.clearInterval(intervalId);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [isAuthenticated, loadConnections, startingChatId]);
 
   const handleStartChat = async (connection: Connection) => {
     console.log("[ConnectionList] handleStartChat called with:", connection);
