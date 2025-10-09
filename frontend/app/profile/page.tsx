@@ -1,8 +1,7 @@
 "use client";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   authApi,
   profileApi,
@@ -16,8 +15,6 @@ import Navigation from "../../components/Navigation";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [activeTab] = useState("profile");
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -138,41 +135,9 @@ export default function ProfilePage() {
     religion: 2,
   });
 
-  // Check authentication on page load
-  useEffect(() => {
-    // console.log("Profile page - checking authentication...");
-    // console.log("Is authenticated:", authApi.isAuthenticated());
-    // console.log("Token exists:", !!localStorage.getItem("token"));
-    // console.log("User exists:", !!localStorage.getItem("user"));
-
-    if (!authApi.isAuthenticated()) {
-      // console.log("Not authenticated, redirecting to home...");
-      router.push("/");
-    } else {
-      // console.log("Authenticated, loading profile data...");
-      setIsAuthenticated(true);
-
-      // Load countries first, then load profile data
-      const initializeData = async () => {
-        // console.log("Starting initialization...");
-        await loadCountries();
-        // console.log("Countries loaded, loading profile data...");
-        loadProfileData();
-        loadAvailableLanguages();
-        loadAvailableHobbies();
-        loadAvailableInterests();
-        loadAvailableFoodPreferences();
-        loadAvailableMusicGenres();
-        loadAvailableMovieGenres();
-        loadAvailableTravelTypes();
-      };
-
-      initializeData();
-    }
-  }, [router]);
 
   // Load available languages from backend
-  const loadAvailableLanguages = async () => {
+  const loadAvailableLanguages = useCallback(async () => {
     try {
       const languages = await referenceApi.getLanguages();
       setAvailableLanguages(languages);
@@ -194,10 +159,10 @@ export default function ProfilePage() {
         "Hindi",
       ]);
     }
-  };
+  }, []);
 
   // Load available hobbies from backend
-  const loadAvailableHobbies = async () => {
+  const loadAvailableHobbies = useCallback(async () => {
     try {
       const hobbies = await referenceApi.getHobbies();
       setAvailableHobbies(hobbies);
@@ -219,10 +184,10 @@ export default function ProfilePage() {
         "Technology",
       ]);
     }
-  };
+  }, []);
 
   // Load available interests from backend
-  const loadAvailableInterests = async () => {
+  const loadAvailableInterests = useCallback(async () => {
     try {
       const interests = await referenceApi.getInterests();
       setAvailableInterests(interests);
@@ -242,10 +207,10 @@ export default function ProfilePage() {
         "Writing",
       ]);
     }
-  };
+  }, []);
 
   // Load available food preferences from backend
-  const loadAvailableFoodPreferences = async () => {
+  const loadAvailableFoodPreferences = useCallback(async () => {
     try {
       const foodPreferences = await referenceApi.getFoodPreferences();
       setAvailableFoodPreferences(foodPreferences);
@@ -266,10 +231,10 @@ export default function ProfilePage() {
         "French",
       ]);
     }
-  };
+  }, []);
 
   // Load available music genres from backend
-  const loadAvailableMusicGenres = async () => {
+  const loadAvailableMusicGenres = useCallback(async () => {
     try {
       const musicGenres = await referenceApi.getMusicGenres();
       setAvailableMusicGenres(musicGenres);
@@ -290,10 +255,10 @@ export default function ProfilePage() {
         "Alternative",
       ]);
     }
-  };
+  }, []);
 
   // Load available movie genres from backend
-  const loadAvailableMovieGenres = async () => {
+  const loadAvailableMovieGenres = useCallback(async () => {
     try {
       const movieGenres = await referenceApi.getMovieGenres();
       setAvailableMovieGenres(movieGenres);
@@ -314,10 +279,10 @@ export default function ProfilePage() {
         "Crime",
       ]);
     }
-  };
+  }, []);
 
   // Load available travel types from backend
-  const loadAvailableTravelTypes = async () => {
+  const loadAvailableTravelTypes = useCallback(async () => {
     try {
       const travelTypes = await referenceApi.getTravelTypes();
       setAvailableTravelTypes(travelTypes);
@@ -338,10 +303,10 @@ export default function ProfilePage() {
         "Nightlife",
       ]);
     }
-  };
+  }, []);
 
   // Load countries from external API
-  const loadCountries = async () => {
+  const loadCountries = useCallback(async () => {
     try {
       // console.log("Loading countries...");
       const countriesData = await externalApi.getCountries();
@@ -356,10 +321,10 @@ export default function ProfilePage() {
       console.error("Error loading countries:", error);
       return [];
     }
-  };
+  }, []);
 
   // Load cities for a specific country
-  const loadCities = async (countryName: string) => {
+  const loadCities = useCallback(async (countryName: string) => {
     if (!countryName) {
       setCities([]);
       return;
@@ -407,10 +372,10 @@ export default function ProfilePage() {
     } finally {
       setIsLoadingCities(false);
     }
-  };
+  }, [countries, loadCountries]);
 
   // Load profile data
-  const loadProfileData = async () => {
+  const loadProfileData = useCallback(async () => {
     try {
       setIsLoading(true);
       const currentUser = authApi.getCurrentUser();
@@ -600,7 +565,41 @@ export default function ProfilePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadCities]);
+
+  // Check authentication on page load
+  useEffect(() => {
+    // console.log("Profile page - checking authentication...");
+    // console.log("Is authenticated:", authApi.isAuthenticated());
+    // console.log("Token exists:", !!localStorage.getItem("token"));
+    // console.log("User exists:", !!localStorage.getItem("user"));
+
+    if (!authApi.isAuthenticated()) {
+      // console.log("Not authenticated, redirecting to home...");
+      router.push("/");
+    } else {
+      // console.log("Authenticated, loading profile data...");
+      setIsAuthenticated(true);
+
+      // Load countries first, then load profile data
+      const initializeData = async () => {
+        // console.log("Starting initialization...");
+        await loadCountries();
+        // console.log("Countries loaded, loading profile data...");
+        loadProfileData();
+        loadAvailableLanguages();
+        loadAvailableHobbies();
+        loadAvailableInterests();
+        loadAvailableFoodPreferences();
+        loadAvailableMusicGenres();
+        loadAvailableMovieGenres();
+        loadAvailableTravelTypes();
+      };
+
+      initializeData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
 
   // Handle input changes
   const handleInputChange = (field: string, value: string) => {

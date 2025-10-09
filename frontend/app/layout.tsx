@@ -30,7 +30,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} ${inter.variable}`}>
+      <body 
+        className={`${inter.className} ${inter.variable}`}
+        suppressHydrationWarning={true}
+      >
         <DataModeProvider>
           <ChatProvider>
             <GlobalChatProvider>{children}</GlobalChatProvider>

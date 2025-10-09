@@ -131,6 +131,33 @@ export default function FrontPage() {
             e
           );
         }
+
+        // Load seeking preferences for normalization
+        try {
+          const seekingData = await profileApi.getSeekingPreferences();
+          setMySeeking({
+            genderPreference: seekingData.genderPreference,
+            statusPreference: seekingData.statusPreference,
+            genderWeight: seekingData.genderWeight || 0,
+            statusWeight: seekingData.statusWeight || 0,
+            relationshipWeight: seekingData.relationshipWeight || 0,
+            locationWeight: seekingData.locationWeight || 0,
+            languagesWeight: seekingData.languagesWeight || 3,
+            interestsWeight: seekingData.interestsWeight || 2,
+            hobbiesWeight: seekingData.hobbiesWeight || 2,
+            foodPreferencesWeight: seekingData.foodPreferencesWeight || 1,
+            musicGenresWeight: seekingData.musicGenresWeight || 1,
+            movieGenresWeight: seekingData.movieGenresWeight || 1,
+            travelTypesWeight: seekingData.travelTypesWeight || 2,
+            ethnicityWeight: seekingData.ethnicityWeight || 1,
+            religionWeight: seekingData.religionWeight || 1,
+          });
+        } catch (e) {
+          console.warn(
+            "Failed to load seeking preferences for normalization:",
+            e
+          );
+        }
         
         // Only load recommendations if profile is complete
         if (profile.firstName && profile.firstName.trim()) {
@@ -148,6 +175,65 @@ export default function FrontPage() {
       setIsLoading(false);
     }
   }, []);
+
+  // --- Overall normalization utilities (Option C) ---
+  const computeMaxPossible = useCallback((): number => {
+    // Backend default weights when seeking preferences are not set
+    const defaultWeights = {
+      hobbiesWeight: 2,
+      interestsWeight: 2,
+      musicGenresWeight: 1,
+      movieGenresWeight: 1,
+      foodPreferencesWeight: 1,
+      travelTypesWeight: 2,
+      languagesWeight: 3,
+      ethnicityWeight: 1,
+      religionWeight: 1,
+      genderWeight: 0,
+      statusWeight: 0,
+    } as const;
+
+    const s = mySeeking || {
+      genderPreference: undefined,
+      statusPreference: undefined,
+      genderWeight: 0,
+      statusWeight: defaultWeights.statusWeight,
+      relationshipWeight: 0,
+      locationWeight: 0,
+      languagesWeight: defaultWeights.languagesWeight,
+      interestsWeight: defaultWeights.interestsWeight,
+      hobbiesWeight: defaultWeights.hobbiesWeight,
+      foodPreferencesWeight: defaultWeights.foodPreferencesWeight,
+      musicGenresWeight: defaultWeights.musicGenresWeight,
+      movieGenresWeight: defaultWeights.movieGenresWeight,
+      travelTypesWeight: defaultWeights.travelTypesWeight,
+      ethnicityWeight: defaultWeights.ethnicityWeight,
+      religionWeight: defaultWeights.religionWeight,
+    };
+    const isUnsetPref = (v?: string) => {
+      if (!v) return true;
+      const trimmed = v.trim();
+      if (trimmed.length === 0) return true;
+      const lower = trimmed.toLowerCase();
+      return lower === 'any' || lower.startsWith('select');
+    };
+    // Multi-valued: countUserItems * weight
+    let max = 0;
+    max += (myBio.hobbies.length) * (s.hobbiesWeight || defaultWeights.hobbiesWeight);
+    max += (myBio.interests.length) * (s.interestsWeight || defaultWeights.interestsWeight);
+    max += (myBio.musicGenres.length) * (s.musicGenresWeight || defaultWeights.musicGenresWeight);
+    max += (myBio.movieGenres.length) * (s.movieGenresWeight || defaultWeights.movieGenresWeight);
+    max += (myBio.foodPreferences.length) * (s.foodPreferencesWeight || defaultWeights.foodPreferencesWeight);
+    max += (myBio.travelTypes.length) * (s.travelTypesWeight || defaultWeights.travelTypesWeight);
+    max += (myBio.languages.length) * (s.languagesWeight || defaultWeights.languagesWeight);
+    // Exact/binary categories: always contribute their weight to denominator (per backend logic)
+    max += (s.ethnicityWeight || defaultWeights.ethnicityWeight);
+    max += (s.religionWeight || defaultWeights.religionWeight);
+    // Gender/status only if preference set
+    // Gender is not part of denominator; it is a hard filter only
+    if (!isUnsetPref(s.statusPreference)) max += (s.statusWeight || 0);
+    return max;
+  }, [mySeeking, myBio]);
 
   // Load recommendations
   const loadRecommendations = useCallback(async () => {
@@ -344,7 +430,7 @@ export default function FrontPage() {
     } finally {
       setIsLoadingRecommendations(false);
     }
-  }, [mode]);
+  }, [mode, computeMaxPossible]);
 
   // Check authentication on page load
   useEffect(() => {
@@ -437,64 +523,6 @@ export default function FrontPage() {
     return nonZero.length > 0 ? nonZero : sorted.slice(0, 4);
   };
 
-  // --- Overall normalization utilities (Option C) ---
-  const computeMaxPossible = (): number => {
-    // Backend default weights when seeking preferences are not set
-    const defaultWeights = {
-      hobbiesWeight: 2,
-      interestsWeight: 2,
-      musicGenresWeight: 1,
-      movieGenresWeight: 1,
-      foodPreferencesWeight: 1,
-      travelTypesWeight: 2,
-      languagesWeight: 3,
-      ethnicityWeight: 1,
-      religionWeight: 1,
-      genderWeight: 0,
-      statusWeight: 0,
-    } as const;
-
-    const s = mySeeking || {
-      genderPreference: undefined,
-      statusPreference: undefined,
-      genderWeight: 0,
-      statusWeight: defaultWeights.statusWeight,
-      relationshipWeight: 0,
-      locationWeight: 0,
-      languagesWeight: defaultWeights.languagesWeight,
-      interestsWeight: defaultWeights.interestsWeight,
-      hobbiesWeight: defaultWeights.hobbiesWeight,
-      foodPreferencesWeight: defaultWeights.foodPreferencesWeight,
-      musicGenresWeight: defaultWeights.musicGenresWeight,
-      movieGenresWeight: defaultWeights.movieGenresWeight,
-      travelTypesWeight: defaultWeights.travelTypesWeight,
-      ethnicityWeight: defaultWeights.ethnicityWeight,
-      religionWeight: defaultWeights.religionWeight,
-    };
-    const isUnsetPref = (v?: string) => {
-      if (!v) return true;
-      const trimmed = v.trim();
-      if (trimmed.length === 0) return true;
-      const lower = trimmed.toLowerCase();
-      return lower === 'any' || lower.startsWith('select');
-    };
-    // Multi-valued: countUserItems * weight
-    let max = 0;
-    max += (myBio.hobbies.length) * (s.hobbiesWeight || defaultWeights.hobbiesWeight);
-    max += (myBio.interests.length) * (s.interestsWeight || defaultWeights.interestsWeight);
-    max += (myBio.musicGenres.length) * (s.musicGenresWeight || defaultWeights.musicGenresWeight);
-    max += (myBio.movieGenres.length) * (s.movieGenresWeight || defaultWeights.movieGenresWeight);
-    max += (myBio.foodPreferences.length) * (s.foodPreferencesWeight || defaultWeights.foodPreferencesWeight);
-    max += (myBio.travelTypes.length) * (s.travelTypesWeight || defaultWeights.travelTypesWeight);
-    max += (myBio.languages.length) * (s.languagesWeight || defaultWeights.languagesWeight);
-    // Exact/binary categories: always contribute their weight to denominator (per backend logic)
-    max += (s.ethnicityWeight || defaultWeights.ethnicityWeight);
-    max += (s.religionWeight || defaultWeights.religionWeight);
-    // Gender/status only if preference set
-    // Gender is not part of denominator; it is a hard filter only
-    if (!isUnsetPref(s.statusPreference)) max += (s.statusWeight || 0);
-    return max;
-  };
 
   const verbalBand = (norm: number): string => {
     if (norm >= 90) return 'Excellent';
@@ -517,7 +545,7 @@ export default function FrontPage() {
       return { ...rec, normalizedScore: normalized, band: verbalBand(normalized) };
     });
     setRecommendations(renorm as Recommendation[]);
-  }, [mySeeking]);
+  }, [recommendations, computeMaxPossible]);
 
   // Handle like/connect button
   const handleLike = async () => {

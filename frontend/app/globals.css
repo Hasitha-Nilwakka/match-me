@@ -11,4 +11,5 @@ input.no-spinner::-webkit-inner-spin-button {
 /* Firefox */
 input.no-spinner[type="number"] {
   -moz-appearance: textfield;
+  appearance: textfield;
 }
