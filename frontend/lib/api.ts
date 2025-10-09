@@ -399,8 +399,12 @@ export const chatApi = {
       console.warn('[SocketIO] Cannot send typing - socket not connected');
     }
   },
+};
 
-  // OLD WebSocket method (kept temporarily for reference, will be removed)
+// OLD WebSocket methods removed - now using Socket.IO exclusively
+// See git history (backup-native-websocket branch) for old WebSocket implementation
+/*
+const OLD_WEBSOCKET_CODE_REMOVED = {
   createWebSocketConnection: (chatId: string, onMessage: (message: unknown) => void, onTyping?: (data: unknown) => void) => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -487,7 +491,6 @@ export const chatApi = {
     return ws;
   },
 
-  // Send typing indicator
   sendTypingIndicator: (ws: WebSocket, isTyping: boolean) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ 
@@ -497,6 +500,7 @@ export const chatApi = {
     }
   },
 };
+*/
 
 // Connections API functions
 export const connectionsApi = {
