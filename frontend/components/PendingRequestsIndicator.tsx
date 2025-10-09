@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { connectionsApi } from "../lib/api";
+import { connectionsApi, getApiUrl } from "../lib/api";
+import { io, Socket } from "socket.io-client";
 
 interface PendingRequestsIndicatorProps {
   className?: string;
@@ -12,6 +13,7 @@ export default function PendingRequestsIndicator({
   showCount = true 
 }: PendingRequestsIndicatorProps) {
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   // Load pending connection requests count
   const loadPendingRequestsCount = async () => {
@@ -24,17 +26,19 @@ export default function PendingRequestsIndicator({
     }
   };
 
-  // Load count on component mount
+  // Initial load and Socket.IO real-time updates
   useEffect(() => {
     loadPendingRequestsCount();
-  }, []);
 
-  // Lightweight periodic refresh (near real-time) while app is open
-  useEffect(() => {
-    const id = setInterval(() => {
-      loadPendingRequestsCount();
-    }, 4000);
-    return () => clearInterval(id);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    const baseUrl = getApiUrl();
+    const s = io(baseUrl, { auth: { token }, transports: ['websocket', 'polling'] });
+    s.on('connection_updated', () => loadPendingRequestsCount());
+    s.on('request_created', () => loadPendingRequestsCount());
+    s.on('request_deleted', () => loadPendingRequestsCount());
+    setSocket(s);
+    return () => { s.disconnect(); setSocket(null); };
   }, []);
 
   // Refresh count when page becomes visible (user returns from other pages)

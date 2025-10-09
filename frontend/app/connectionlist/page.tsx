@@ -3,6 +3,9 @@ import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { authApi, connectionsApi, chatApi, getApiUrl } from "../../lib/api";
+import { io, Socket } from "socket.io-client";
+import Toast from "../../components/Toast";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import Navigation from "../../components/Navigation";
 import ProfileModal from "../../components/ProfileModal";
 import { useChat } from "../../context/ChatContext";
@@ -29,13 +32,41 @@ export default function ConnectionListPage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [startingChatId, setStartingChatId] = useState<number | null>(null);
-  const { openChat } = useChat();
+  const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null);
+  const { openChat, isChatOpen } = useChat();
   const currentUser = authApi.getCurrentUser();
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [toast, setToast] = useState<{open: boolean; msg: string}>({open:false, msg:""});
+
+  // Shallow compare helper to avoid unnecessary state updates (and flicker)
+  const areConnectionsEqual = (a: Connection[], b: Connection[]) => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      const x = a[i];
+      const y = b[i];
+      if (
+        x.id !== y.id ||
+        x.userId !== y.userId ||
+        x.firstName !== y.firstName ||
+        x.lastName !== y.lastName ||
+        x.city !== y.city ||
+        x.country !== y.country ||
+        x.profilePicture !== y.profilePicture ||
+        x.isOnline !== y.isOnline ||
+        x.lastSeen !== y.lastSeen ||
+        x.connectionDate !== y.connectionDate ||
+        x.chatId !== y.chatId
+      ) return false;
+    }
+    return true;
+  };
+
+  const isPageVisible = () => typeof document !== 'undefined' && document.visibilityState === 'visible';
 
   // Load connections based on data mode
-  const loadConnections = useCallback(async () => {
+  const loadConnections = useCallback(async (silent: boolean = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
 
       // Real API call
       const response = await connectionsApi.getConnections();
@@ -144,17 +175,26 @@ export default function ConnectionListPage() {
           })
         );
         console.log("Transformed connections:", transformedConnections);
-        setConnections(transformedConnections);
+        // Keep a stable order, e.g., by connectionDate desc then name
+        const sorted = [...transformedConnections].sort((a, b) => {
+          const at = a.connectionDate ? new Date(a.connectionDate).getTime() : 0;
+          const bt = b.connectionDate ? new Date(b.connectionDate).getTime() : 0;
+          if (bt !== at) return bt - at;
+          const an = `${a.firstName} ${a.lastName}`.toLowerCase();
+          const bn = `${b.firstName} ${b.lastName}`.toLowerCase();
+          return an.localeCompare(bn);
+        });
+        setConnections(prev => ((isChatOpen || !isPageVisible() || areConnectionsEqual(prev, sorted)) ? prev : sorted));
       } else {
         console.log("No connections found in response");
-        setConnections([]);
+        setConnections(prev => (prev.length === 0 ? prev : []));
       }
     } catch (error) {
       console.error("Error loading connections:", error);
       // Show empty list on error
-      setConnections([]);
+      setConnections(prev => prev);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [currentUser?.id]);
 
@@ -167,6 +207,69 @@ export default function ConnectionListPage() {
       loadConnections();
     }
   }, [router, loadConnections]);
+
+  // Real-time updates via Socket.IO per-user room
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+
+    const baseUrl = getApiUrl();
+    const s = io(baseUrl, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+    });
+
+    s.on('connection_updated', (evt: any) => {
+      // Only refresh on meaningful status transitions and when chat overlay is not open
+      const status = evt?.status as string | undefined;
+      if ((status === 'accepted' || status === 'rejected') && !isChatOpen && isPageVisible()) {
+        if (startingChatId === null) loadConnections(true);
+        if (status === 'accepted') setToast({ open: true, msg: 'Connection accepted' });
+      }
+    });
+
+    s.on('connection_removed', () => {
+      if (!isChatOpen && isPageVisible() && startingChatId === null) loadConnections(true);
+    });
+
+    setSocket(s);
+    return () => {
+      s.disconnect();
+      setSocket(null);
+    };
+  }, [isAuthenticated, loadConnections, startingChatId]);
+
+  // Lightweight live refresh: periodically and on focus/visibility change
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let intervalId: number | undefined;
+
+    const refresh = () => {
+      // Avoid spamming while actions in progress
+      if (startingChatId !== null) return;
+      loadConnections();
+    };
+
+    // Periodic refresh every 10s
+    intervalId = window.setInterval(refresh, 10000);
+
+    // Refresh when window gains focus or becomes visible
+    const onFocus = () => refresh();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      if (intervalId) window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [isAuthenticated, loadConnections, startingChatId]);
 
   const handleStartChat = async (connection: Connection) => {
     console.log("[ConnectionList] handleStartChat called with:", connection);
@@ -265,6 +368,25 @@ export default function ConnectionListPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Top Navigation Menu */}
       <Navigation />
+
+      <Toast open={toast.open} message={toast.msg} variant="success" onClose={() => setToast({open:false, msg:""})} />
+
+      {/* Confirm Remove Dialog */}
+      <ConfirmDialog
+        open={confirmRemoveId !== null}
+        title="Remove Connection"
+        message="Are you sure you want to remove this connection?"
+        confirmText="Remove"
+        cancelText="Cancel"
+        onCancel={() => setConfirmRemoveId(null)}
+        onConfirm={async () => {
+          if (confirmRemoveId !== null) {
+            const id = confirmRemoveId;
+            setConfirmRemoveId(null);
+            await handleRemoveConnection(id);
+          }
+        }}
+      />
 
       {/* Profile Modal */}
       <ProfileModal
@@ -402,7 +524,7 @@ export default function ConnectionListPage() {
                     key={connection.id}
                     className="px-6 py-4 hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center space-x-4">
                         {/* Profile Picture */}
                         <div className="relative">
@@ -450,7 +572,7 @@ export default function ConnectionListPage() {
                         </div>
 
                         {/* Connection Info */}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 sm:pr-6">
                           <div className="flex items-center space-x-2">
                             <h3 className="text-lg font-medium text-gray-900 truncate">
                               {connection.firstName} {connection.lastName}
@@ -476,7 +598,7 @@ export default function ConnectionListPage() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3">
+                      <div className="mt-4 sm:mt-0 flex sm:flex-col flex-row sm:space-y-2 space-y-0 sm:space-x-0 space-x-2 sm:ml-4 shrink-0">
                         <button
                           onClick={() => handleViewProfile(connection.id)}
                           className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors px-2 py-1"
@@ -538,7 +660,7 @@ export default function ConnectionListPage() {
                         </button>
 
                         <button
-                          onClick={() => handleRemoveConnection(connection.id)}
+                          onClick={() => setConfirmRemoveId(connection.id)}
                           className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                         >
                           <svg

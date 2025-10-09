@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	socketio "github.com/zishang520/socket.io/socket"
 	"gorm.io/gorm"
 )
 
@@ -607,6 +608,18 @@ func LikeRecommendationHandler(c *gin.Context) {
 		"connectionId": connection.ID,
 		"status":       connection.Status,
 	})
+
+	// Real-time: notify receiver a request was created
+	if SocketIOServer != nil {
+		evt := gin.H{
+			"type":         "request_created",
+			"connectionId": connection.ID,
+			"requesterId":  connection.RequesterID,
+			"receiverId":   connection.ReceiverID,
+		}
+		receiverRoom := "user-" + strconv.FormatUint(uint64(connection.ReceiverID), 10)
+		SocketIOServer.To(socketio.Room(receiverRoom)).Emit("request_created", evt)
+	}
 }
 
 // DismissRecommendationHandler handles dismissing a recommendation

@@ -100,15 +100,15 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[9999]">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* Modal */}
       <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl overflow-hidden">
+        <div className="relative w-full max-w-2xl max-h-[calc(100vh-2rem)] sm:max-h-[80vh] rounded-xl bg-white shadow-2xl overflow-hidden flex flex-col" style={{paddingTop:'env(safe-area-inset-top)', paddingBottom:'env(safe-area-inset-bottom)'}}>
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="flex items-center justify-between px-6 py-4 border-b sticky top-0 bg-white z-[100]">
             <h3 className="text-lg font-semibold text-gray-900">Profile</h3>
             <button
               onClick={onClose}
@@ -120,7 +120,7 @@ export default function ProfileModal({ userId, isOpen, onClose, initialProfile =
           </div>
 
           {/* Body */}
-          <div className="p-6">
+          <div className="p-6 overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />

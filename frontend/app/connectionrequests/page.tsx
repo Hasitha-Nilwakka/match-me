@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authApi, connectionsApi, getApiUrl } from "../../lib/api";
+import { io, Socket } from "socket.io-client";
 import Navigation from "../../components/Navigation";
 import ProfileModal from "../../components/ProfileModal";
+import ConfirmDialog from "../../components/ConfirmDialog";
 
 interface Request {
   id: number;
@@ -27,6 +29,8 @@ export default function ConnectionRequestsPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [confirmRejectId, setConfirmRejectId] = useState<number | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   // Load connection requests based on data mode
   const loadRequests = useCallback(async () => {
@@ -83,6 +87,20 @@ export default function ConnectionRequestsPage() {
       loadRequests();
     }
   }, [router, loadRequests]);
+
+  // Real-time updates for requests list
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    const baseUrl = getApiUrl();
+    const s = io(baseUrl, { auth: { token }, transports: ['websocket', 'polling'] });
+    s.on('request_created', () => loadRequests());
+    s.on('connection_updated', () => loadRequests()); // request may become accepted
+    s.on('request_deleted', () => loadRequests());
+    setSocket(s);
+    return () => { s.disconnect(); setSocket(null); };
+  }, [isAuthenticated, loadRequests]);
 
   const handleAcceptRequest = async (requestId: number) => {
     try {
@@ -149,6 +167,23 @@ export default function ConnectionRequestsPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Top Navigation Menu */}
       <Navigation />
+
+      {/* Confirm Reject Dialog */}
+      <ConfirmDialog
+        open={confirmRejectId !== null}
+        title="Dismiss Request"
+        message="Are you sure you want to dismiss this connection request?"
+        confirmText="Dismiss"
+        cancelText="Cancel"
+        onCancel={() => setConfirmRejectId(null)}
+        onConfirm={async () => {
+          if (confirmRejectId !== null) {
+            const id = confirmRejectId;
+            setConfirmRejectId(null);
+            await handleRejectRequest(id);
+          }
+        }}
+      />
 
       {/* Profile Modal */}
       <ProfileModal
@@ -301,7 +336,7 @@ export default function ConnectionRequestsPage() {
                     key={request.id}
                     className="px-6 py-6 hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex items-start space-x-4">
                         {/* Profile Picture */}
                         <div className="relative">
@@ -346,7 +381,7 @@ export default function ConnectionRequestsPage() {
                         </div>
 
                         {/* Request Info */}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 sm:pr-6">
                           <div className="flex items-center space-x-2 mb-2">
                             <h3 className="text-lg font-medium text-gray-900">
                               {request.firstName} {request.lastName}
@@ -377,7 +412,7 @@ export default function ConnectionRequestsPage() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex sm:flex-col flex-row sm:space-y-2 space-y-0 sm:space-x-0 space-x-2 ml-2 sm:ml-4">
+                      <div className="mt-4 sm:mt-0 flex sm:flex-col flex-row sm:space-y-2 space-y-0 sm:space-x-0 space-x-2 sm:ml-4 shrink-0">
                         <button
                           onClick={() => handleViewProfile(request.id)}
                           className="text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors text-left"
@@ -407,7 +442,7 @@ export default function ConnectionRequestsPage() {
                           </button>
 
                           <button
-                            onClick={() => handleRejectRequest(request.id)}
+                            onClick={() => setConfirmRejectId(request.id)}
                             className="bg-red-600 hover:bg-red-700 text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-1"
                           >
                             <svg

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	socketio "github.com/zishang520/socket.io/socket"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -258,6 +259,18 @@ func DeleteConnectionHandler(c *gin.Context) {
 		"success": true,
 		"data":    gin.H{"message": "Connection removed successfully"},
 	})
+
+	// Real-time notify participants that a connection was removed
+	if SocketIOServer != nil {
+		evt := gin.H{
+			"type":         "connection_removed",
+			"connectionId": connection.ID,
+		}
+		receiverRoom := "user-" + strconv.FormatUint(uint64(connection.ReceiverID), 10)
+		requesterRoom := "user-" + strconv.FormatUint(uint64(connection.RequesterID), 10)
+		SocketIOServer.To(socketio.Room(receiverRoom)).Emit("connection_removed", evt)
+		SocketIOServer.To(socketio.Room(requesterRoom)).Emit("connection_removed", evt)
+	}
 }
 
 // UpdateConnectionHandler handles updating connection status (accept/reject)
@@ -342,6 +355,30 @@ func UpdateConnectionHandler(c *gin.Context) {
 			"data":    gin.H{"error": "Failed to update connection"},
 		})
 		return
+	}
+
+	// Real-time notify both participants via Socket.IO per-user rooms
+	if SocketIOServer != nil {
+		// Build event payload
+		evt := gin.H{
+			"type":         "connection_updated",
+			"connectionId": connection.ID,
+			"status":       connection.Status,
+		}
+		// Rooms
+		receiverRoom := "user-" + strconv.FormatUint(uint64(connection.ReceiverID), 10)
+		requesterRoom := "user-" + strconv.FormatUint(uint64(connection.RequesterID), 10)
+		// Emit to both users (safe even if same user)
+		SocketIOServer.To(socketio.Room(receiverRoom)).Emit("connection_updated", evt)
+		SocketIOServer.To(socketio.Room(requesterRoom)).Emit("connection_updated", evt)
+
+		// If explicitly rejected, also tell receiver to drop from requests list
+		if connection.Status == "rejected" {
+			SocketIOServer.To(socketio.Room(receiverRoom)).Emit("request_deleted", gin.H{
+				"type":         "request_deleted",
+				"connectionId": connection.ID,
+			})
+		}
 	}
 
 	// Note: Chats are no longer auto-created when connection is accepted
