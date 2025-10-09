@@ -92,6 +92,7 @@ export default function FrontPage() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [connectionMessage, setConnectionMessage] = useState("");
+  const [showMessageInput, setShowMessageInput] = useState(false);
   // Get current recommendation
   const currentRec = recommendations[currentRecommendationIndex];
 
@@ -562,8 +563,13 @@ export default function FrontPage() {
     if (changed) setRecommendations(renorm as Recommendation[]);
   }, [recommendations, computeMaxPossible]);
 
-  // Handle like/connect button
-  const handleLike = async () => {
+  // Handle connect button click - show message input
+  const handleConnect = () => {
+    setShowMessageInput(true);
+  };
+
+  // Handle sending connection request
+  const handleSendRequest = async () => {
     const currentRec = recommendations[currentRecommendationIndex];
     if (!currentRec) return;
 
@@ -571,13 +577,20 @@ export default function FrontPage() {
       await recommendationsApi.likeRecommendation(currentRec.id.toString(), connectionMessage);
       console.log("Liked user:", currentRec.id, "with message:", connectionMessage);
 
-      // Clear message and move to next recommendation
+      // Clear message, hide input, and move to next recommendation
       setConnectionMessage("");
+      setShowMessageInput(false);
       handleNext();
     } catch (error) {
       console.error("Error liking recommendation:", error);
       alert("Failed to send connection request. Please try again.");
     }
+  };
+
+  // Handle cancel - go back to connect/dismiss buttons
+  const handleCancel = () => {
+    setShowMessageInput(false);
+    setConnectionMessage("");
   };
 
   // Handle dismiss button
@@ -599,6 +612,10 @@ export default function FrontPage() {
 
   // Navigate to next recommendation
   const handleNext = () => {
+    // Reset message input state when moving to next recommendation
+    setShowMessageInput(false);
+    setConnectionMessage("");
+    
     if (currentRecommendationIndex < recommendations.length - 1) {
       setCurrentRecommendationIndex((prev) => prev + 1);
     } else {
@@ -609,6 +626,10 @@ export default function FrontPage() {
 
   // Navigate to previous recommendation
   const handlePrevious = () => {
+    // Reset message input state when moving to previous recommendation
+    setShowMessageInput(false);
+    setConnectionMessage("");
+    
     if (currentRecommendationIndex > 0) {
       setCurrentRecommendationIndex((prev) => prev - 1);
     }
@@ -890,69 +911,114 @@ export default function FrontPage() {
                 );
               })()}
 
-              {/* Message Input */}
-              {recommendations.length > 0 && (
-                <div className="mb-4">
-                  <label htmlFor="connectionMessage" className="block text-sm font-medium text-gray-700 mb-2">
-                    Add a message (optional)
-                  </label>
-                  <textarea
-                    id="connectionMessage"
-                    value={connectionMessage}
-                    onChange={(e) => setConnectionMessage(e.target.value)}
-                    placeholder="Say hello and let them know why you'd like to connect..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    rows={3}
-                    maxLength={500}
-                  />
-                  <div className="text-xs text-gray-500 mt-1 text-right">
-                    {connectionMessage.length}/500 characters
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons or Empty Actions */}
+              {/* Action Buttons or Message Input */}
               {recommendations.length > 0 ? (
-                <div className="flex space-x-4 mb-6">
-                  <button
-                    onClick={handleLike}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
-                  >
-                    <svg
-                      className="w-5 h-5 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                showMessageInput ? (
+                  <div className="mb-6">
+                    {/* Message Input */}
+                    <div className="mb-4">
+                      <label htmlFor="connectionMessage" className="block text-sm font-medium text-gray-700 mb-2">
+                        Add a message (optional)
+                      </label>
+                      <textarea
+                        id="connectionMessage"
+                        value={connectionMessage}
+                        onChange={(e) => setConnectionMessage(e.target.value)}
+                        placeholder="Say hello and let them know why you'd like to connect..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        rows={3}
+                        maxLength={500}
+                        autoFocus
                       />
-                    </svg>
-                    Connect
-                  </button>
-                  <button
-                    onClick={handleDismiss}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
-                  >
-                    <svg
-                      className="w-5 h-5 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                      <div className="text-xs text-gray-500 mt-1 text-right">
+                        {connectionMessage.length}/500 characters
+                      </div>
+                    </div>
+                    
+                    {/* Send/Cancel Buttons */}
+                    <div className="flex space-x-4">
+                      <button
+                        onClick={handleSendRequest}
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
+                      >
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                          />
+                        </svg>
+                        Send Request
+                      </button>
+                      <button
+                        onClick={handleCancel}
+                        className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
+                      >
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex space-x-4 mb-6">
+                    <button
+                      onClick={handleConnect}
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                    Dismiss
-                  </button>
-                </div>
+                      <svg
+                        className="w-5 h-5 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                      Connect
+                    </button>
+                    <button
+                      onClick={handleDismiss}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg font-semibold transition flex items-center justify-center"
+                    >
+                      <svg
+                        className="w-5 h-5 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                      Dismiss
+                    </button>
+                  </div>
+                )
               ) : (
                 <div className="flex flex-col sm:flex-row gap-3 mb-6">
                   <Link
