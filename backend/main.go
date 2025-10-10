@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -172,12 +173,17 @@ func main() {
 	// Admin endpoints (no authentication required)
 	r.DELETE("/users/:id", handlers.DeleteUserHandler) // Delete user (temporary endpoint)
 
-	// Start the HTTP server on port 8080 (accessible from local network)
+	// Start the HTTP server on configurable port (accessible from local network)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Default to 8080 if not specified
+	}
+
 	localIP := getLocalIP()
 	log.Println("Starting Match-Me server on:")
-	log.Println("  Local:   http://localhost:8080")
-	log.Printf("  Network: http://%s:8080", localIP)
-	if err := r.Run(":8080"); err != nil {
+	log.Printf("  Local:   http://localhost:%s", port)
+	log.Printf("  Network: http://%s:%s", localIP, port)
+	if err := r.Run(":" + port); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
 }

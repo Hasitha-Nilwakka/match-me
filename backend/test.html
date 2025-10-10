@@ -107,7 +107,8 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8080';
+        // Use current hostname with port 8080, or set via prompt
+        const API_BASE = `http://${window.location.hostname}:8080`;
         let authToken = '';
 
         async function makeRequest(endpoint, method = 'GET', body = null, useAuth = false) {
