@@ -214,11 +214,12 @@ matchme.db
 *.log
 backend.log
 
-# Compiled binaries
-backend
+# Compiled binaries (be specific to not ignore the backend source directory)
 main
 backend/main
 backend/backend
+backend/bin/server
+backend/bin/seed-users
 
 # IDE files
 .vscode/
