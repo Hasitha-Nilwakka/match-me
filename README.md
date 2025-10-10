@@ -1,6 +1,64 @@
 # Match Me - Dating App
 
-A modern dating application built with Go backend and Next.js frontend.
+A modern dating application built with Go backend and Next.js frontend, featuring real-time chat with Socket.IO, advanced matching algorithms, and mobile-responsive design.
+
+## Quick Setup (First Time)
+
+### 1. Clone the Repository
+```bash
+git clone https://gitea.kood.tech/joelmakela/match-me.git
+cd match-me
+
+# Or use the Socket.IO branch (recommended)
+git checkout migrate-to-socket-io
+```
+
+### 2. Setup Environment Variables
+
+**Backend** - Create `backend/.env`:
+```bash
+cd backend
+cp .env.example .env
+# Edit .env and set your PostgreSQL credentials
+```
+
+**Frontend** - Create `frontend/.env.local`:
+```bash
+cd frontend
+cat > .env.local << 'EOF'
+DATABASE_URL="postgresql://matchme_user:your_password@localhost:5432/match_me_db?schema=public"
+NEXT_PUBLIC_API_URL="http://localhost:8080"
+NEXTAUTH_SECRET="your-random-secret-here"
+NEXTAUTH_URL="http://localhost:3000"
+EOF
+```
+
+### 3. Install Dependencies
+
+**Backend:**
+```bash
+cd backend
+go mod tidy
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm install
+```
+
+### 4. Setup Database
+See [Database Setup](#database-setup) section below for PostgreSQL installation and configuration.
+
+### 5. Start the Application
+```bash
+# From project root
+./start.sh
+```
+
+That's it! Visit `http://localhost:3000`
+
+---
 
 ## Project Structure
 
