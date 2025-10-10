@@ -9,9 +9,6 @@ A modern dating application built with Go backend and Next.js frontend, featurin
 git clone https://gitea.kood.tech/joelmakela/match-me.git
 cd match-me
 
-# Or use the Socket.IO branch (recommended)
-git checkout migrate-to-socket-io
-```
 
 ### 2. Setup Environment Variables
 
@@ -56,7 +53,11 @@ See [Database Setup](#database-setup) section below for PostgreSQL installation 
 ./start.sh
 ```
 
-That's it! Visit `http://localhost:3000`
+**Access the app:**
+- **Desktop/Laptop**: `http://localhost:3000`
+- **Mobile/Other Devices**: `http://YOUR_LOCAL_IP:3000` (e.g., `http://192.168.1.100:3000`)
+  - Find your IP: `./start.sh` displays it when starting
+  - Make sure devices are on the same WiFi network
 
 ---
 
