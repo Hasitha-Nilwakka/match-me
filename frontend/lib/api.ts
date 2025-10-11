@@ -138,7 +138,7 @@ export const apiRequest = async (
   }
 };
 
-// Authenticated API request function
+// Authenticated API request function with automatic token refresh
 export const authenticatedApiRequest = async (
   endpoint: string,
   options: RequestInit = {}
@@ -150,13 +150,61 @@ export const authenticatedApiRequest = async (
     throw new Error('No authentication token found. Please log in again.');
   }
 
-  return apiRequest(endpoint, {
+  const response = await apiRequest(endpoint, {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,
       ...options.headers,
     },
   });
+
+  // If we get a 401 (Unauthorized), try to refresh the token
+  if (response.status === 401) {
+    console.log('[API] Got 401, attempting token refresh...');
+    try {
+      const refreshResponse = await apiRequest('/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json();
+        console.log('[API] Token refreshed successfully');
+        
+        // Update stored token
+        localStorage.setItem('token', refreshData.token);
+        if (refreshData.user) {
+          localStorage.setItem('user', JSON.stringify(refreshData.user));
+        }
+
+        // Retry the original request with the new token
+        console.log('[API] Retrying original request with new token...');
+        return apiRequest(endpoint, {
+          ...options,
+          headers: {
+            'Authorization': `Bearer ${refreshData.token}`,
+            ...options.headers,
+          },
+        });
+      } else {
+        console.error('[API] Token refresh failed:', refreshResponse.status);
+        // Clear auth and redirect to login
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        throw new Error('Token refresh failed. Please log in again.');
+      }
+    } catch (refreshError) {
+      console.error('[API] Token refresh error:', refreshError);
+      // Clear auth and redirect to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      throw new Error('Token refresh failed. Please log in again.');
+    }
+  }
+
+  return response;
 };
 
 // Reference data API functions
@@ -369,12 +417,94 @@ export const chatApi = {
       console.error('[SocketIO] Reconnection failed');
     });
     
-    socket.on('error', (error: unknown) => {
+    socket.on('error', async (error: unknown) => {
       console.error('[SocketIO] Error:', error);
+      
+      // If error indicates token expiration, try to refresh
+      if (typeof error === 'string' && error.includes('expired')) {
+        console.log('[SocketIO] Token expired, attempting refresh...');
+        try {
+          const refreshResponse = await apiRequest('/auth/refresh', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (refreshResponse.ok) {
+            const refreshData = await refreshResponse.json();
+            console.log('[SocketIO] Token refreshed, reconnecting...');
+            
+            // Update stored token
+            localStorage.setItem('token', refreshData.token);
+            if (refreshData.user) {
+              localStorage.setItem('user', JSON.stringify(refreshData.user));
+            }
+
+            // Disconnect and reconnect with new token
+            socket.disconnect();
+            socket.auth = { token: refreshData.token };
+            socket.connect();
+          } else {
+            console.error('[SocketIO] Token refresh failed');
+            // Clear auth and redirect to login
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+          }
+        } catch (refreshError) {
+          console.error('[SocketIO] Token refresh error:', refreshError);
+          // Clear auth and redirect to login
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        }
+      }
     });
     
-    socket.on('connect_error', (error: Error) => {
+    socket.on('connect_error', async (error: Error) => {
       console.error('[SocketIO] Connection error:', error.message);
+      
+      // If connection error indicates token expiration, try to refresh
+      if (error.message.includes('expired') || error.message.includes('Invalid or expired token')) {
+        console.log('[SocketIO] Token expired in connection error, attempting refresh...');
+        try {
+          const refreshResponse = await apiRequest('/auth/refresh', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+
+          if (refreshResponse.ok) {
+            const refreshData = await refreshResponse.json();
+            console.log('[SocketIO] Token refreshed, reconnecting...');
+            
+            // Update stored token
+            localStorage.setItem('token', refreshData.token);
+            if (refreshData.user) {
+              localStorage.setItem('user', JSON.stringify(refreshData.user));
+            }
+
+            // Disconnect and reconnect with new token
+            socket.disconnect();
+            socket.auth = { token: refreshData.token };
+            socket.connect();
+          } else {
+            console.error('[SocketIO] Token refresh failed');
+            // Clear auth and redirect to login
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+          }
+        } catch (refreshError) {
+          console.error('[SocketIO] Token refresh error:', refreshError);
+          // Clear auth and redirect to login
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        }
+      }
     });
     
     // Chat events
@@ -409,7 +539,6 @@ export const chatApi = {
     }
   },
 };
-
 
 // Connections API functions
 export const connectionsApi = {

@@ -240,3 +240,42 @@ func GetOnlineStatusHandler(c *gin.Context) {
 		"lastSeen": lastSeen,
 	})
 }
+
+// RefreshTokenHandler handles JWT token refresh
+func RefreshTokenHandler(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	// Verify user still exists and is active
+	var user models.User
+	if err := db.DB.Where("id = ? AND is_active = ?", userID, true).First(&user).Error; err != nil {
+		c.JSON(401, gin.H{"error": "User not found or inactive"})
+		return
+	}
+
+	// Generate new JWT token
+	token, err := utils.GenerateJWT(user.ID)
+	if err != nil {
+		log.Printf("Error generating refresh JWT: %v", err)
+		c.JSON(500, gin.H{"error": "Internal server error"})
+		return
+	}
+
+	// Update last login
+	now := time.Now()
+	user.LastLogin = &now
+	db.DB.Save(&user)
+
+	c.JSON(200, gin.H{
+		"message": "Token refreshed successfully",
+		"token":   token,
+		"user": gin.H{
+			"id":       user.ID,
+			"email":    user.Email,
+			"isActive": user.IsActive,
+		},
+	})
+}
