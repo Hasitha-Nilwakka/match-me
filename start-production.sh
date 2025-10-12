@@ -6,16 +6,45 @@
 echo "🏭 Starting Match-Me in Production Mode"
 echo "========================================"
 
-# Get local IP address
-LOCAL_IP=$(ip addr show eth0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1)
-
-if [ -z "$LOCAL_IP" ]; then
-    LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | grep -v "172\.1[7-9]\." | head -1)
+# Detect if running on WSL
+if grep -qi microsoft /proc/version 2>/dev/null; then
+    echo "🪟 WSL detected - using Windows host IP"
+    # Get Windows host IP from WSL
+    # Method 1: From /etc/resolv.conf (most reliable)
+    LOCAL_IP=$(grep nameserver /etc/resolv.conf | awk '{print $2}' | head -1)
+    
+    # Method 2: If that fails, try from default route
+    if [ -z "$LOCAL_IP" ] || [ "$LOCAL_IP" = "127.0.0.1" ]; then
+        LOCAL_IP=$(ip route show | grep -i default | awk '{print $3}')
+    fi
+    
+    # Method 3: Check for eth0 with 192.168.x.x range (real LAN IP)
+    if [ -z "$LOCAL_IP" ] || [[ "$LOCAL_IP" == 172.* ]]; then
+        WSL_ETH=$(ip addr show eth0 2>/dev/null | grep "inet " | grep "192.168" | awk '{print $2}' | cut -d'/' -f1)
+        if [ -n "$WSL_ETH" ]; then
+            LOCAL_IP=$WSL_ETH
+        fi
+    fi
+    
+    echo "   Note: On WSL, use this IP to access from other devices"
+else
+    echo "🐧 Linux/macOS detected"
+    # Get local IP address - prefer actual LAN IP over Docker/virtual IPs
+    # Try to get the actual interface IP (usually eth0, en0, or wlan0)
+    LOCAL_IP=$(ip addr show 2>/dev/null | grep "inet " | grep -v 127.0.0.1 | grep "192.168\|10.\|172.1[6-9]\|172.2[0-9]\|172.3[0-1]" | awk '{print $2}' | cut -d'/' -f1 | head -1)
+    
+    # Fallback to ifconfig if ip command not available (macOS)
+    if [ -z "$LOCAL_IP" ]; then
+        LOCAL_IP=$(ifconfig 2>/dev/null | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | grep -v "172\.1[7-9]\." | head -1)
+    fi
 fi
 
+# Final fallback
 if [ -z "$LOCAL_IP" ]; then
-    LOCAL_IP=$(ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+    LOCAL_IP="localhost"
+    echo "⚠️  Could not detect network IP, using localhost"
 fi
+
 echo "📡 Your local network IP: $LOCAL_IP"
 echo ""
 

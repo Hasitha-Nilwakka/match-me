@@ -59,6 +59,9 @@ See [Database Setup](#database-setup) section below for PostgreSQL installation 
   - Find your IP: `./start.sh` displays it when starting
   - Make sure devices are on the same WiFi network
 
+> **💡 Using WSL (Windows Subsystem for Linux)?**  
+> The startup scripts automatically detect WSL and use the Windows host IP (192.168.x.x) instead of the WSL virtual IP (172.x.x.x). If you encounter network issues, see [WSL_SETUP.md](./WSL_SETUP.md) for detailed configuration.
+
 ---
 
 ## Project Structure
@@ -431,6 +434,18 @@ See `frontend/DEV_MODES.md` for detailed guide on development modes.
 3. **Use IP address** - Replace `localhost` with your computer's local IP
 4. **Set frontend API URL** - In `frontend/.env.local`, set `NEXT_PUBLIC_API_URL` to `http://YOUR_LOCAL_IP:8080`, then restart `npm run dev`
 4. **Verify ports** - Backend (8080) and Frontend (3000) should be accessible
+
+#### WSL (Windows Subsystem for Linux) Issues
+If running on WSL and other devices can't connect:
+1. **Check detected IP** - The startup script should show "🪟 WSL detected" and display 192.168.x.x (not 172.x.x.x)
+2. **Windows Firewall** - Allow ports 8080 and 3000 through Windows Firewall
+   ```powershell
+   # In PowerShell as Administrator:
+   New-NetFirewallRule -DisplayName "Match-Me Backend" -Direction Inbound -LocalPort 8080 -Protocol TCP -Action Allow
+   New-NetFirewallRule -DisplayName "Match-Me Frontend" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow
+   ```
+3. **Manual IP configuration** - If auto-detection fails, manually set `NEXT_PUBLIC_API_URL` in `frontend/.env.local` to your Windows IP
+4. **Detailed guide** - See [WSL_SETUP.md](./WSL_SETUP.md) for comprehensive WSL configuration instructions
 
 #### Socket.IO Connection Issues
 1. **Check network settings** - Socket.IO connects to same base URL as API
