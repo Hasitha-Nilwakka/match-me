@@ -126,22 +126,22 @@ func GetRecommendationsHandler(c *gin.Context) {
 	// Example: User A (25) seeks 20-30, User B (28) seeks 22-35 → Compatible
 	// Example: User A (25) seeks 20-30, User B (35) seeks 22-35 → Incompatible (A doesn't want 35+)
 	if user.SeekingPreference != nil && user.Profile != nil && user.Profile.Age != nil {
-		minA := user.SeekingPreference.MinAge  // Current user's minimum age preference
-		maxA := user.SeekingPreference.MaxAge  // Current user's maximum age preference
-		ageA := *user.Profile.Age              // Current user's actual age
+		minA := user.SeekingPreference.MinAge // Current user's minimum age preference
+		maxA := user.SeekingPreference.MaxAge // Current user's maximum age preference
+		ageA := *user.Profile.Age             // Current user's actual age
 		filtered := make([]models.User, 0, len(potentialMatches))
-		
+
 		for _, cand := range potentialMatches {
 			if cand.Profile == nil || cand.Profile.Age == nil {
 				continue // Skip candidates without age data
 			}
 			ageB := *cand.Profile.Age
-			
+
 			// Check: Does current user want this candidate's age?
 			if ageB < minA || ageB > maxA {
 				continue // Candidate is too young or too old for current user
 			}
-			
+
 			// Check: Does candidate want current user's age?
 			if cand.SeekingPreference != nil {
 				minB := cand.SeekingPreference.MinAge
@@ -150,7 +150,7 @@ func GetRecommendationsHandler(c *gin.Context) {
 					continue // Current user is too young or too old for candidate
 				}
 			}
-			
+
 			filtered = append(filtered, cand) // Both users are age-compatible
 		}
 		potentialMatches = filtered
@@ -174,7 +174,7 @@ func GetRecommendationsHandler(c *gin.Context) {
 		// Score factors: shared hobbies, interests, music, movies, food, travel, languages
 		// Plus status preferences, ethnicity, religion, etc.
 		score := calculateMatchScore(user, match)
-		
+
 		// Only include matches with positive scores (indicating some compatibility)
 		if score > 0 {
 			scoredMatches = append(scoredMatches, ScoredMatch{
@@ -262,16 +262,16 @@ func getExcludedUserIDs(userID uint) []uint {
 }
 
 // calculateMatchScore calculates the compatibility score between two users using a weighted algorithm
-// 
+//
 // Scoring Methodology:
 // 1. Each compatibility factor (hobbies, interests, etc.) has a user-configurable weight
 // 2. For each shared item, the full weight is added to the score
 // 3. Status preferences use flexible scoring (perfect match = full weight, mismatch = 25% weight)
 // 4. Final score is the sum of all weighted matches
-// 
+//
 // Example: User A has hobbies [reading, hiking], User B has hobbies [hiking, cooking]
 // If hobbies weight = 2, then score += 2 (for shared "hiking")
-// 
+//
 // Default weights prioritize: Languages (3) > Hobbies/Interests/Travel (2) > Others (1)
 func calculateMatchScore(userA, userB models.User) float64 {
 	score := 0.0
