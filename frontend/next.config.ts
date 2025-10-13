@@ -19,6 +19,20 @@ try {
 // Always allow localhost:8080 as a fallback for dev
 patterns.push({ protocol: 'http', hostname: 'localhost', port: '8080', pathname: '/uploads/**' });
 
+// Allow all ngrok domains for dynamic ngrok usage
+patterns.push({ 
+  protocol: 'https', 
+  hostname: '*.ngrok-free.app', 
+  pathname: '/uploads/**' 
+});
+
+// Allow specific common ngrok patterns
+patterns.push({ 
+  protocol: 'https', 
+  hostname: '*.ngrok.io', 
+  pathname: '/uploads/**' 
+});
+
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: patterns,
