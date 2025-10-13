@@ -1,18 +1,44 @@
-// API configuration and utility functions
-// This file centralizes API-related configuration and provides reusable functions
+/**
+ * API Configuration and Utility Functions
+ * 
+ * This file centralizes all API-related configuration and provides reusable functions
+ * for making HTTP requests to the Match-Me backend server.
+ * 
+ * Key Features:
+ * - Dynamic API URL resolution for localhost, LAN, and production environments
+ * - Centralized endpoint definitions for type safety
+ * - Generic API request wrapper with error handling
+ * - Authentication token management
+ * - Support for both REST API and Socket.IO connections
+ * 
+ * API URL Resolution Strategy:
+ * 1. Environment variable override (NEXT_PUBLIC_API_URL) - highest priority
+ * 2. Browser location derivation - works for LAN access and mobile testing
+ * 3. SSR/build fallback - defaults to localhost for server-side rendering
+ */
 
-// NEW FUNCTION: Get API URL with fresh logic
+/**
+ * Get API base URL with intelligent resolution strategy
+ * 
+ * This function determines the correct backend URL based on the current environment:
+ * - Development: Uses localhost or LAN IP for multi-device testing
+ * - Production: Uses environment-configured URL
+ * - Mobile testing: Supports LAN IP resolution for device access
+ * 
+ * @returns The base URL for API requests (e.g., "http://localhost:8080")
+ */
 export const getApiUrlNew = (): string => {
   console.log('[API] getApiUrlNew called at:', new Date().toISOString());
 
-  // 1) Prefer explicit env override
+  // Priority 1: Explicit environment variable override (production/ngrok)
   const envUrl = process.env.NEXT_PUBLIC_API_URL;
   if (envUrl && envUrl.trim().length > 0) {
     console.log('[API] Using NEXT_PUBLIC_API_URL:', envUrl);
     return envUrl;
   }
 
-  // 2) Derive from browser location (works across LAN/devices)
+  // Priority 2: Derive from browser location (works across LAN/devices)
+  // This enables mobile testing by using the same IP the browser is accessing
   if (typeof window !== 'undefined') {
     const host = window.location.hostname; // e.g. localhost or 192.168.x.x
     const derived = `http://${host}:8080`;
@@ -23,72 +49,107 @@ export const getApiUrlNew = (): string => {
     return derived;
   }
 
-  // 3) Fallback for SSR/build
+  // Priority 3: Fallback for SSR/build time
   const fallback = 'http://localhost:8080';
   console.warn('[API] Using SSR fallback API URL:', fallback, '\nSet NEXT_PUBLIC_API_URL to your backend base URL for non-localhost clients.');
   return fallback;
 };
 
-// Get the API base URL from environment variables
+/**
+ * Get the API base URL (wrapper for getApiUrlNew)
+ * Maintains backward compatibility while using the improved resolution logic
+ * 
+ * @returns The base URL for API requests
+ */
 export const getApiUrl = (): string => {
   console.log('[API] getApiUrl called at:', new Date().toISOString());
   
-  // Use the new function instead
+  // Use the improved function instead
   return getApiUrlNew();
 };
 
-// API endpoints
+/**
+ * Centralized API endpoint definitions
+ * 
+ * This object contains all backend API endpoints organized by feature area.
+ * Using a centralized approach provides:
+ * - Type safety and autocomplete support
+ * - Easy refactoring when endpoints change
+ * - Consistent endpoint usage across the application
+ * - Clear documentation of available API routes
+ * 
+ * Endpoint Categories:
+ * - AUTH: Authentication and user registration
+ * - USERS: User profile and account management
+ * - PROFILE: Detailed profile information and preferences
+ * - REFERENCE: Static reference data (hobbies, languages, etc.)
+ * - CHATS: Real-time messaging and chat management
+ * - RECOMMENDATIONS: User matching and recommendation system
+ * - CONNECTIONS: User connections, matches, and relationships
+ */
 export const API_ENDPOINTS = {
+  // Authentication endpoints (public - no auth required)
   AUTH: {
-    LOGIN: '/auth/login',
-    REGISTER: '/auth/register',
+    LOGIN: '/auth/login',           // POST - User login with email/password
+    REGISTER: '/auth/register',     // POST - Create new user account
   },
+  
+  // User management endpoints (protected - requires JWT)
   USERS: {
-    GET_ALL: '/users',
-    GET_ME: '/me',
-    GET_BY_ID: (id: string) => `/users/${id}`,
+    GET_ALL: '/users',              // GET - Get all users (admin/development)
+    GET_ME: '/me',                  // GET - Get current user info
+    GET_BY_ID: (id: string) => `/users/${id}`, // GET - Get specific user by ID
   },
+  
+  // Profile management endpoints (protected - requires JWT)
   PROFILE: {
-    GET_ME: '/me/profile',
-    UPDATE_ME: '/me/profile',
-    DELETE_ME: '/me/delete-profile',
-    GET_BY_ID: (id: string) => `/users/${id}/profile`,
-    GET_BIographical: '/me/biographical',
-    UPDATE_BIographical: '/me/biographical',
-    UPDATE_SEEKING_PREFERENCES: '/me/preferences',
-    GET_SEEKING_PREFERENCES: '/me/preferences',
+    GET_ME: '/me/profile',          // GET - Get current user's profile
+    UPDATE_ME: '/me/profile',       // PUT - Update current user's profile
+    DELETE_ME: '/me/delete-profile', // DELETE - Delete current user's account
+    GET_BY_ID: (id: string) => `/users/${id}/profile`, // GET - Get other user's profile
+    GET_BIographical: '/me/biographical',        // GET - Get biographical data
+    UPDATE_BIographical: '/me/biographical',     // PUT - Update biographical data
+    UPDATE_SEEKING_PREFERENCES: '/me/preferences', // PUT - Update seeking preferences
+    GET_SEEKING_PREFERENCES: '/me/preferences',    // GET - Get seeking preferences
   },
+  
+  // Reference data endpoints (public - no auth required)
   REFERENCE: {
-    LANGUAGES: '/languages',
-    HOBBIES: '/hobbies',
-    INTERESTS: '/interests',
-    FOOD_PREFERENCES: '/food-preferences',
-    MUSIC_GENRES: '/music-genres',
-    MOVIE_GENRES: '/movie-genres',
-    TRAVEL_TYPES: '/travel-types',
+    LANGUAGES: '/languages',        // GET - Get all available languages
+    HOBBIES: '/hobbies',            // GET - Get all available hobbies
+    INTERESTS: '/interests',        // GET - Get all available interests
+    FOOD_PREFERENCES: '/food-preferences', // GET - Get all food preferences
+    MUSIC_GENRES: '/music-genres',  // GET - Get all music genres
+    MOVIE_GENRES: '/movie-genres',  // GET - Get all movie genres
+    TRAVEL_TYPES: '/travel-types',  // GET - Get all travel types
   },
+  
+  // Chat and messaging endpoints (protected - requires JWT)
   CHATS: {
-    GET_ALL: '/chats',
-    CREATE: '/chats',
-    GET_MESSAGES: (chatId: string) => `/chats/${chatId}/messages`,
-    SEND_MESSAGE: (chatId: string) => `/chats/${chatId}/messages`,
-    MARK_READ: (chatId: string) => `/chats/${chatId}/read`,
-    DELETE: (chatId: string) => `/chats/${chatId}`,
-    WEBSOCKET: (chatId: string) => `/chats/${chatId}/ws`,
+    GET_ALL: '/chats',              // GET - Get user's chat conversations
+    CREATE: '/chats',               // POST - Create new chat conversation
+    GET_MESSAGES: (chatId: string) => `/chats/${chatId}/messages`, // GET - Get chat messages
+    SEND_MESSAGE: (chatId: string) => `/chats/${chatId}/messages`, // POST - Send message
+    MARK_READ: (chatId: string) => `/chats/${chatId}/read`,        // PUT - Mark messages as read
+    DELETE: (chatId: string) => `/chats/${chatId}`,               // DELETE - Delete chat
+    WEBSOCKET: (chatId: string) => `/chats/${chatId}/ws`,         // WebSocket - Real-time chat
   },
+  
+  // Recommendation system endpoints (protected - requires JWT)
   RECOMMENDATIONS: {
-    GET_ALL: '/recommendations',
-    LIKE: (id: string) => `/recommendations/${id}/like`,
-    DISMISS: (id: string) => `/recommendations/${id}/dismiss`,
+    GET_ALL: '/recommendations',    // GET - Get personalized user recommendations
+    LIKE: (id: string) => `/recommendations/${id}/like`,          // POST - Like a recommendation
+    DISMISS: (id: string) => `/recommendations/${id}/dismiss`,    // POST - Dismiss a recommendation
   },
+  
+  // User connections and matches endpoints (protected - requires JWT)
   CONNECTIONS: {
-    GET_ALL: '/connections',
-    GET_REQUESTS: '/connections/requests',
-    GET_MATCHES: '/connections/matches',
-    UPDATE: (id: string) => `/connections/${id}`,
-    DELETE: (id: string) => `/connections/${id}`,
+    GET_ALL: '/connections',        // GET - Get all user connections
+    GET_REQUESTS: '/connections/requests', // GET - Get pending connection requests
+    GET_MATCHES: '/connections/matches',   // GET - Get accepted connections (matches)
+    UPDATE: (id: string) => `/connections/${id}`,  // PUT - Accept/reject/disconnect
+    DELETE: (id: string) => `/connections/${id}`,  // DELETE - Delete connection
   },
-  // Add more endpoints as needed
 } as const;
 
 // Generic API request function

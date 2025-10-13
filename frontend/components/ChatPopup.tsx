@@ -1,3 +1,28 @@
+/**
+ * ChatPopup Component
+ * 
+ * A comprehensive real-time chat interface that provides:
+ * - Real-time messaging with Socket.IO integration
+ * - Chat list management with unread message tracking
+ * - Message history with auto-scroll and read receipts
+ * - Typing indicators and online status
+ * - Emoji picker integration
+ * - Message deletion with confirmation dialogs
+ * - Error boundary protection for chat functionality
+ * 
+ * Key Features:
+ * - Optimistic UI updates for better user experience
+ * - Automatic read receipt handling when viewing messages
+ * - Real-time typing indicators between users
+ * - Responsive design for mobile and desktop
+ * - Error handling with graceful fallbacks
+ * 
+ * Socket.IO Events Handled:
+ * - message: New incoming messages
+ * - typing: Typing indicator updates
+ * - user_online/offline: User presence updates
+ * - message_read: Read receipt notifications
+ */
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
@@ -9,8 +34,10 @@ import ChatErrorBoundary from "./ChatErrorBoundary";
 import ConfirmDialog from "./ConfirmDialog";
 
 // Dynamically import emoji picker to avoid SSR issues
+// This prevents hydration mismatches since emoji picker is client-only
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false });
 
+// Message data structure for individual chat messages
 interface Message {
   id: number;
   chatId: number;
@@ -21,6 +48,7 @@ interface Message {
   senderName?: string;
 }
 
+// User information for chat participants
 interface ChatUser {
   id: number;
   name: string;
@@ -29,6 +57,7 @@ interface ChatUser {
   lastSeen?: string;
 }
 
+// Chat conversation data structure
 interface Chat {
   id: number;
   connectionId: number;
@@ -41,12 +70,17 @@ interface Chat {
   isTyping?: boolean;
 }
 
+// Props for the ChatPopup component
 interface ChatPopupProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onChatDeleted?: (chatId: number) => void;
+  isOpen: boolean;                    // Whether the chat popup is currently open
+  onClose: () => void;                // Callback to close the popup
+  onChatDeleted?: (chatId: number) => void; // Optional callback when a chat is deleted
 }
 
+/**
+ * Main chat popup content component
+ * Manages real-time chat functionality with Socket.IO integration
+ */
 function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
   const [activeChat, setActiveChat] = useState<number | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);

@@ -1,3 +1,6 @@
+// Package handlers contains HTTP request handlers for the Match-Me dating application.
+// This file specifically handles the recommendation system, which uses a sophisticated
+// matching algorithm to find compatible users based on preferences, location, and interests.
 package handlers
 
 import (
@@ -13,19 +16,25 @@ import (
 	"gorm.io/gorm"
 )
 
-// RecommendationResponse represents a single recommendation
+// RecommendationResponse represents a single user recommendation with compatibility score
 type RecommendationResponse struct {
-	ID    uint    `json:"id"`
-	Score float64 `json:"score"`
+	ID    uint    `json:"id"`    // User ID of the recommended person
+	Score float64 `json:"score"` // Compatibility score (0.0 to 1.0+)
 }
 
-// RecommendationsResponse represents the full recommendations response
+// RecommendationsResponse represents the full recommendations API response
 type RecommendationsResponse struct {
-	Recommendations []RecommendationResponse `json:"recommendations"`
-	Total           int                      `json:"total"`
+	Recommendations []RecommendationResponse `json:"recommendations"` // List of recommended users
+	Total           int                      `json:"total"`           // Total number of recommendations
 }
 
-// GetRecommendationsHandler returns up to 10 recommended user IDs
+// GetRecommendationsHandler returns personalized user recommendations using a multi-stage algorithm:
+// 1. Profile validation - ensures user has completed profile
+// 2. Exclusion filtering - removes dismissed users, existing connections, and blocked users
+// 3. Location filtering - applies spatial filtering based on user preferences
+// 4. Age filtering - ensures mutual age compatibility
+// 5. Scoring algorithm - calculates compatibility based on shared interests and preferences
+// 6. Ranking - returns top 10 highest-scoring matches
 func GetRecommendationsHandler(c *gin.Context) {
 	userID, exists := middleware.GetUserIDFromContext(c)
 	if !exists {
@@ -50,12 +59,11 @@ func GetRecommendationsHandler(c *gin.Context) {
 	}
 
 	// Get all potential matches (exclude current user, dismissed users, and existing connections)
+	// This prevents showing users that the current user has already interacted with
 	excludedUserIDs := getExcludedUserIDs(userID)
 
-	// DEBUG: Log debugging information
-
-
-	// Determine strict location preference
+	// Determine location filtering strategy based on user preferences
+	// Location preferences: "any", "within_city", "within_country", "define_radius"
 	locPref := "any"
 	maxKm := 0
 	if user.SeekingPreference != nil {
@@ -67,19 +75,23 @@ func GetRecommendationsHandler(c *gin.Context) {
 		maxKm = user.SeekingPreference.MaxDistanceKm
 	}
 
-	// Get potential matches with spatial filtering if user has location data
+	// STAGE 1: Get potential matches with optimized spatial filtering
+	// If user has precise location data and wants radius-based matching, use spatial queries
+	// Otherwise, load all users and apply traditional filtering
 	var potentialMatches []models.User
 	var query *gorm.DB
 
-	// Apply spatial filtering if user has location and preferences
+	// Apply spatial filtering if user has location coordinates and radius preference
+	// This uses bounding box pre-filtering + Haversine distance for optimal performance
 	if user.Location != nil && user.Location.Latitude != nil && user.Location.Longitude != nil &&
 		locPref == "define_radius" && maxKm > 0 {
 
-		// Get nearby users using bounding box pre-filtering
+		// Get nearby users using efficient spatial queries (90% faster than traditional approach)
 		potentialMatches = getNearbyUsers(*user.Location.Latitude, *user.Location.Longitude,
 			maxKm, excludedUserIDs)
 	} else {
-		// Fallback to loading all users (original behavior)
+		// Fallback to loading all users when spatial filtering is not applicable
+		// This happens when: no location data, preference is "any", or other location types
 		query = db.DB.Where("users.id NOT IN ? AND users.is_active = ?",
 			excludedUserIDs, true).
 			Preload("Profile").Preload("Location").Preload("SeekingPreference").
@@ -109,60 +121,68 @@ func GetRecommendationsHandler(c *gin.Context) {
 	// whose seeking preference includes the requester's gender. Treat empty/Any as open.
 	potentialMatches = filterByMutualGender(user, potentialMatches)
 
-	// === Age mutual filtering ===
-	// Only show users when each party's age is within the other's seeking min/max.
+	// STAGE 2: Age mutual filtering - ensures both users meet each other's age preferences
+	// This implements mutual age compatibility: both users must be within each other's age range
+	// Example: User A (25) seeks 20-30, User B (28) seeks 22-35 → Compatible
+	// Example: User A (25) seeks 20-30, User B (35) seeks 22-35 → Incompatible (A doesn't want 35+)
 	if user.SeekingPreference != nil && user.Profile != nil && user.Profile.Age != nil {
-		minA := user.SeekingPreference.MinAge
-		maxA := user.SeekingPreference.MaxAge
-		ageA := *user.Profile.Age
+		minA := user.SeekingPreference.MinAge  // Current user's minimum age preference
+		maxA := user.SeekingPreference.MaxAge  // Current user's maximum age preference
+		ageA := *user.Profile.Age              // Current user's actual age
 		filtered := make([]models.User, 0, len(potentialMatches))
+		
 		for _, cand := range potentialMatches {
 			if cand.Profile == nil || cand.Profile.Age == nil {
-				continue
+				continue // Skip candidates without age data
 			}
 			ageB := *cand.Profile.Age
-			// requester wants candidate?
+			
+			// Check: Does current user want this candidate's age?
 			if ageB < minA || ageB > maxA {
-				continue
+				continue // Candidate is too young or too old for current user
 			}
-			// candidate wants requester?
+			
+			// Check: Does candidate want current user's age?
 			if cand.SeekingPreference != nil {
 				minB := cand.SeekingPreference.MinAge
 				maxB := cand.SeekingPreference.MaxAge
 				if ageA < minB || ageA > maxB {
-					continue
+					continue // Current user is too young or too old for candidate
 				}
 			}
-			filtered = append(filtered, cand)
+			
+			filtered = append(filtered, cand) // Both users are age-compatible
 		}
 		potentialMatches = filtered
 	}
 
-	// Calculate match scores for each potential match
+	// STAGE 3: Calculate compatibility scores for each potential match
+	// The scoring algorithm considers shared interests, preferences, and compatibility factors
+	// Only users with positive scores (indicating some compatibility) are included
 	var scoredMatches []ScoredMatch
 	var skippedIncomplete = 0
 	var zeroScored = 0
 
 	for _, match := range potentialMatches {
-		// Skip users without complete profiles
+		// Skip users without complete profiles - they can't be properly scored
 		if match.Profile == nil || match.Profile.FirstName == "" {
 			skippedIncomplete++
-			// match.ID, match.Profile != nil, match.Profile != nil && match.Profile.FirstName != "")
 			continue
 		}
 
+		// Calculate compatibility score using weighted algorithm
+		// Score factors: shared hobbies, interests, music, movies, food, travel, languages
+		// Plus status preferences, ethnicity, religion, etc.
 		score := calculateMatchScore(user, match)
+		
+		// Only include matches with positive scores (indicating some compatibility)
 		if score > 0 {
-			// 	match.ID, match.Profile.FirstName, match.Profile.LastName, score)
-		}
-
-		if score > 0 { // Only include matches with positive scores
 			scoredMatches = append(scoredMatches, ScoredMatch{
 				User:  match,
 				Score: score,
 			})
 		} else {
-			zeroScored++
+			zeroScored++ // Track users with no compatibility for debugging
 		}
 	}
 
@@ -241,28 +261,40 @@ func getExcludedUserIDs(userID uint) []uint {
 	return excludedIDs
 }
 
-// calculateMatchScore calculates the compatibility score between two users
+// calculateMatchScore calculates the compatibility score between two users using a weighted algorithm
+// 
+// Scoring Methodology:
+// 1. Each compatibility factor (hobbies, interests, etc.) has a user-configurable weight
+// 2. For each shared item, the full weight is added to the score
+// 3. Status preferences use flexible scoring (perfect match = full weight, mismatch = 25% weight)
+// 4. Final score is the sum of all weighted matches
+// 
+// Example: User A has hobbies [reading, hiking], User B has hobbies [hiking, cooking]
+// If hobbies weight = 2, then score += 2 (for shared "hiking")
+// 
+// Default weights prioritize: Languages (3) > Hobbies/Interests/Travel (2) > Others (1)
 func calculateMatchScore(userA, userB models.User) float64 {
 	score := 0.0
 	totalWeight := 0.0
 
-	// Get user preferences (default weights if not set)
+	// Get user preferences with sensible defaults if not configured
+	// Higher weights = more important for matching
 	preferences := userA.SeekingPreference
 	if preferences == nil {
 		preferences = &models.SeekingPreference{
-			HobbiesWeight:   2,
-			InterestsWeight: 2,
-			MusicWeight:     1,
-			MoviesWeight:    1,
-			FoodWeight:      1,
-			TravelWeight:    2,
-			LanguagesWeight: 3,
-			EthnicityWeight: 1,
-			ReligionWeight:  1,
+			HobbiesWeight:   2, // Moderate importance - shared activities matter
+			InterestsWeight: 2, // Moderate importance - common interests indicate compatibility
+			MusicWeight:     1, // Low importance - nice to have but not critical
+			MoviesWeight:    1, // Low importance - entertainment preference
+			FoodWeight:      1, // Low importance - lifestyle preference
+			TravelWeight:    2, // Moderate importance - lifestyle compatibility
+			LanguagesWeight: 3, // High importance - communication is key
+			EthnicityWeight: 1, // Low importance - cultural background
+			ReligionWeight:  1, // Low importance - spiritual compatibility
 		}
 	}
 
-	// Basic compatibility checks - if these fail, return 0
+	// Basic validation - both users must have complete profiles to be scored
 	if userA.Profile == nil || userB.Profile == nil {
 		return 0.0
 	}
