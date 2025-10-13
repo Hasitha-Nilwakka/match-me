@@ -8,10 +8,16 @@ import (
 	"backend/db"
 	"backend/handlers"
 	"backend/middleware"
+
+	// "backend/seeders"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,8 +46,9 @@ func main() {
 	// Auto-seed database
 	// This will only seed if the database is empty
 	fmt.Println("Checking database setup...")
-	// Note: Reference data (hobbies, interests, etc.) should be seeded via Prisma
-	// or a separate seeding script. The SeedReferenceData function is not implemented.
+
+	//For some reason SeedReferenceData is disappeared
+
 	// if err := seeders.SeedReferenceData(); err != nil {
 	// 	log.Printf("Warning: Failed to seed reference data: %v", err)
 	// }
@@ -75,11 +82,6 @@ func main() {
 			return
 		}
 		c.Next()
-	})
-
-	// API endpoint
-	r.GET("/", func(c *gin.Context) {
-		fmt.Fprint(c.Writer, "Welcome to the Match Me API!")
 	})
 
 	// Health check endpoint
@@ -173,6 +175,57 @@ func main() {
 
 	// Admin endpoints (no authentication required)
 	r.DELETE("/users/:id", handlers.DeleteUserHandler) // Delete user (temporary endpoint)
+
+	// Proxy all non-API routes to Next.js dev server
+	r.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+
+		// Don't proxy API routes, uploads, or health checks
+		if strings.HasPrefix(path, "/api") ||
+			strings.HasPrefix(path, "/socket.io") ||
+			strings.HasPrefix(path, "/uploads") ||
+			strings.HasPrefix(path, "/health") ||
+			strings.HasPrefix(path, "/debug") {
+			c.JSON(404, gin.H{"error": "Not found"})
+			return
+		}
+
+		// Proxy to Next.js dev server
+		proxyURL := "http://localhost:3000" + c.Request.URL.String()
+
+		client := &http.Client{Timeout: 30 * time.Second}
+		req, err := http.NewRequest(c.Request.Method, proxyURL, c.Request.Body)
+		if err != nil {
+			log.Printf("Error creating proxy request: %v", err)
+			c.JSON(500, gin.H{"error": "Proxy error"})
+			return
+		}
+
+		// Copy headers
+		for key, values := range c.Request.Header {
+			for _, value := range values {
+				req.Header.Add(key, value)
+			}
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("Error proxying to Next.js: %v", err)
+			c.JSON(500, gin.H{"error": "Frontend server unavailable"})
+			return
+		}
+		defer resp.Body.Close()
+
+		// Copy response headers
+		for key, values := range resp.Header {
+			for _, value := range values {
+				c.Header(key, value)
+			}
+		}
+
+		c.Status(resp.StatusCode)
+		io.Copy(c.Writer, resp.Body)
+	})
 
 	// Start the HTTP server on configurable port (accessible from local network)
 	port := os.Getenv("PORT")
