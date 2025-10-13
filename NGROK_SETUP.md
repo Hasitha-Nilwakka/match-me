@@ -36,58 +36,23 @@ ngrok config add-authtoken YOUR_TOKEN_HERE
 
 ---
 
-## Quick Setup (5 steps)
+## 🚀 Quick Start (Automated)
 
-### 1. Start Frontend Server
-
-```bash
-cd frontend
-npm run dev
-```
-
-_Keep this terminal open - frontend runs on port 3000_
-
-### 2. Start Backend Server
+**One command to start everything:**
 
 ```bash
-cd backend
-go run .
+./start-ngrok.sh
 ```
 
-_Keep this terminal open - backend runs on port 8080_
+This script will:
 
-### 3. Start Ngrok Tunnel
+- Start your frontend server (port 3000)
+- Start your backend server (port 8080)
+- Create ngrok tunnel
+- Update environment variables automatically
+- Show you the public URL to share
 
-```bash
-ngrok http 8080
-```
-
-_Copy the HTTPS URL (e.g., `https://abc123.ngrok-free.app`)_
-
-### 4. Update Environment File
-
-Edit `frontend/.env.local`:
-
-```bash
-NEXT_PUBLIC_API_URL=https://abc123.ngrok-free.app
-```
-
-_Replace with your actual ngrok URL_
-
-### 5. Access Your App
-
-- **PC**: Use the ngrok URL
-- **Mobile**: Same ngrok URL
-- **Both work with full functionality!**
-
----
-
-## 📱 Testing
-
-1. Open ngrok URL in browser
-2. Login should work on both PC and mobile
-3. Navigation between pages should work
-4. API calls should work
+Press `Ctrl+C` to stop all services.
 
 ---
 
