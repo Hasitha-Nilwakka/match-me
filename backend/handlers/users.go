@@ -54,8 +54,8 @@ func isConnectedOrPending(viewerID, targetID uint) bool {
 
 func isCurrentlyRecommended(viewerID, targetID uint) bool {
 	// Minimal, performant check: look at last up-to-10 scored results we compute on demand here
-	// Reuse getExcludedUserIDs and calculateMatchScore from recommendations.go
-	excluded := getExcludedUserIDs(viewerID)
+	// Reuse GetExcludedUserIDs and CalculateMatchScore from recommendations.go
+	excluded := GetExcludedUserIDs(viewerID)
 	var candidates []models.User
 	if err := db.DB.Where("id NOT IN ? AND is_active = ?", excluded, true).Preload("Profile").
 		Preload("Location").Find(&candidates).Error; err != nil {
@@ -68,21 +68,17 @@ func isCurrentlyRecommended(viewerID, targetID uint) bool {
 		Preload("UserLanguages").First(&viewer, viewerID).Error; err != nil {
 		return false
 	}
-	type pair struct {
-		id    uint
-		score float64
-	}
-	var scored []pair
+	// Check if the target user would be recommended based on compatibility score
 	for _, u := range candidates {
 		if u.ID == targetID {
-			// quick acceptance if positive score
-			if calculateMatchScore(viewer, u) > 0 {
+		// Return true if this user would have a positive compatibility score
+		if CalculateMatchScore(viewer, u) > 0 {
 				return true
 			}
+			// Found the target user, no need to continue checking others
+			break
 		}
-		// keep list short if needed (optional)
 	}
-	_ = scored
 	return false
 }
 

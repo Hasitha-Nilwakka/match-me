@@ -223,7 +223,7 @@ func TestCalculateMatchScore_UsesMultipleSignals(t *testing.T) {
 		UserLanguages: []models.UserLanguage{{LanguageID: 7}},
 	}
 
-	score := calculateMatchScore(a, b)
+	score := CalculateMatchScore(a, b)
 	if score <= 0 {
 		t.Fatalf("expected positive score, got %v", score)
 	}
@@ -271,7 +271,7 @@ func TestCalculateMatchScore_NoMatches(t *testing.T) {
 		UserLanguages: []models.UserLanguage{{LanguageID: 70}},   // Different language
 	}
 
-	score := calculateMatchScore(a, b)
+	score := CalculateMatchScore(a, b)
 	if score < 0 {
 		t.Fatalf("expected non-negative score, got %v", score)
 	}
@@ -384,7 +384,7 @@ func TestCalculateMatchScore_PartialMatches(t *testing.T) {
 		UserLanguages: []models.UserLanguage{{LanguageID: 70}},                         // No match
 	}
 
-	score := calculateMatchScore(a, b)
+	score := CalculateMatchScore(a, b)
 	if score <= 0 {
 		t.Fatalf("expected positive score, got %v", score)
 	}

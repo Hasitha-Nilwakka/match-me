@@ -60,7 +60,7 @@ func GetRecommendationsHandler(c *gin.Context) {
 
 	// Get all potential matches (exclude current user, dismissed users, and existing connections)
 	// This prevents showing users that the current user has already interacted with
-	excludedUserIDs := getExcludedUserIDs(userID)
+	excludedUserIDs := GetExcludedUserIDs(userID)
 
 	// Determine location filtering strategy based on user preferences
 	// Location preferences: "any", "within_city", "within_country", "define_radius"
@@ -173,7 +173,7 @@ func GetRecommendationsHandler(c *gin.Context) {
 		// Calculate compatibility score using weighted algorithm
 		// Score factors: shared hobbies, interests, music, movies, food, travel, languages
 		// Plus status preferences, ethnicity, religion, etc.
-		score := calculateMatchScore(user, match)
+		score := CalculateMatchScore(user, match)
 
 		// Only include matches with positive scores (indicating some compatibility)
 		if score > 0 {
@@ -235,8 +235,9 @@ type ScoredMatch struct {
 	Score float64
 }
 
-// getExcludedUserIDs returns a list of user IDs to exclude from recommendations
-func getExcludedUserIDs(userID uint) []uint {
+// GetExcludedUserIDs returns a list of user IDs to exclude from recommendations
+// This includes the user themselves, dismissed users, and existing connections
+func GetExcludedUserIDs(userID uint) []uint {
 	var excludedIDs []uint
 	excludedIDs = append(excludedIDs, userID) // Exclude self
 
@@ -261,7 +262,7 @@ func getExcludedUserIDs(userID uint) []uint {
 	return excludedIDs
 }
 
-// calculateMatchScore calculates the compatibility score between two users using a weighted algorithm
+// CalculateMatchScore calculates the compatibility score between two users using a weighted algorithm
 //
 // Scoring Methodology:
 // 1. Each compatibility factor (hobbies, interests, etc.) has a user-configurable weight
@@ -273,7 +274,7 @@ func getExcludedUserIDs(userID uint) []uint {
 // If hobbies weight = 2, then score += 2 (for shared "hiking")
 //
 // Default weights prioritize: Languages (3) > Hobbies/Interests/Travel (2) > Others (1)
-func calculateMatchScore(userA, userB models.User) float64 {
+func CalculateMatchScore(userA, userB models.User) float64 {
 	score := 0.0
 	totalWeight := 0.0
 
