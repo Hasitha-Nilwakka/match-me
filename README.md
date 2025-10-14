@@ -8,6 +8,7 @@ A modern dating application built with Go backend and Next.js frontend, featurin
 ```bash
 git clone https://gitea.kood.tech/joelmakela/match-me.git
 cd match-me
+```
 
 
 ### 2. Setup Environment Variables
@@ -54,13 +55,14 @@ See [Database Setup](#database-setup) section below for PostgreSQL installation 
 ```
 
 **Access the app:**
+- **Using Wi-Fi network for multi-device testing (Windows or macOS only):**
 - **Desktop/Laptop**: `http://localhost:3000`
 - **Mobile/Other Devices**: `http://YOUR_LOCAL_IP:3000` (e.g., `http://192.168.1.100:3000`)
   - Find your IP: `./start.sh` displays it when starting
   - Make sure devices are on the same WiFi network
 
 > **💡 Using WSL (Windows Subsystem for Linux)?**  
-> The startup scripts automatically detect WSL and use the Windows host IP (192.168.x.x) instead of the WSL virtual IP (172.x.x.x). If you encounter network issues, see [WSL_SETUP.md](./WSL_SETUP.md) for detailed configuration.
+> See [NGROK_SETUP.md](./NGROK_SETUP.md) for detailed configuration.
 
 ---
 
@@ -90,6 +92,12 @@ match-me/
 ./start.sh
 ```
 Starts both backend and frontend with full dev tooling (build indicators, error overlays, etc.)
+
+### For tunneling with Ngrok
+```bash
+./start-ngrok.sh
+```
+Sets up ngrok tunnel to expose local backend to the internet, allowing testing from mobile devices outside your local network. Make sure to follow the [Ngrok Setup Instructions](./NGROK_SETUP.md) first.
 
 ### For Mobile Testing
 ```bash
@@ -208,14 +216,8 @@ cd frontend
 npm install
 npx prisma generate
 npx prisma migrate dev --name init  # Create and run initial migration
-npm run db:seed                     # Seed initial data
 npm run dev                         # Start development server
 ```
-
-- We could make everything work with one command using a script, but for now, we keep them separate.
-- You must first generate the database and run migrations/seed before starting developing the backend or frontend.
-- Everytime we need to change the Prisma schema, we must run `npx prisma migrate dev` and `npx prisma generate` again.
-- Now the app works so that frontend (Prisma) only modifies and initializes the schema and the backend (GORM) uses CRUD operations to modify or read the actual PostreSQL database.
 
 ### Network Access & Multi-Device Testing
 
@@ -223,7 +225,7 @@ For testing on multiple devices (mobile phones, tablets, other computers) on you
 
 #### Quick Start (Recommended)
 ```bash
-./start-network.sh
+./start.sh
 ```
 
 #### Manual Setup
@@ -266,52 +268,8 @@ This will open a web interface at `http://localhost:5555` where you can:
 - 🔍 **Filter and search** through your data
 - 🔗 **Navigate relationships** between tables
 
-#### Other Useful Database Commands
 
-```bash
-# Check migration status
-npx prisma migrate status
 
-# Create a new migration after schema changes
-npx prisma migrate dev --name your_migration_name
-
-# Reset database (⚠️ DESTRUCTIVE - only in development)
-npx prisma migrate reset
-
-# Generate Prisma client after schema changes
-npx prisma generate
-
-# Push schema changes without migration files
-npx prisma db push
-```
-
-## Database Schema
-
-The Prisma schema mirrors GORM models and includes:
-
-- **User Management**: Users, Profiles, Locations
-- **Preferences**: SeekingPreferences with detailed preference values and weighted matching criteria
-- **Social Features**: Connections, Messages, Chats
-- **User Interests**: Hobbies, Interests, Music, Movies, Food, Travel, Languages
-- **Matching System**: DismissedRecommendations, OnlineStatus
-
-## Key Features
-
-- **Type-safe database access** with Prisma Client
-- **Real-time messaging** with Socket.IO (auto-reconnection, fallback transports, mobile-optimized)
-- **Real-time notifications** via per-user Socket.IO rooms (connections, requests, chat events)
-- **Advanced matching algorithm** with weighted preferences and location-based filtering
-- **Location-based matching** with Finnish municipality support
-- **Rich user profiles** with multiple interest categories and multi-select bio data
-- **Connection management** system (send requests, accept/reject, disconnect)
-- **Comprehensive preference system** with both specific values and priority weights
-- **Global floating chat (popup)** - All chat functionality (list, messages, typing, unread, delete) lives in a single popup component across all pages
-- **Mobile-responsive design** - Works seamlessly on desktop and mobile devices
-- **Network access support** - Multi-device testing on local WiFi
-- **Chat deletion** - Delete conversations with confirmation dialogs
-- **Enhanced error handling** - Detailed debugging and user-friendly messages
-- **Chat search** - Filter chat list by user or last message; search inside a conversation with highlighting and next/prev navigation (Ctrl+F)
-- **Auto-reconnection** - Survives network switches, app backgrounding, and temporary disconnections
 
 ## Recent Updates
 
