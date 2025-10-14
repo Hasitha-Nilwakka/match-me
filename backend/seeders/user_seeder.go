@@ -14,6 +14,267 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// SeedReferenceData seeds all reference data tables
+func SeedReferenceData() error {
+	fmt.Println("Seeding reference data...")
+
+	var wg sync.WaitGroup
+	errors := make(chan error, 7) // Buffer for 7 seeding functions
+
+	// Seed all reference data concurrently
+	wg.Add(7)
+
+	go func() {
+		defer wg.Done()
+		if err := seedLanguages(); err != nil {
+			errors <- fmt.Errorf("languages: %v", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := seedHobbies(); err != nil {
+			errors <- fmt.Errorf("hobbies: %v", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := seedInterests(); err != nil {
+			errors <- fmt.Errorf("interests: %v", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := seedFoodPreferences(); err != nil {
+			errors <- fmt.Errorf("food preferences: %v", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := seedMusicGenres(); err != nil {
+			errors <- fmt.Errorf("music genres: %v", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := seedMovieGenres(); err != nil {
+			errors <- fmt.Errorf("movie genres: %v", err)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := seedTravelTypes(); err != nil {
+			errors <- fmt.Errorf("travel types: %v", err)
+		}
+	}()
+
+	wg.Wait()
+	close(errors)
+
+	// Check for errors
+	for err := range errors {
+		if err != nil {
+			log.Printf("Seeding error: %v", err)
+		}
+	}
+
+	fmt.Println("Reference data seeding completed!")
+	return nil
+}
+
+func seedLanguages() error {
+	var count int64
+	db.DB.Model(&models.Language{}).Count(&count)
+	if count > 0 {
+		return nil // Already seeded
+	}
+
+	// Match Prisma seed languages
+	languageData := []struct {
+		Name string
+		Code string
+	}{
+		{"English", "en"}, {"Spanish", "es"}, {"French", "fr"}, {"German", "de"},
+		{"Italian", "it"}, {"Portuguese", "pt"}, {"Russian", "ru"}, {"Chinese", "zh"},
+		{"Japanese", "ja"}, {"Korean", "ko"},
+	}
+
+	for _, lang := range languageData {
+		language := models.Language{Name: lang.Name, Code: lang.Code}
+		// Use Code as the unique identifier for FirstOrCreate
+		if err := db.DB.Where("code = ?", lang.Code).FirstOrCreate(&language).Error; err != nil {
+			return err
+		}
+	}
+
+	log.Printf("Seeded %d languages", len(languageData))
+	return nil
+}
+
+func seedHobbies() error {
+	var count int64
+	db.DB.Model(&models.Hobby{}).Count(&count)
+	if count > 0 {
+		return nil // Already seeded
+	}
+
+	// Hobby data with categories to match Prisma seed
+	hobbiesData := []struct {
+		Name     string
+		Category string
+	}{
+		{"Reading", "Intellectual"},
+		{"Gaming", "Entertainment"},
+		{"Cooking", "Creative"},
+		{"Hiking", "Outdoor"},
+		{"Photography", "Creative"},
+		{"Fitness", "Health"},
+		{"Traveling", "Adventure"},
+		{"Music", "Creative"},
+		{"Dancing", "Physical"},
+		{"Art", "Creative"},
+	}
+
+	for _, hobbyData := range hobbiesData {
+		hobby := models.Hobby{Name: hobbyData.Name}
+		// Set category if the field exists (might be a pointer)
+		if hobbyData.Category != "" {
+			hobby.Category = &hobbyData.Category
+		}
+		if err := db.DB.Where("name = ?", hobbyData.Name).FirstOrCreate(&hobby).Error; err != nil {
+			return err
+		}
+	}
+
+	log.Printf("Seeded %d hobbies", len(hobbiesData))
+	return nil
+}
+
+func seedInterests() error {
+	var count int64
+	db.DB.Model(&models.Interest{}).Count(&count)
+	if count > 0 {
+		return nil // Already seeded
+	}
+
+	// Match Prisma seed interests
+	interests := []string{
+		"Technology", "Science", "Politics", "Philosophy", "History",
+		"Psychology", "Environment", "Business", "Health", "Education",
+	}
+
+	for _, name := range interests {
+		interest := models.Interest{Name: name}
+		if err := db.DB.Where("name = ?", name).FirstOrCreate(&interest).Error; err != nil {
+			return err
+		}
+	}
+
+	log.Printf("Seeded %d interests", len(interests))
+	return nil
+}
+
+func seedFoodPreferences() error {
+	var count int64
+	db.DB.Model(&models.FoodPreference{}).Count(&count)
+	if count > 0 {
+		return nil // Already seeded
+	}
+
+	// Match Prisma seed food preferences
+	foodPreferences := []string{
+		"Vegetarian", "Vegan", "Pescatarian", "Keto", "Paleo", "Gluten-Free",
+		"Mediterranean", "Asian Cuisine", "Italian Cuisine", "Mexican Cuisine",
+	}
+
+	for _, name := range foodPreferences {
+		preference := models.FoodPreference{Name: name}
+		if err := db.DB.Where("name = ?", name).FirstOrCreate(&preference).Error; err != nil {
+			return err
+		}
+	}
+
+	log.Printf("Seeded %d food preferences", len(foodPreferences))
+	return nil
+}
+
+func seedMusicGenres() error {
+	var count int64
+	db.DB.Model(&models.MusicGenre{}).Count(&count)
+	if count > 0 {
+		return nil // Already seeded
+	}
+
+	// Match Prisma seed music genres
+	musicGenres := []string{
+		"Pop", "Rock", "Jazz", "Classical", "Hip Hop", "Electronic",
+		"Country", "R&B", "Folk", "Indie",
+	}
+
+	for _, name := range musicGenres {
+		genre := models.MusicGenre{Name: name}
+		if err := db.DB.Where("name = ?", name).FirstOrCreate(&genre).Error; err != nil {
+			return err
+		}
+	}
+
+	log.Printf("Seeded %d music genres", len(musicGenres))
+	return nil
+}
+
+func seedMovieGenres() error {
+	var count int64
+	db.DB.Model(&models.MovieGenre{}).Count(&count)
+	if count > 0 {
+		return nil // Already seeded
+	}
+
+	// Match Prisma seed movie genres
+	movieGenres := []string{
+		"Action", "Comedy", "Drama", "Horror", "Romance", "Sci-Fi",
+		"Thriller", "Documentary", "Animation", "Fantasy",
+	}
+
+	for _, name := range movieGenres {
+		genre := models.MovieGenre{Name: name}
+		if err := db.DB.Where("name = ?", name).FirstOrCreate(&genre).Error; err != nil {
+			return err
+		}
+	}
+
+	log.Printf("Seeded %d movie genres", len(movieGenres))
+	return nil
+}
+
+func seedTravelTypes() error {
+	var count int64
+	db.DB.Model(&models.TravelType{}).Count(&count)
+	if count > 0 {
+		return nil // Already seeded
+	}
+
+	// Match Prisma seed travel types
+	travelTypes := []string{
+		"Adventure Travel", "Beach Vacation", "City Break", "Cultural Tourism",
+		"Eco Tourism", "Luxury Travel", "Backpacking", "Road Trip", "Cruise", "Camping",
+	}
+
+	for _, name := range travelTypes {
+		travelType := models.TravelType{Name: name}
+		if err := db.DB.Where("name = ?", name).FirstOrCreate(&travelType).Error; err != nil {
+			return err
+		}
+	}
+
+	log.Printf("Seeded %d travel types", len(travelTypes))
+	return nil
+}
+
 // convertToASCII converts Finnish characters to ASCII equivalents for email addresses
 func convertToASCII(input string) string {
 	replacements := map[string]string{

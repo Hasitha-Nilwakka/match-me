@@ -9,7 +9,7 @@ import (
 	"backend/handlers"
 	"backend/middleware"
 
-	// "backend/seeders"
+	"backend/seeders"
 	"fmt"
 	"io"
 	"log"
@@ -49,9 +49,9 @@ func main() {
 
 	//For some reason SeedReferenceData is disappeared
 
-	// if err := seeders.SeedReferenceData(); err != nil {
-	// 	log.Printf("Warning: Failed to seed reference data: %v", err)
-	// }
+	if err := seeders.SeedReferenceData(); err != nil {
+		log.Printf("Warning: Failed to seed reference data: %v", err)
+	}
 
 	// Create Socket.IO server for real-time chat functionality
 	// Socket.IO provides automatic reconnection, fallback transports, and better mobile support

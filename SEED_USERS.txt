@@ -1,0 +1,7 @@
+Seed with sample users with preferred count:
+
+cd backend && go run seed-cmd/seed-users/main.go -count=100
+
+Clear db from users:
+
+cd backend && go run seed-cmd/clear-db/main.go

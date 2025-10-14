@@ -1,8 +1,7 @@
 // This schema is auto-generated from the GORM database structure.
 // Database schema management is handled by GORM AutoMigrate in the Go backend.
 // This file is used solely for Prisma Studio database visualization.
-// To update this schema, run pnpm db:pull.
-
+// To update this schema, run `npm run db:pull`
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,30 +12,31 @@ datasource db {
 }
 
 model chats {
-  id                   Int         @id @default(autoincrement())
-  created_at           DateTime?
-  updated_at           DateTime?
-  deleted_at           DateTime?
-  connection_id        Int      @unique
+  id                   Int      @id @default(autoincrement())
+  created_at           DateTime?   @db.Timestamptz(6)
+  updated_at           DateTime?   @db.Timestamptz(6)
+  deleted_at           DateTime?   @db.Timestamptz(6)
+  connection_id        Int      @unique(map: "idx_chats_connection_id")
   requester_deleted_at DateTime?   @db.Timestamptz(6)
   receiver_deleted_at  DateTime?   @db.Timestamptz(6)
-  connections          connections @relation(fields: [connection_id], references: [id], onDelete: Cascade)
+  connections          connections @relation(fields: [connection_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_connections_chat")
   messages             messages[]
 
   @@index([deleted_at], map: "idx_chats_deleted_at")
 }
 
 model connections {
-  id                                    Int       @id @default(autoincrement())
-  created_at                            DateTime?
-  updated_at                            DateTime?
-  deleted_at                            DateTime?
+  id                                    Int    @id @default(autoincrement())
+  created_at                            DateTime? @db.Timestamptz(6)
+  updated_at                            DateTime? @db.Timestamptz(6)
+  deleted_at                            DateTime? @db.Timestamptz(6)
   requester_id                          Int
   receiver_id                           Int
-  status                                String    @default("pending")
+  status                                String?   @default("pending")
+  message                               String?
   chats                                 chats?
-  users_connections_receiver_idTousers  users     @relation("connections_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: Cascade)
-  users_connections_requester_idTousers users     @relation("connections_requester_idTousers", fields: [requester_id], references: [id], onDelete: Cascade)
+  users_connections_requester_idTousers users     @relation("connections_requester_idTousers", fields: [requester_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_connections_from")
+  users_connections_receiver_idTousers  users     @relation("connections_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_connections_to")
 
   @@index([deleted_at], map: "idx_connections_deleted_at")
   @@index([status, receiver_id], map: "idx_connections_status_receiver")
@@ -44,35 +44,35 @@ model connections {
 }
 
 model dismissed_recommendations {
-  id                                                       Int       @id @default(autoincrement())
-  created_at                                               DateTime?
-  updated_at                                               DateTime?
-  deleted_at                                               DateTime?
+  id                                                       Int    @id @default(autoincrement())
+  created_at                                               DateTime? @db.Timestamptz(6)
+  updated_at                                               DateTime? @db.Timestamptz(6)
+  deleted_at                                               DateTime? @db.Timestamptz(6)
   user_id                                                  Int
   dismissed_user_id                                        Int
-  users_dismissed_recommendations_dismissed_user_idTousers users     @relation("dismissed_recommendations_dismissed_user_idTousers", fields: [dismissed_user_id], references: [id], onDelete: Cascade)
-  users_dismissed_recommendations_user_idTousers           users     @relation("dismissed_recommendations_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade)
+  users_dismissed_recommendations_user_idTousers           users     @relation("dismissed_recommendations_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_dismissed_from")
+  users_dismissed_recommendations_dismissed_user_idTousers users     @relation("dismissed_recommendations_dismissed_user_idTousers", fields: [dismissed_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_dismissed_to")
 
   @@index([deleted_at], map: "idx_dismissed_recommendations_deleted_at")
 }
 
 model food_preferences {
-  id         Int         @id @default(autoincrement())
-  created_at DateTime?
-  updated_at DateTime?
-  deleted_at DateTime?
-  name       String      @unique
+  id         Int      @id @default(autoincrement())
+  created_at DateTime?   @db.Timestamptz(6)
+  updated_at DateTime?   @db.Timestamptz(6)
+  deleted_at DateTime?   @db.Timestamptz(6)
+  name       String      @unique(map: "idx_food_preferences_name")
   user_food  user_food[]
 
   @@index([deleted_at], map: "idx_food_preferences_deleted_at")
 }
 
 model hobbies {
-  id           Int            @id @default(autoincrement())
-  created_at   DateTime?
-  updated_at   DateTime?
-  deleted_at   DateTime?
-  name         String         @unique
+  id           Int         @id @default(autoincrement())
+  created_at   DateTime?      @db.Timestamptz(6)
+  updated_at   DateTime?      @db.Timestamptz(6)
+  deleted_at   DateTime?      @db.Timestamptz(6)
+  name         String         @unique(map: "idx_hobbies_name")
   category     String?
   user_hobbies user_hobbies[]
 
@@ -80,10 +80,10 @@ model hobbies {
 }
 
 model interests {
-  id             Int              @id @default(autoincrement())
-  created_at     DateTime?
-  updated_at     DateTime?
-  deleted_at     DateTime?
+  id             Int           @id @default(autoincrement())
+  created_at     DateTime?        @db.Timestamptz(6)
+  updated_at     DateTime?        @db.Timestamptz(6)
+  deleted_at     DateTime?        @db.Timestamptz(6)
   name           String           @unique(map: "idx_interests_name")
   user_interests user_interests[]
 
@@ -91,10 +91,10 @@ model interests {
 }
 
 model languages {
-  id             Int              @id @default(autoincrement())
-  created_at     DateTime?
-  updated_at     DateTime?
-  deleted_at     DateTime?
+  id             Int           @id @default(autoincrement())
+  created_at     DateTime?        @db.Timestamptz(6)
+  updated_at     DateTime?        @db.Timestamptz(6)
+  deleted_at     DateTime?        @db.Timestamptz(6)
   name           String           @unique(map: "idx_languages_name")
   code           String           @unique(map: "idx_languages_code")
   user_languages user_languages[]
@@ -103,17 +103,17 @@ model languages {
 }
 
 model locations {
-  id                  Int       @id @default(autoincrement())
-  created_at          DateTime?
-  updated_at          DateTime?
-  deleted_at          DateTime?
+  id                  Int    @id @default(autoincrement())
+  created_at          DateTime? @db.Timestamptz(6)
+  updated_at          DateTime? @db.Timestamptz(6)
+  deleted_at          DateTime? @db.Timestamptz(6)
   user_id             Int    @unique(map: "idx_locations_user_id")
   city                String?
   country             String?
   latitude            Decimal?  @db.Decimal
   longitude           Decimal?  @db.Decimal
-  location_preference String    @default("within_city")
-  radius_km           Int       @default(50)
+  location_preference String?   @default("within_city")
+  radius_km           Int?   @default(50)
   users               users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_location")
 
   @@index([deleted_at], map: "idx_locations_deleted_at")
@@ -121,14 +121,14 @@ model locations {
 }
 
 model messages {
-  id         Int       @id @default(autoincrement())
-  created_at DateTime?
-  updated_at DateTime?
-  deleted_at DateTime?
+  id         Int    @id @default(autoincrement())
+  created_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime? @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
   chat_id    Int
   sender_id  Int
   content    String
-  is_read    Boolean   @default(false)
+  is_read    Boolean?  @default(false)
   chats      chats     @relation(fields: [chat_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_chats_messages")
   users      users     @relation(fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_messages")
 
@@ -137,10 +137,10 @@ model messages {
 }
 
 model movie_genres {
-  id          Int           @id @default(autoincrement())
-  created_at  DateTime?
-  updated_at  DateTime?
-  deleted_at  DateTime?
+  id          Int        @id @default(autoincrement())
+  created_at  DateTime?     @db.Timestamptz(6)
+  updated_at  DateTime?     @db.Timestamptz(6)
+  deleted_at  DateTime?     @db.Timestamptz(6)
   name        String        @unique(map: "idx_movie_genres_name")
   user_movies user_movies[]
 
@@ -148,10 +148,10 @@ model movie_genres {
 }
 
 model music_genres {
-  id         Int          @id @default(autoincrement())
-  created_at DateTime?
-  updated_at DateTime?
-  deleted_at DateTime?
+  id         Int       @id @default(autoincrement())
+  created_at DateTime?    @db.Timestamptz(6)
+  updated_at DateTime?    @db.Timestamptz(6)
+  deleted_at DateTime?    @db.Timestamptz(6)
   name       String       @unique(map: "idx_music_genres_name")
   user_music user_music[]
 
@@ -159,13 +159,13 @@ model music_genres {
 }
 
 model online_statuses {
-  id         Int       @id @default(autoincrement())
-  created_at DateTime?
-  updated_at DateTime?
-  deleted_at DateTime?
+  id         Int    @id @default(autoincrement())
+  created_at DateTime? @db.Timestamptz(6)
+  updated_at DateTime? @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
   user_id    Int    @unique(map: "idx_online_statuses_user_id")
-  is_online  Boolean   @default(false)
-  last_seen  DateTime?
+  is_online  Boolean?  @default(false)
+  last_seen  DateTime? @db.Timestamptz(6)
   users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_online_status")
 
   @@index([is_online, last_seen(sort: Desc)], map: "idx_online_status_last_seen")
@@ -173,39 +173,39 @@ model online_statuses {
 }
 
 model profiles {
-  id                  Int       @id @default(autoincrement())
-  created_at          DateTime?
-  updated_at          DateTime?
-  deleted_at          DateTime?
+  id                  Int    @id @default(autoincrement())
+  created_at          DateTime? @db.Timestamptz(6)
+  updated_at          DateTime? @db.Timestamptz(6)
+  deleted_at          DateTime? @db.Timestamptz(6)
   user_id             Int    @unique(map: "idx_profiles_user_id")
-  profile_picture_url String    @default("👤")
+  profile_picture_url String?   @default("👤")
   first_name          String?
   last_name           String?
+  age                 Int?
   gender              String?
   status              String?
   relationship_status String?
   about_me            String?
   ethnicity           String?
   religion            String?
-  age                 Int?
   users               users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_profile")
 
   @@index([deleted_at], map: "idx_profiles_deleted_at")
 }
 
 model seeking_preferences {
-  id                      Int       @id @default(autoincrement())
-  created_at              DateTime?
-  updated_at              DateTime?
-  deleted_at              DateTime?
+  id                      Int    @id @default(autoincrement())
+  created_at              DateTime? @db.Timestamptz(6)
+  updated_at              DateTime? @db.Timestamptz(6)
+  deleted_at              DateTime? @db.Timestamptz(6)
   user_id                 Int    @unique(map: "idx_seeking_preferences_user_id")
-  min_age                 Int       @default(18)
-  max_age                 Int       @default(99)
+  min_age                 Int?   @default(18)
+  max_age                 Int?   @default(99)
   gender_preference       String?
   status_preference       String?
   relationship_preference String?
-  location_preference     String    @default("within_city")
-  max_distance_km         Int       @default(50)
+  location_preference     String?   @default("within_city")
+  max_distance_km         Int?   @default(50)
   hobby_preference        String?
   interest_preference     String?
   music_preference        String?
@@ -215,29 +215,29 @@ model seeking_preferences {
   language_preference     String?
   ethnicity_preference    String?
   religion_preference     String?
-  gender_weight           Int       @default(2)
-  status_weight           Int       @default(2)
-  relationship_weight     Int       @default(2)
-  location_weight         Int       @default(2)
-  hobbies_weight          Int       @default(2)
-  interests_weight        Int       @default(2)
-  music_weight            Int       @default(1)
-  movies_weight           Int       @default(1)
-  food_weight             Int       @default(1)
-  travel_weight           Int       @default(2)
-  languages_weight        Int       @default(3)
-  ethnicity_weight        Int       @default(1)
-  religion_weight         Int       @default(1)
+  gender_weight           Int?   @default(2)
+  status_weight           Int?   @default(2)
+  relationship_weight     Int?   @default(2)
+  location_weight         Int?   @default(2)
+  hobbies_weight          Int?   @default(2)
+  interests_weight        Int?   @default(2)
+  music_weight            Int?   @default(1)
+  movies_weight           Int?   @default(1)
+  food_weight             Int?   @default(1)
+  travel_weight           Int?   @default(2)
+  languages_weight        Int?   @default(3)
+  ethnicity_weight        Int?   @default(1)
+  religion_weight         Int?   @default(1)
   users                   users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_users_seeking_preference")
 
   @@index([deleted_at], map: "idx_seeking_preferences_deleted_at")
 }
 
 model travel_types {
-  id          Int           @id @default(autoincrement())
-  created_at  DateTime?
-  updated_at  DateTime?
-  deleted_at  DateTime?
+  id          Int        @id @default(autoincrement())
+  created_at  DateTime?     @db.Timestamptz(6)
+  updated_at  DateTime?     @db.Timestamptz(6)
+  deleted_at  DateTime?     @db.Timestamptz(6)
   name        String        @unique(map: "idx_travel_types_name")
   user_travel user_travel[]
 
@@ -308,18 +308,18 @@ model user_travel {
 }
 
 model users {
-  id                                                                           Int                         @id @default(autoincrement())
-  created_at                                                                   DateTime?
-  updated_at                                                                   DateTime?
-  deleted_at                                                                   DateTime?
+  id                                                                           Int                      @id @default(autoincrement())
+  created_at                                                                   DateTime?                   @db.Timestamptz(6)
+  updated_at                                                                   DateTime?                   @db.Timestamptz(6)
+  deleted_at                                                                   DateTime?                   @db.Timestamptz(6)
   email                                                                        String                      @unique(map: "idx_users_email")
   password_hash                                                                String
-  last_login                                                                   DateTime?
-  is_active                                                                    Boolean                     @default(true)
-  connections_connections_receiver_idTousers                                   connections[]               @relation("connections_receiver_idTousers")
+  last_login                                                                   DateTime?                   @db.Timestamptz(6)
+  is_active                                                                    Boolean?                    @default(true)
   connections_connections_requester_idTousers                                  connections[]               @relation("connections_requester_idTousers")
-  dismissed_recommendations_dismissed_recommendations_dismissed_user_idTousers dismissed_recommendations[] @relation("dismissed_recommendations_dismissed_user_idTousers")
+  connections_connections_receiver_idTousers                                   connections[]               @relation("connections_receiver_idTousers")
   dismissed_recommendations_dismissed_recommendations_user_idTousers           dismissed_recommendations[] @relation("dismissed_recommendations_user_idTousers")
+  dismissed_recommendations_dismissed_recommendations_dismissed_user_idTousers dismissed_recommendations[] @relation("dismissed_recommendations_dismissed_user_idTousers")
   locations                                                                    locations?
   messages                                                                     messages[]
   online_statuses                                                              online_statuses?

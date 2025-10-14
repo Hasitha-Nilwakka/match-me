@@ -10,10 +10,10 @@
     "start": "next start",
     "lint": "eslint",
     "db:studio": "prisma studio",
-    "db:pull": "prisma db pull && node fix-schema.js",
-    "db:seed": "cd ../backend && go run ./seeders/user_seeder.go"
+    "db:pull": "prisma db pull && node fix-schema.js"
   },
   "dependencies": {
+    "@prisma/client": "6.16.2",
     "@tailwindcss/postcss": "^4.1.13",
     "emoji-picker-react": "^4.14.0",
     "next": "15.5.2",
