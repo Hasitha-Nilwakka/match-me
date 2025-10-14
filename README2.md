@@ -73,37 +73,23 @@ GRANT ALL PRIVILEGES ON DATABASE match_me_db TO matchme_user;
 
 ---
 
-## 5. Environment Variables
+## 5. Update Environment Variables
 
-### Backend (`backend/.env`)
+Update the `DATABASE_URL` in both `.env` files with your credentials:
 
-Copy and edit:
+**Backend (.env):**
 
-```bash
-cp backend/.env.example backend/.env
+```env
+DATABASE_URL="postgresql://matchme_user:your_password@localhost:5432/match_me_db?sslmode=disable"
 ```
 
-Set your PostgreSQL credentials:
+**Frontend (.env):**
 
-```
-DATABASE_URL="postgresql://matchme_user:your_secure_password@localhost:5432/match_me_db?sslmode=disable"
-```
-
-### Frontend (`frontend/.env.local`)
-
-Create and edit:
-
-```bash
-cd frontend
-cat > .env.local << 'EOF'
-DATABASE_URL="postgresql://matchme_user:your_secure_password@localhost:5432/match_me_db?schema=public"
+```env
+DATABASE_URL="postgresql://matchme_user:your_password@localhost:5432/match_me_db?schema=public"
 NEXT_PUBLIC_API_URL="http://localhost:8080"
-NEXTAUTH_SECRET="your-random-secret-here"
 NEXTAUTH_URL="http://localhost:3000"
-EOF
 ```
-
----
 
 ## 6. Prisma Setup (Frontend)
 
