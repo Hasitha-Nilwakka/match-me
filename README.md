@@ -23,12 +23,8 @@ cp .env.example .env
 **Frontend** - Create `frontend/.env.local`:
 ```bash
 cd frontend
-cat > .env.local << 'EOF'
-DATABASE_URL="postgresql://matchme_user:your_password@localhost:5432/match_me_db?schema=public"
-NEXT_PUBLIC_API_URL="http://localhost:8080"
-NEXTAUTH_SECRET="your-random-secret-here"
-NEXTAUTH_URL="http://localhost:3000"
-EOF
+cp .env.example .env.local
+# Edit .env.local and set your preferred API URL (localhost for local dev, ngrok URL for mobile testing)
 ```
 
 ### 3. Install Dependencies
@@ -99,11 +95,6 @@ Starts both backend and frontend with full dev tooling (build indicators, error 
 ```
 Sets up ngrok tunnel to expose local backend to the internet, allowing testing from mobile devices outside your local network. Make sure to follow the [Ngrok Setup Instructions](./NGROK_SETUP.md) first.
 
-### For Mobile Testing
-```bash
-./start-mobile.sh
-```
-Starts both servers with clean UI (no dev indicators) - perfect for testing on Android/iPad.
 
 ### For Production Testing
 ```bash
@@ -359,7 +350,6 @@ This enhancement enables more sophisticated matching algorithms that can priorit
 
 ### Quick Start Scripts (Project Root)
 - `./start.sh` - Start backend + frontend with full dev tooling
-- `./start-mobile.sh` - Start both servers with clean UI (for mobile testing)
 - `./start-production.sh` - Build and run production versions (optimized, no overlays)
 
 ### Frontend Scripts
