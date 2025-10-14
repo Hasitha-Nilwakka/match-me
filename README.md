@@ -414,7 +414,6 @@ This enhancement enables more sophisticated matching algorithms that can priorit
 - `npm run db:push` - Push schema to database
 - `npm run db:migrate` - Create and run migrations
 - `npm run db:studio` - Open Prisma Studio (visual database browser)
-- `npm run db:seed` - Seed database with initial data
 
 See `frontend/DEV_MODES.md` for detailed guide on development modes.
 

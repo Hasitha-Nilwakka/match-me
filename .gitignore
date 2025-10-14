@@ -17,6 +17,7 @@ build/
 out/
 .nuxt/
 public/
+match-me-server
 
 # Runtime data
 pids

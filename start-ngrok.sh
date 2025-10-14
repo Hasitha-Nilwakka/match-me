@@ -8,45 +8,46 @@ echo "🚀 Starting Match-Me with Ngrok..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-# 1. Start Frontend (Next.js dev server)
-echo "Starting frontend server..."
-cd "$SCRIPT_DIR/frontend" && npm run dev > ../frontend.log 2>&1 &
-FRONTEND_PID=$!
-
-# 2. Start Backend 
+# 1. Start Backend first
 echo "Starting backend server..."
 cd "$SCRIPT_DIR/backend" && go run . > ../backend.log 2>&1 &
 BACKEND_PID=$!
 
-# 3. Wait for servers to start
-echo "Waiting for servers to start..."
-sleep 8
+# 2. Wait for backend to start
+echo "Waiting for backend to start..."
+sleep 5
 
-# 4. Start ngrok
+# 3. Start ngrok tunnel
 echo "Starting ngrok tunnel..."
 cd "$SCRIPT_DIR"
 ngrok http 8080 --log=stdout > ngrok.log 2>&1 &
 NGROK_PID=$!
-sleep 3
 
-# Extract ngrok URL
+# 4. Wait for ngrok to establish tunnel
+echo "Waiting for ngrok tunnel to establish..."
+sleep 5
+
+# 5. Extract ngrok URL
 NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | grep -o 'https://[^"]*\.ngrok-free\.app' | head -1)
 
 if [ -z "$NGROK_URL" ]; then
     echo "❌ Failed to get ngrok URL"
     kill $NGROK_PID 2>/dev/null
+    kill $BACKEND_PID 2>/dev/null
     exit 1
 fi
 
 echo "✅ Ngrok URL: $NGROK_URL"
 
-# Update .env.local
+# 6. Set environment variables BEFORE starting frontend
 echo "NEXT_PUBLIC_API_URL=$NGROK_URL" > "$SCRIPT_DIR/frontend/.env.local"
-echo "✅ Updated frontend/.env.local"
-
-# Export for current session
 export NEXT_PUBLIC_API_URL=$NGROK_URL
-echo "✅ Exported to environment"
+echo "✅ Set API URL to: $NGROK_URL"
+
+# 7. NOW start frontend with correct environment
+echo "Starting frontend server with ngrok URL..."
+cd "$SCRIPT_DIR/frontend" && npm run dev > ../frontend.log 2>&1 &
+FRONTEND_PID=$!
 
 # Cleanup function for proper shutdown
 cleanup() {

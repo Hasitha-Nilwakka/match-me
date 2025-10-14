@@ -1,3 +1,4 @@
+# Update start.sh
 #!/bin/bash
 
 # Match-Me Network Startup Script
@@ -8,25 +9,22 @@ echo "=============================================="
 
 # Detect if running on WSL
 if grep -qi microsoft /proc/version 2>/dev/null; then
-    echo "🪟 WSL detected - using Windows host IP"
-    # Get Windows host IP from WSL
-    # Method 1: From /etc/resolv.conf (most reliable)
-    LOCAL_IP=$(grep nameserver /etc/resolv.conf | awk '{print $2}' | head -1)
+    echo "🪟 WSL detected - finding WSL network IP"
     
-    # Method 2: If that fails, try from default route
-    if [ -z "$LOCAL_IP" ] || [ "$LOCAL_IP" = "127.0.0.1" ]; then
-        LOCAL_IP=$(ip route show | grep -i default | awk '{print $3}')
+    # Get WSL IP (usually on eth0 interface with 172.x.x.x range)
+    LOCAL_IP=$(ip addr show eth0 2>/dev/null | grep "inet " | grep "172\." | awk '{print $2}' | cut -d'/' -f1 | head -1)
+    
+    # Fallback: try to get any 172.x.x.x IP from any interface
+    if [ -z "$LOCAL_IP" ]; then
+        LOCAL_IP=$(ip addr show 2>/dev/null | grep "inet " | grep "172\." | awk '{print $2}' | cut -d'/' -f1 | head -1)
     fi
     
-    # Method 3: Check for eth0 with 192.168.x.x range (real LAN IP)
-    if [ -z "$LOCAL_IP" ] || [[ "$LOCAL_IP" == 172.* ]]; then
-        WSL_ETH=$(ip addr show eth0 2>/dev/null | grep "inet " | grep "192.168" | awk '{print $2}' | cut -d'/' -f1)
-        if [ -n "$WSL_ETH" ]; then
-            LOCAL_IP=$WSL_ETH
-        fi
+    # Final WSL fallback: get IP from hostname resolution
+    if [ -z "$LOCAL_IP" ]; then
+        LOCAL_IP=$(hostname -I | tr ' ' '\n' | grep "172\." | head -1)
     fi
     
-    echo "   Note: On WSL, use this IP to access from other devices"
+    echo "   WSL Network IP: $LOCAL_IP"
 else
     echo "🐧 Linux/macOS detected"
     # Get local IP address - prefer actual LAN IP over Docker/virtual IPs
@@ -49,7 +47,7 @@ echo "📡 Your local network IP: $LOCAL_IP"
 echo ""
 
 # Export environment variables for network access
-export NEXT_PUBLIC_API_URL="http://$LOCAL_IP:8080"
+export NEXT_PUBLIC_API_URL="http://localhost:8080"
 
 echo "🔧 Starting Backend Server..."
 echo "   Backend will be available at:"
