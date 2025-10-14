@@ -116,7 +116,7 @@ npx prisma studio             # Open Prisma Studio (visual DB browser)
 
 ---
 
-## 7. Ngrok Setup (Optional, for mobile/external testing)
+## 7. Ngrok Setup (for mobile/external testing)
 
 - Install ngrok: [ngrok setup guide](./NGROK_SETUP.md)
 - Use `./start-ngrok.sh` to expose your backend to the internet.
@@ -140,7 +140,7 @@ npx prisma studio             # Open Prisma Studio (visual DB browser)
 
 - Double-check environment variables if you get connection errors.
 - Make sure PostgreSQL is running.
-- For Prisma issues, try `npx prisma generate` and `npx prisma db:pull` again.
+- For Prisma issues, try `npx prisma generate` and `npm run db:pull` again.
 - For ngrok/mobile access, see [ngrok setup guide](./NGROK_SETUP.md).
 
 ---
