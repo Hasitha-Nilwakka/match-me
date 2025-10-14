@@ -106,19 +106,17 @@ NEXTAUTH_URL="http://localhost:3000"
 
 ```bash
 ./start.sh
-
+```
 - Backend: http://localhost:8080
 - Frontend: http://localhost:3000
-```
 
 ### Production Mode
 
 ```bash
 ./start-production.sh
-
+```
 - Backend: http://localhost:8080
 - Frontend: http://localhost:3000
-```
 
 ### Ngrok Mode
 
