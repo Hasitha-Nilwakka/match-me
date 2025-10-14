@@ -40,7 +40,6 @@ fi
 echo "✅ Ngrok URL: $NGROK_URL"
 
 # 6. Set environment variables BEFORE starting frontend
-echo "NEXT_PUBLIC_API_URL=$NGROK_URL" > "$SCRIPT_DIR/frontend/.env.local"
 export NEXT_PUBLIC_API_URL=$NGROK_URL
 echo "✅ Set API URL to: $NGROK_URL"
 
