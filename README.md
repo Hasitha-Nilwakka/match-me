@@ -91,25 +91,16 @@ NEXT_PUBLIC_API_URL="http://localhost:8080"
 NEXTAUTH_URL="http://localhost:3000"
 ```
 
-## 6. Prisma Setup (Frontend)
-
-```bash
-cd frontend
-npx prisma generate           # Generate Prisma client
-npm run db:pull               # Pull database schema
-npx prisma studio             # Open Prisma Studio (visual DB browser)
-```
-
 ---
 
-## 7. Ngrok Setup (for mobile/external testing)
+## 6. Ngrok Setup (for mobile/external testing)
 
 - Install ngrok: [ngrok setup guide](./NGROK_SETUP.md)
 - Use `./start-ngrok.sh` to expose your backend to the internet.
 
 ---
 
-## 8. Start the App
+## 7. Start the App
 
 ### Development Mode
 
@@ -134,6 +125,17 @@ npx prisma studio             # Open Prisma Studio (visual DB browser)
 ```bash
 ./start-ngrok.sh
 ```
+---
+
+## 8. Prisma Studio Setup
+
+```bash
+cd frontend
+npx prisma generate           # Generate Prisma client
+npm run db:pull               # Pull database schema
+npx prisma studio             # Open Prisma Studio (visual DB browser)
+```
+
 ---
 
 ## 9. Troubleshooting
