@@ -8,6 +8,7 @@ import (
 	"backend/middleware"
 	"backend/models"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -189,10 +190,10 @@ func GetRecommendationsHandler(c *gin.Context) {
 	// fmt.Printf("DEBUG: Scoring summary - Total potential: %d, Skipped incomplete: %d, Zero scored: %d, Valid matches: %d\n",
 	// 	len(potentialMatches), skippedIncomplete, zeroScored, len(scoredMatches))
 
-	// // Sort by score (highest first)
-	// sort.Slice(scoredMatches, func(i, j int) bool {
-	// 	return scoredMatches[i].Score > scoredMatches[j].Score
-	// })
+	// Sort by score (highest first)
+	sort.Slice(scoredMatches, func(i, j int) bool {
+		return scoredMatches[i].Score > scoredMatches[j].Score
+	})
 
 	// Take top 10 recommendations
 	maxRecommendations := 10
