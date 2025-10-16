@@ -1925,9 +1925,7 @@ export default function ProfilePage() {
                         }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="">
-                          Select a food preference to add
-                        </option>
+                        <option value="">Select a food preference to add</option>
                         {availableFoodPreferences?.map((food) => (
                           <option key={food} value={food}>
                             {food}
@@ -1935,8 +1933,7 @@ export default function ProfilePage() {
                         ))}
                       </select>
                       <p className="text-xs text-gray-500">
-                        Select food preferences from the dropdown to add them to
-                        your profile
+                        Select food preferences from the dropdown to add them to your profile
                       </p>
                     </div>
                   </div>
@@ -1989,8 +1986,7 @@ export default function ProfilePage() {
                         ))}
                       </select>
                       <p className="text-xs text-gray-500">
-                        Select music genres from the dropdown to add them to
-                        your profile
+                        Select music genres from the dropdown to add them to your profile
                       </p>
                     </div>
                   </div>
@@ -2043,8 +2039,7 @@ export default function ProfilePage() {
                         ))}
                       </select>
                       <p className="text-xs text-gray-500">
-                        Select movie genres from the dropdown to add them to
-                        your profile
+                        Select movie genres from the dropdown to add them to your profile
                       </p>
                     </div>
                   </div>
@@ -2323,6 +2318,18 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
+                  {/* Priority sliders explanation */}
+                  <div className="p-3 mb-4 bg-gray-50 border border-gray-200 rounded-md text-sm text-gray-700">
+                    <p className="mb-1 font-medium">How priorities affect matching</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Each slider controls how much a category influences your match score.</li>
+                      <li>Low gives a small impact, Medium a balanced impact, High the strongest impact.</li>
+                      <li>For overlap-based categories (e.g., languages, hobbies, interests), higher priority gives more weight for shared items.</li>
+                      <li>Ethnicity and religion affect recommendations if they match; the slider sets the impact of that match.</li>
+                      <li>You can change these at any time; recommendations will adapt immediately.</li>
+                    </ul>
+                  </div>
+
                   {/* Languages with Priority */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -2355,33 +2362,6 @@ export default function ProfilePage() {
                         </div>
                       )}
 
-                      {/* Language Selection Dropdown */}
-                      <select
-                        onChange={(e) => {
-                          if (
-                            e.target.value &&
-                            !seekingLanguages.includes(e.target.value)
-                          ) {
-                            handleSeekingToggle(
-                              "seeking-languages",
-                              e.target.value
-                            );
-                            e.target.value = ""; // Reset selection
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select a language to add</option>
-                        {availableLanguages?.map((language) => (
-                          <option key={language} value={language}>
-                            {language}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500">
-                        Select languages from the dropdown to add them to your
-                        preferences
-                      </p>
                     </div>
                     <div className="mt-2">
                       <label className="block text-xs text-gray-600 mb-1">
@@ -2440,33 +2420,6 @@ export default function ProfilePage() {
                         </div>
                       )}
 
-                      {/* Interest Selection Dropdown */}
-                      <select
-                        onChange={(e) => {
-                          if (
-                            e.target.value &&
-                            !seekingInterests.includes(e.target.value)
-                          ) {
-                            handleSeekingToggle(
-                              "seeking-interests",
-                              e.target.value
-                            );
-                            e.target.value = ""; // Reset selection
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select an interest to add</option>
-                        {availableInterests?.map((interest) => (
-                          <option key={interest} value={interest}>
-                            {interest}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500">
-                        Select interests from the dropdown to add them to your
-                        preferences
-                      </p>
                     </div>
                     <div className="mt-2">
                       <label className="block text-xs text-gray-600 mb-1">
@@ -2522,33 +2475,6 @@ export default function ProfilePage() {
                         </div>
                       )}
 
-                      {/* Hobby Selection Dropdown */}
-                      <select
-                        onChange={(e) => {
-                          if (
-                            e.target.value &&
-                            !seekingHobbies.includes(e.target.value)
-                          ) {
-                            handleSeekingToggle(
-                              "seeking-hobbies",
-                              e.target.value
-                            );
-                            e.target.value = ""; // Reset selection
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select a hobby to add</option>
-                        {availableHobbies?.map((hobby) => (
-                          <option key={hobby} value={hobby}>
-                            {hobby}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500">
-                        Select hobbies from the dropdown to add them to your
-                        preferences
-                      </p>
                     </div>
                     <div className="mt-2">
                       <label className="block text-xs text-gray-600 mb-1">
@@ -2604,32 +2530,6 @@ export default function ProfilePage() {
                         </div>
                       )}
 
-                      {/* Food Preference Selection Dropdown */}
-                      <select
-                        onChange={(e) => {
-                          if (
-                            e.target.value &&
-                            !seekingFoodPreferences.includes(e.target.value)
-                          ) {
-                            handleSeekingToggle("seeking-food", e.target.value);
-                            e.target.value = ""; // Reset selection
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">
-                          Select a food preference to add
-                        </option>
-                        {availableFoodPreferences?.map((food) => (
-                          <option key={food} value={food}>
-                            {food}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500">
-                        Select food preferences from the dropdown to add them to
-                        your preferences
-                      </p>
                     </div>
                     <div className="mt-2">
                       <label className="block text-xs text-gray-600 mb-1">
@@ -2685,33 +2585,6 @@ export default function ProfilePage() {
                         </div>
                       )}
 
-                      {/* Music Genre Selection Dropdown */}
-                      <select
-                        onChange={(e) => {
-                          if (
-                            e.target.value &&
-                            !seekingMusicGenres.includes(e.target.value)
-                          ) {
-                            handleSeekingToggle(
-                              "seeking-music",
-                              e.target.value
-                            );
-                            e.target.value = ""; // Reset selection
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select a music genre to add</option>
-                        {availableMusicGenres?.map((music) => (
-                          <option key={music} value={music}>
-                            {music}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500">
-                        Select music genres from the dropdown to add them to
-                        your preferences
-                      </p>
                     </div>
                     <div className="mt-2">
                       <label className="block text-xs text-gray-600 mb-1">
@@ -2767,33 +2640,6 @@ export default function ProfilePage() {
                         </div>
                       )}
 
-                      {/* Movie Genre Selection Dropdown */}
-                      <select
-                        onChange={(e) => {
-                          if (
-                            e.target.value &&
-                            !seekingMovieGenres.includes(e.target.value)
-                          ) {
-                            handleSeekingToggle(
-                              "seeking-movies",
-                              e.target.value
-                            );
-                            e.target.value = ""; // Reset selection
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select a movie genre to add</option>
-                        {availableMovieGenres?.map((movie) => (
-                          <option key={movie} value={movie}>
-                            {movie}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500">
-                        Select movie genres from the dropdown to add them to
-                        your preferences
-                      </p>
                     </div>
                     <div className="mt-2">
                       <label className="block text-xs text-gray-600 mb-1">
@@ -2849,33 +2695,6 @@ export default function ProfilePage() {
                         </div>
                       )}
 
-                      {/* Travel Type Selection Dropdown */}
-                      <select
-                        onChange={(e) => {
-                          if (
-                            e.target.value &&
-                            !seekingTravelTypes.includes(e.target.value)
-                          ) {
-                            handleSeekingToggle(
-                              "seeking-travel",
-                              e.target.value
-                            );
-                            e.target.value = ""; // Reset selection
-                          }
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select a travel type to add</option>
-                        {availableTravelTypes?.map((travel) => (
-                          <option key={travel} value={travel}>
-                            {travel}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-xs text-gray-500">
-                        Select travel types from the dropdown to add them to
-                        your preferences
-                      </p>
                     </div>
                     <div className="mt-2">
                       <label className="block text-xs text-gray-600 mb-1">
@@ -2907,25 +2726,7 @@ export default function ProfilePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Ethnicity
                     </label>
-                    <select
-                      value={seekingPreferences.ethnicity}
-                      onChange={(e) =>
-                        handleSeekingPreferenceChange(
-                          "ethnicity",
-                          e.target.value
-                        )
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Ethnicity</option>
-                      <option value="Asian">Asian</option>
-                      <option value="African">African</option>
-                      <option value="European">European</option>
-                      <option value="Hispanic">Hispanic</option>
-                      <option value="Middle Eastern">Middle Eastern</option>
-                      <option value="Mixed">Mixed</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    {/* Seeking: Ethnicity dropdown removed */}
                     <div className="mt-2">
                       <label className="block text-xs text-gray-600 mb-1">
                         Priority
@@ -2956,26 +2757,7 @@ export default function ProfilePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Religion
                     </label>
-                    <select
-                      value={seekingPreferences.religion}
-                      onChange={(e) =>
-                        handleSeekingPreferenceChange(
-                          "religion",
-                          e.target.value
-                        )
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Religion</option>
-                      <option value="Christianity">Christianity</option>
-                      <option value="Islam">Islam</option>
-                      <option value="Hinduism">Hinduism</option>
-                      <option value="Buddhism">Buddhism</option>
-                      <option value="Judaism">Judaism</option>
-                      <option value="Atheist">Atheist</option>
-                      <option value="Agnostic">Agnostic</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    {/* Seeking: Religion dropdown removed */}
                     <div className="mt-2">
                       <label className="block text-xs text-gray-600 mb-1">
                         Priority
