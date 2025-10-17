@@ -1342,7 +1342,7 @@ function ChatPopupContent({ isOpen, onClose, onChatDeleted }: ChatPopupProps) {
                                 )}
                                 <button
                                   onClick={(e) => handleDeleteChat(chat.id, e)}
-                                  className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-all p-1"
+                                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-red-500 hover:text-red-700 transition-all p-1"
                                   title="Delete conversation"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
