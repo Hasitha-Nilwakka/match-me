@@ -1,6 +1,9 @@
-# Match Me - Quick Start Guide
+# Match Me
 
-A modern dating app with Go backend and Next.js frontend. This guide helps you get started quickly, focusing only on the essential steps.
+> **kood/Sisu Group Project**  
+> Developed collaboratively by a team of three: Aleksi, Joel Mäkelä, and Hasitha Nilwakka.
+
+A modern full-stack dating application built with a high-performance **Go (1.24+)** backend and a **Next.js (App Router) + Tailwind CSS** frontend, featuring real-time chat with Socket.IO, proximity-based spatial matching (Haversine formula & bounding-box pre-filtering), and PostgreSQL persistence with Prisma and GORM.
 
 ---
 
@@ -8,7 +11,7 @@ A modern dating app with Go backend and Next.js frontend. This guide helps you g
 
 - **Go** (v1.24+)
 - **Node.js** (v18+)
-- **npm**
+- **npm** / **pnpm**
 - **PostgreSQL**
 - **ngrok** ([ngrok setup guide](./NGROK_SETUP.md))
 
@@ -17,7 +20,7 @@ A modern dating app with Go backend and Next.js frontend. This guide helps you g
 ## 2. Clone the Repository
 
 ```bash
-git clone https://gitea.kood.tech/joelmakela/match-me.git
+git clone https://github.com/Hasitha-Nilwakka/match-me.git
 cd match-me
 ```
 
